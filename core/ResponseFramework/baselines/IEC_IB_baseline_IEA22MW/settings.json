@@ -1,0 +1,54 @@
+{
+  "mode": "IEC",
+  "input_resolution": null,
+  "source": "distributions/IEC_IB_distribution.csv",
+  "num_turbines": 1,
+  "lifetime_years": 25,
+  "price_source": null,
+  "price_type": null,
+  "fixed_price": null,
+  "control_settings": {
+    "type": "constant_control",
+    "yaw": 0,
+    "power": 100.0,
+    "control_requested_shutdown": false
+  },
+  "wsp_cut_in": 3,
+  "wsp_cut_out": 25,
+  "flow_type": "pywake",
+  "farm_setup": {
+    "farm_definition_file": null,
+    "farm_name": "HKN_subset",
+    "flow_model": "PyWake.ZongGaussian + CrespoHernandez",
+    "turbine_model": "IEA22",
+    "rotor_avg": "CGI(21)",
+    "site_model": "UniformSite(alpha=0.2)"
+  },
+  "rotor_model": {
+    "type": "CGI",
+    "n_points": 21
+  },
+  "surrogate": {
+    "type": "RA",
+    "channels": [
+      "RA_ADC",
+      "RA_BRM",
+      "RA_ebrm",
+      "RA_fbrm",
+      "RA_blade_torsion",
+      "RA_tbfa",
+      "RA_tbss",
+      "RA_TBM",
+      "RA_TB_torsion",
+      "RA_ttfa",
+      "RA_TTM",
+      "RA_gsb_l10",
+      "RA_rsb_l10",
+      "RA_shaft_mx_mb_fixed",
+      "RA_shaft_mz_mb_fixed"
+    ],
+    "supports_operating_modes": false,
+    "model_base_path": "models/RA_IEA22_DTU",
+    "scaler_base_path": "models/RA_IEA22_DTU"
+  }
+}

@@ -1,0 +1,500 @@
+Phase:
+  - name: "Production & Acquisition"
+    categories:
+      - name: "Turbine"
+        per_turbine: true
+        project_time:
+          value: 5
+          unit: months
+        subcategories:
+
+          # ---------------- Rotor (SWT-2.3-93) ----------------
+          - name: "3_blades"
+            fixed_cost: 0
+            flag_material_cost: true
+            # SWT-2.3 blade mass ~8–9 t → ~26 t/rotor. We split into materials.
+            material:
+              - name: "Glass_fiber"
+                mass: 14.0          # t, dominant composite
+                CF: 2.0
+              - name: "Foam_core"
+                mass: 1.5           # t, sandwich cores
+                CF: 1.8
+              - name: "Resin_matrix"
+                mass: 5.0           # t, resin/adhesives
+                CF: 2.0
+              - name: "Steel"
+                mass: 0.8           # t, bolts, lightning, root inserts
+                CF: 2.0
+            scaling_models:
+              flag_DTU_scaling_model: false
+              material: "Glass_fiber"
+            subsubcategories:
+              - name: "blade_surface_coatings"
+                fixed_cost: 0
+                flag_material_cost: true
+                material:
+                  - name: "Gelcoat_resin"
+                    mass: 0.25      # t
+                    CF: 2.0
+
+          # ---------------- Hub system ----------------
+          - name: "Hub_system"
+            fixed_cost: 0
+            flag_material_cost: true
+            # SWT-2.3 hub ~15–20 t including spinner, we keep 18 t
+            material:
+              - name: "Cast_iron"
+                mass: 12.0
+                CF: 1.5
+              - name: "Steel"
+                mass: 3.0
+                CF: 1.6
+              - name: "Composite_spinner"
+                mass: 1.0
+                CF: 1.8
+            subsubcategories:
+              - name: "pitch_system"
+                fixed_cost: 0
+                flag_material_cost: true
+                material:
+                  - name: "Steel"
+                    mass: 2.0         # t, pitch bearings + cylinders
+                    CF: 1.8
+                  - name: "Hydraulic_unit"
+                    mass: 0.3
+                    CF: 2.0
+              - name: "pitch_bearings"
+                fixed_cost: 0
+                flag_material_cost: false
+                scaling_models:
+                  flag_DTU_scaling_model: false
+                  material: "Steel"
+
+          # ---------------- Main shaft & bearings ----------------
+          - name: "Main_shaft_and_bearings"
+            fixed_cost: 0
+            flag_material_cost: true
+            # Medium-speed geared 2.3 MW → main shaft ~3–4 t, main bearings ~1–2 t
+            material:
+              - name: "Steel"
+                mass: 6.0           # t, lumped
+                CF: 2.0
+            subsubcategories:
+              - name: "CARB_upwind_bearing"
+                fixed_cost: 0
+                flag_material_cost: true
+                material:
+                  - name: "Steel"
+                    mass: 2.5
+                    CF: 2.2
+              - name: "SRB_downwind_bearing"
+                fixed_cost: 0
+                flag_material_cost: true
+                material:
+                  - name: "Steel"
+                    mass: 1.5
+                    CF: 2.0
+              - name: "main_shaft"
+                fixed_cost: 0
+                flag_material_cost: true
+                material:
+                  - name: "Steel"
+                    mass: 2.0
+                    CF: 1.8
+
+          # ---------------- Gearbox / drivetrain ----------------
+          - name: "Drivetrain"
+            fixed_cost: 0
+            flag_material_cost: true
+            material:
+              - name: "Gearbox_steel"
+                mass: 12.0          # t, 2.3 MW class
+                CF: 2.0
+              - name: "Couplings"
+                mass: 0.5
+                CF: 1.8
+              - name: "Generator_mounting"
+                mass: 0.5
+                CF: 1.8
+
+          # ---------------- Generator (asynchronous / doubly-fed) ----------------
+          - name: "Generator"
+            fixed_cost: 0
+            flag_material_cost: true
+            # 2.3 MW DFIG: 5–6 t incl. casing – we take 6 t
+            material:
+              - name: "Copper"
+                mass: 1.2
+                CF: 1.5
+              - name: "Electrical_steel"
+                mass: 2.2
+                CF: 1.2
+              - name: "Steel"
+                mass: 2.6
+                CF: 1.5
+
+          # ---------------- Bedplate / mainframe ----------------
+          - name: "Bedplate"
+            fixed_cost: 0
+            flag_material_cost: true
+            # Welded steel bedplate ~10–12 t for 2–3 MW
+            material:
+              - name: "Steel"
+                mass: 11.0
+                CF: 2.0
+
+          # ---------------- Yaw system ----------------
+          - name: "Yaw_system"
+            fixed_cost: 0
+            flag_material_cost: true
+            material:
+              - name: "Steel"
+                mass: 4.0            # t, ring, drives, brackets
+                CF: 1.8
+
+          # ---------------- Nacelle cover & platforms ----------------
+          - name: "Nacelle_cover_and_platforms"
+            fixed_cost: 0
+            flag_material_cost: true
+            material:
+              - name: "Composite_panel"
+                mass: 2.5            # t
+                CF: 1.6
+              - name: "Steel"
+                mass: 3.5            # t, platforms, ladders
+                CF: 1.6
+
+          # ---------------- Brake ----------------
+          - name: "Brake"
+            fixed_cost: 0
+            flag_material_cost: true
+            material:
+              - name: "Steel"
+                mass: 1.0            # t, brake disc + calipers
+                CF: 2.0
+
+          # ---------------- Converter and transformer ----------------
+          - name: "Converter_and_transformer"
+            fixed_cost: 0
+            flag_material_cost: true
+            # SWT-2.3 often has 690V/33kV step-up in tower/nacelle + partial converter
+            material:
+              - name: "Power_electronics_modules"
+                mass: 1.2
+                CF: 3.0
+              - name: "Transformer_unit"
+                mass: 3.5
+                CF: 2.5
+
+          # ---------------- HVAC and auxiliaries ----------------
+          - name: "HVAC_and_auxiliaries"
+            fixed_cost: 0
+            flag_material_cost: true
+            material:
+              - name: "HVAC_pack"
+                mass: 0.8
+                CF: 2.2
+              - name: "Cabling_internal"
+                mass: 0.5
+                CF: 2.5
+              - name: "Lube_and_hydraulics"
+                mass: 0.3
+                CF: 2.0
+
+          # ---------------- Tower-top interface ----------------
+          - name: "Tower_top_interface"
+            fixed_cost: 0
+            flag_material_cost: true
+            material:
+              - name: "Steel"
+                mass: 1.0
+                CF: 2.0
+
+      # --------------------------------------------------------------------------
+      # Substructure (for Lillgrund: gravity-base + tower on top)
+      # --------------------------------------------------------------------------
+      - name: "Substructure"
+        per_turbine: true
+        project_time:
+          value: 5
+          unit: months
+        subsubcategories:
+          - name: "Tower"
+            fixed_cost: 0
+            flag_material_cost: true
+            # SWT-2.3 tower mass typically ~150–170 t → pick 160 t
+            material:
+              - name: "Steel"
+                mass: 160
+                CF: 1.5
+          - name: "Transition_piece"
+            fixed_cost: 0
+            flag_material_cost: true
+            # For GBS we still allow a small TP / flange
+            material:
+              - name: "Steel"
+                mass: 15
+                CF: 1.5
+          - name: "Gravity_base_foundation"
+            fixed_cost: 0
+            flag_material_cost: true
+            material:
+              - name: "Concrete"
+                mass: 350          # t, shallow water GBS
+                CF: 1.2
+              - name: "Rebar_steel"
+                mass: 20
+                CF: 1.5
+              - name: "Ballast"
+                mass: 150
+                CF: 1.0
+
+  # -------------BoP (Lillgrund-specific) -------------------------------
+  - name: "Project & Balance of Plant"
+    categories:
+
+      # ---------------- ELECTRICAL SYSTEM (actual Lillgrund scale) ----------------
+      - name: "Array_cabling"
+        per_turbine: false
+        project_time:
+          value: 12
+          unit: months
+        subcategories:
+          - name: "Array_cable_supply_33kV"
+            fixed_cost: 5500000        # 22 km × 0.25 M€/km → 5.5 M€
+            flag_material_cost: false
+          - name: "Array_cable_installation_33kV"
+            fixed_cost: 2500000        # 22 km × ~0.11 M€/km
+            flag_material_cost: false
+          - name: "Array_cable_accessories"
+            fixed_cost: 500000         # joints, terminations, testing
+            flag_material_cost: false
+
+      - name: "Export_system"
+        per_turbine: false
+        project_time:
+          value: 14
+          unit: months
+        subcategories:
+          - name: "Export_cable_supply_offshore_138kV"
+            fixed_cost: 3150000        # 7 km × 0.45 M€/km
+            flag_material_cost: false
+          - name: "Export_cable_supply_onshore_138kV"
+            fixed_cost: 400000         # 2 km × 0.2 M€/km
+            flag_material_cost: false
+          - name: "Export_cable_install_offshore_138kV"
+            fixed_cost: 2100000        # 7 km × 0.3 M€/km
+            flag_material_cost: false
+          - name: "Export_cable_install_onshore_138kV"
+            fixed_cost: 400000
+            flag_material_cost: false
+          - name: "Export_cable_accessories"
+            fixed_cost: 300000
+            flag_material_cost: false
+          - name: "Landfall_HDD_and_trenches"
+            fixed_cost: 750000
+            flag_material_cost: false
+
+      - name: "Substations"
+        per_turbine: false
+        project_time:
+          value: 16
+          unit: months
+        subcategories:
+          - name: "Offshore_substation_TOPSIDE_and_foundation"
+            fixed_cost: 6500000
+            flag_material_cost: false
+          - name: "Onshore_substation_and_grid_connection"
+            fixed_cost: 2500000
+            flag_material_cost: false
+
+      # ---------------- INSTALLATION & LOGISTICS ----------------
+      - name: "Marine_installation_and_logistics"
+        per_turbine: false
+        project_time:
+          value: 10
+          unit: months
+        subcategories:
+          - name: "Cable_lay_vessel_campaign"
+            fixed_cost: 1500000
+            flag_material_cost: false
+          - name: "Heavy_lift_for_substation_install"
+            fixed_cost: 1500000
+            flag_material_cost: false
+          - name: "Support_vessels_and_guard_ships"
+            fixed_cost: 400000
+            flag_material_cost: false
+          - name: "Port_staging_and_storage"
+            fixed_cost: 1200000
+            flag_material_cost: false
+          - name: "AIS_nav_aids_metocean_and_marking"
+            fixed_cost: 250000
+            flag_material_cost: false
+
+      # ---------------- OWNER / DEV COSTS ----------------
+      - name: "Development_and_management"
+        per_turbine: false
+        project_time:
+            value: 24
+            unit: months
+        subcategories:
+          - name: "Development_and_consenting"
+            fixed_cost: 2000000
+            flag_material_cost: false
+          - name: "Owner_engineer_and_project_management"
+            fixed_cost: 2500000
+            flag_material_cost: false
+          - name: "Surveys_and_site_assessment"
+            fixed_cost: 800000
+            flag_material_cost: false
+          - name: "SCADA_and_communications"
+            fixed_cost: 700000
+            flag_material_cost: false
+          - name: "Spare_parts_and_special_tools"
+            fixed_cost: 600000
+            flag_material_cost: false
+          - name: "Marine_warranty_surveyor"
+            fixed_cost: 250000
+            flag_material_cost: false
+
+      - name: "Commissioning_and_testing"
+        per_turbine: false
+        project_time:
+          value: 6
+          unit: months
+        subcategories:
+          - name: "Pre_energization_testing"
+            fixed_cost: 300000
+            flag_material_cost: false
+          - name: "Grid_code_compliance_and_energization"
+            fixed_cost: 450000
+            flag_material_cost: false
+
+      # ---------------- RISK & CONTINGENCY ----------------
+      - name: "Insurance_and_contingency"
+        per_turbine: false
+        project_time:
+          value: 18
+          unit: months
+        subcategories:
+          - name: "Construction_all_risk_insurance"
+            fixed_cost: 1500000
+            flag_material_cost: false
+          - name: "Contingency_7pct"
+            fixed_cost: 12000000      # ~7% on ~170 M€
+            flag_material_cost: false
+
+  # -------------Decommissioning (kept but scaled to 48 × 2.3 MW) ----------------
+  - name: "Decommissioning"
+    categories:
+      - name: "Turbine_removal"
+        per_turbine: false
+        project_time:
+          value: 24
+          unit: months
+        subcategories:
+          - name: "WTG_disassembly_and_lifts"
+            fixed_cost: 5500000      # 48 turbines, ~115 k€/WTG
+            flag_material_cost: false
+          - name: "Port_handling_and_transport"
+            fixed_cost: 1200000
+            flag_material_cost: false
+          - name: "Waste_processing_and_blade_management"
+            fixed_cost: 1200000
+            flag_material_cost: false
+        notes: "WTG removals via jack-up or floating crane in shallow water."
+
+      - name: "Foundation_and_seabed_removal"
+        per_turbine: false
+        project_time:
+          value: 24
+          unit: months
+        subcategories:
+          - name: "GBS_breakout_and_partial_removal"
+            fixed_cost: 6000000
+            flag_material_cost: false
+          - name: "Scour_protection_and_seabed_remediation"
+            fixed_cost: 1200000
+            flag_material_cost: false
+
+      - name: "Array_cabling_decom_33kV"
+        per_turbine: false
+        project_time:
+          value: 24
+          unit: months
+        subcategories:
+          - name: "Array_cable_recovery_and_disposal"
+            fixed_cost: 1600000
+            flag_material_cost: false
+
+      - name: "Export_system_decom_138kV"
+        per_turbine: false
+        project_time:
+          value: 24
+          unit: months
+        subcategories:
+          - name: "Export_cable_recovery_offshore"
+            fixed_cost: 1000000
+            flag_material_cost: false
+
+      - name: "Substations_decom"
+        per_turbine: false
+        project_time:
+          value: 24
+          unit: months
+        subcategories:
+          - name: "Offshore_substation_topside_and_foundation"
+            fixed_cost: 1800000
+            flag_material_cost: false
+          - name: "Onshore_substation_and_grid_assets"
+            fixed_cost: 500000
+            flag_material_cost: false
+
+      - name: "Permitting_engineering_and_project_management"
+        per_turbine: false
+        project_time:
+          value: 24
+          unit: months
+        subcategories:
+          - name: "Decom_program_permitting_stakeholder_and_engineering"
+            fixed_cost: 700000
+            flag_material_cost: false
+
+      - name: "Site_clearance_and_post-survey"
+        per_turbine: false
+        project_time:
+          value: 24
+          unit: months
+        subcategories:
+          - name: "Debris_clearance_and_final_MBES/UXO_surveys"
+            fixed_cost: 500000
+            flag_material_cost: false
+
+      - name: "Contingency_15pct"
+        per_turbine: false
+        project_time:
+          value: 24
+          unit: months
+        subcategories:
+          - name: "Contingency_allowance"
+            fixed_cost: 2100000
+            flag_material_cost: false
+        notes: "Applied on scaled decom subtotal."
+
+assumptions:
+  - "Turbine is Siemens SWT-2.3-93: 2.3 MW rating, 93 m rotor, hub height ~65 m."
+  - "Blade mass for 2.3 MW set to 26 t/rotor, split into glass/resin/foam/steel to mimic material-driven CAPEX logic in original file."
+  - "Hub system mass reduced from 120 t (22 MW reference) to ~18 t consistent with 2–3 MW class."
+  - "Main shaft + bearings reduced to 6 t total; actual supplier BOM for SWT-2.3 may vary by ±20%."
+  - "Drivetrain mass 12 t and generator 6 t are typical catalogue values for 2–3 MW geared machines."
+  - "Tower mass fixed at 160 t per turbine, which is within published ranges for 2.3 MW turbines at ~65 m hub height."
+  - "Foundation type changed from monopile (in your template) to gravity-base foundation because Lillgrund used GBS in 4–8 m water; masses (350 t concrete + 20 t rebar + 150 t ballast) are engineering approximations."
+  - "Array cables: Lillgrund has ~22 km of 33 kV inter-array cabling, not 160 km of 66 kV; unit cost 0.25 M€/km supply + 0.11 M€/km install reflects short, shallow-lay Swedish site mid-2000s."
+  - "Export cable: 7 km offshore + 2 km onshore, 138 kV; costs aligned with small, nearshore 2006–2007 project, not modern 66/220 kV long-haul OWF."
+  - "Offshore substation set to 6.5 M€ and onshore to 2.5 M€ to keep total project CAPEX in the public ~198 M€ envelope once all items + contingency are summed."
+  - "Owner/development costs trimmed to early OWF scale (not 1 GW scale) but still include surveys, SCADA, spares, MWS."
+  - "Installation day-rates compressed to lump-sum line items; project ran in shallow water near large ports → cheaper than North Sea deep-water campaigns."
+  - "Decommissioning scaled linearly from small OWF experience and reduced to 48 WTGs; gravity-base removal left as partial removal/capping scenario (cheaper than full recovery)."
+  - "Contingency 7% on CAPEX and 15% on decom are policy/utility-style allowances; adjust to your organisation’s rules."
+  - "All costs in EUR in rough 2006–2008 price level

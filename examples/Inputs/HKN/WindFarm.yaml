@@ -1,0 +1,11 @@
+WindFarm:
+WF_inputFolder: M:\Projects\Cost Model\HiperSim\valuewind\Inputs\WF_Model
+WF_external_response_path: Inputs/External_Response/HKN_TS_DA_HKN_Revenue_shutdown_500_TI_boost
+WF_inputFiles:
+    SM: constTSR_smooth.mat
+    Layout: lillgrund_wtg_positions_testing_1T.csv
+WF_Model: 
+    Site: LillgrundSite
+    Turbine: LillgrundSWT23
+    WakeModel: Bastankhah_PorteAgel_2014
+

@@ -1,0 +1,14 @@
+OM_Process:
+  OM_input_file: "OM_dev.yaml"
+  OM_Vessel_input_file: "OM_Vessels.yaml"
+  Simulation_Mode: "analytic_ctmc" # options: [capex_fraction, analytic_ctmc, time_march_ctmc]
+
+  capex_fraction:
+      capex_fraction: 0.30
+      n_yearly_payments: 12
+
+  analytic_ctmc:
+      dummy_param: true
+
+  time_march_ctmc:
+      dummy_param: true

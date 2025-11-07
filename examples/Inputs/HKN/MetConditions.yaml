@@ -1,0 +1,8 @@
+MetEnv:
+  - name: "Wind_speed"
+    Parameters: 
+      Weibull_shape: 2 #%
+      Weibull_scale: 8
+  - name: Turbulence_Intensity
+    Parameters: 
+      TI: 10

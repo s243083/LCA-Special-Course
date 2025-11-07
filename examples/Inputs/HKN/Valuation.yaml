@@ -1,0 +1,3 @@
+Valuation:
+VA_DummyParameter: true
+cf_aggregation_period: "monthly"  # ["monthly", "yearly"]

@@ -1,0 +1,37 @@
+name: valuewind
+valuewind_inputFolder: M:\Projects\Cost Model\HiperSim\valuewind\examples\Inputs
+Capex_inputFiles:
+    PA: CAPEX_P&A.yaml
+Finex_inputFiles:
+    FI: FINEX.yaml
+Material_inputFiles: 
+    MD: Commodity_Params.yaml
+MetEnv_inputFiles:
+    ME: MetConditions.yaml
+WindFarm_inputFiles:
+    WF: WindFarm.yaml
+WindTurbine_inputFiles:
+    WT: WindTurbine.yaml
+Valuation_inputFiles:
+    VA: Valuation.yaml
+Market_inputFiles:
+    MA: Market.yaml
+Opex_inputFiles:
+    OM: OPEX.yaml
+LTE_inputFiles:
+    LTE: LTE.yaml    
+
+Project_StartDate: 01.04.2014 # This is the time=0 point and the reference for cost discounting
+Project_Duration: 
+    value: 10
+    unit: years
+TimeStep: 1 # this need to be elaborated
+WF_OperationsStart:
+    value: 3
+    unit: years
+WF_OperationsEnd:
+    value: 23
+    unit: years
+
+
+

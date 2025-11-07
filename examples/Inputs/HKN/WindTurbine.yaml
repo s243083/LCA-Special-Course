@@ -1,0 +1,13 @@
+WindTurbine:
+WT_inputFolder: M:\Projects\Cost Model\HiperSim\valuewind\Inputs\WT_Model
+WT_inputFiles:
+    SM: constTSR_smooth.mat
+    Layout: lillgrund_wtg_positions_testing_1T.csv
+WT_ResponseSensors: 
+    Power:
+    TBMx:
+        m_W: 3
+        flag_fatigueAnalysis: true
+WT_Response_Reference:
+    flag_fitWB: true
+    flag_defWB: false

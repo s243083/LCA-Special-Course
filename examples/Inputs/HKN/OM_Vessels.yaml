@@ -1,0 +1,15 @@
+
+# Vessel Specifications
+Vessels:
+  CTV:
+    equipment_rate: 3500
+    capability: CTV
+    speed: 37.04  # 20 knots
+    strategy: scheduled
+    max_windspeed: 99
+    max_waveheigh: 2
+    max_waveheight: 2
+    onsite: True
+    mobilization_cost: 0
+    mobilization_days: 0
+    port_distance: 30

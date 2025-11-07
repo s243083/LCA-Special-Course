@@ -1,0 +1,651 @@
+import pandas as pd
+import random
+import numpy as np
+import matplotlib.pyplot as plt
+from core.File_Handling import load_yaml, process_duration_fields
+
+#import sys
+#sys.path.append(r"M:\Projects\Cost Model\HiperSim\valuewind\DTU_Cost_Model")
+from core.DTU_Cost_Model.dtu_wind_cm_main import economic_evaluation
+from core.utils import apply_overrides
+
+
+class CAPEX:
+    """
+    CAPEX calculator without SimPy.
+    - Extracts a cost schedule from input data.
+    - Computes all costs immediately in a deterministic loop.
+    - Stores detailed cost records in a DataFrame (self.cost_records).
+    - NEW: Precomputes material unit prices once (self.material_unit_prices) and reuses them.
+    """
+
+    def __init__(self, env):
+        self.rng = np.random.default_rng(42)
+        self.env = env  # Access to configuration and (optionally) logging, randoms, etc.
+        self.config = env.config
+
+        # Load input data
+        self.capex_data, self.material_data = load_capex_data(self.env.config)
+
+        # Extract the "schedule" as-is (timing, category)
+        self.cost_items = self.extract_cost_schedule()
+
+        # Project start (used to convert "project_time_h" to timestamps)
+        self.project_start = pd.to_datetime(
+            self.env.config.Project_StartDate,
+            format="%d.%m.%Y"
+        )
+
+        # Storage for detailed cost records
+        self.cost_records = pd.DataFrame(
+            columns=[
+                "timestamp",
+                "phase_name",          # NEW
+                "item_name",
+                "category_name",
+                "subcategory_name",
+                "subsubcategory_name",
+                "cost",
+                "turbine_id",
+                "per_turbine",         # (optional but handy downstream)
+            ]
+        )
+
+
+        # Optional: track material records if you want to persist masses, etc.
+        self.material_records = []  # list of dicts; adapt to your needs
+
+        # Initialize scaling model
+        self.scaling_model = economic_evaluation()
+
+        # Aggregate total
+        self.total_cost = 0.0
+
+        # NEW: cache for precomputed material unit prices
+        # { material_name: unit_price_float }
+        self.material_unit_prices = {}
+
+        apply_overrides(self, getattr(self.config, "CAPEX_overrides", {}))
+
+
+        # Precompute once at construction (you can move to start() if you prefer)
+        self.precompute_material_prices()
+
+    # ---------------------------
+    # Data extraction
+    # ---------------------------
+    def extract_cost_schedule(self):
+        cost_items = []
+        target_phase_names = {
+            "Production & Acquisition",
+            "Project & Balance of Plant",
+            "Balance of Plant",
+            "Project & BoP",
+            "Decommissioning",
+        }
+
+        for _, capex_file_data in self.capex_data.items():
+            phases = capex_file_data.get("Phase", [])
+            matched_phases = [p for p in phases if p.get("name") in target_phase_names]
+            if not matched_phases:
+                continue
+
+            for phase in matched_phases:
+                phase_name = phase.get("name", "")
+                for category in phase.get("categories", []):
+                    project_time_h = category.get("project_time_h")
+                    per_turbine = category.get("per_turbine", False)
+                    if project_time_h is None:
+                        continue
+                    # include phase_name
+                    cost_items.append((phase_name, project_time_h, category, per_turbine))
+
+        return cost_items
+
+
+
+    # ---------------------------
+    # NEW: Precompute material prices once
+    # ---------------------------
+    def precompute_material_prices(self):
+        """
+        Build {material_name: unit_price} from self.material_data where
+        Material files use:
+        Commodity:
+            Steel: { CostParameters: {...} }
+            Copper: { CostParameters: {...} }
+        If a material appears in multiple files, the first occurrence wins.
+        GBM / Jump-Diffusion flags are honored over a single prediction horizon.
+        """
+        prices: dict[str, float] = {}
+
+        for _, material_file_data in self.material_data.items():
+            # Commodity is now a dict keyed by name
+            commodities = material_file_data.get("Commodity", {})
+            if not isinstance(commodities, dict):
+                continue  # new schema only; ignore anything else
+
+            for name, node in commodities.items():
+                if not name or name in prices:
+                    continue  # skip empty keys or already-seen (first-wins)
+
+                params = (node.get("CostParameters") or {})
+                base = float(params.get("material_cost", 0) or 0)
+                flag_gbm = bool(params.get("flag_GBM", False))
+                mu = float(params.get("mu", 0) or 0)
+                sigma = float(params.get("sigma", 0) or 0)
+                flag_jump_diff = bool(params.get("flag_JumpDif", False))
+                lambda_jump = float(params.get("lambda_jump", 0) or 0)
+                sigma_jump = float(params.get("sigma_jump", 0) or 0)
+
+                # process_duration_fields should have created prediction_horizon_h
+                timing_hours = float(params.get("prediction_horizon_h", 1) or 1)
+                timing_years = timing_hours / 8760.0
+
+                unit_price = base
+                if flag_gbm:
+                    unit_price = self.geometric_brownian_motion(base, mu, sigma, timing_years)
+                elif flag_jump_diff:
+                    unit_price = self.jump_diffusion(base, mu, sigma, timing_years, lambda_jump, sigma_jump)
+
+                prices[str(name)] = float(unit_price)
+
+        self.material_unit_prices = prices
+
+
+    # ---------------------------
+    # Public entrypoint
+    # ---------------------------
+    def start(self):
+        """
+        Public entrypoint retained for API compatibility.
+        Immediately computes all capital costs for the extracted schedule.
+        """
+        # Reset accumulators for a fresh run
+        self.total_cost = 0.0
+        self.cost_records = self.cost_records.iloc[0:0]  # clear but keep columns
+        self.material_records = []
+
+        # Ensure prices exist (in case caller changed materials/config at runtime)
+        if not self.material_unit_prices:
+            self.precompute_material_prices()
+
+        self.calculate_capital_costs_for_schedule()
+        return None
+
+    # ---------------------------
+    # Core calculation loop
+    # ---------------------------
+    def calculate_capital_costs_for_schedule(self):
+        """
+        Iterate the extracted schedule (as-is) and compute costs for each item.
+        """
+
+        # call external Cost model here
+        n_turbines = 34
+
+        rated_rpm = np.full(n_turbines, 12.0)
+        rotor_diameter = np.full(n_turbines, 120.0)
+        rated_power = np.full(n_turbines, 3.0)
+        hub_height = np.full(n_turbines, 100.0)
+        water_depth = np.full(n_turbines, 30.0)
+        cabling_cost = 1_000_000.0
+
+        # Evaluate scaling model once per category (as in your original)
+        self.scaling_model.calculate_capex(
+            rated_rpm, rotor_diameter, rated_power,
+            hub_height, water_depth, cabling_cost
+        )
+
+        for phase_name, timing_hours, category, per_turbine in self.cost_items:
+            timestamp = self.project_start + pd.Timedelta(hours=float(timing_hours))
+            if per_turbine:
+                for turbine_id in range(1, n_turbines + 1):
+                    self.calculate_capital_cost(phase_name, category, timestamp, turbine_id, per_turbine=True)
+            else:
+                self.calculate_capital_cost(phase_name, category, timestamp, None, per_turbine=False)
+
+
+    # ---------------------------
+    # Category-level calculation
+    # ---------------------------
+    def calculate_capital_cost(self, phase_name, category, timestamp, turbine_id, *, per_turbine: bool):
+        """
+        Compute and record all costs for a single category at a given timestamp.
+        Adds `phase_name` and `per_turbine` to every cost record row.
+        """
+        item_cost = 0.0
+        category_name = category.get("name", "")
+        rows = []
+        ts = pd.Timestamp(timestamp)
+
+        # Base fields shared by all appended rows
+        base_row = {
+            "timestamp": ts,
+            "phase_name": phase_name,
+            "category_name": category_name,
+            "turbine_id": turbine_id,
+            "per_turbine": per_turbine,
+        }
+
+        for subcategory in category.get("subcategories", []) or []:
+            subcategory_name = subcategory.get("name", "")
+            subsubcategory_name = subcategory_name  # for the subcategory-level row
+            total = float(subcategory.get("fixed_cost", 0) or 0)
+
+            # ---- Subcategory-level material costs ----
+            if subcategory.get("flag_material_cost", False):
+                materials = subcategory.get("material", [])
+                if isinstance(materials, dict):
+                    materials = [materials]
+
+                for material in materials:
+                    material_name = material.get("name")
+                    material_cost_per_mass = float(self.material_unit_prices.get(material_name, 0.0) or 0.0)
+                    mass = float(material.get("mass", 0) or 0)
+                    cf = float(material.get("CF", 1) or 1)
+
+                    ext = mass * material_cost_per_mass * cf
+                    total += ext
+
+                    # Optional: keep a detailed material trail (now includes phase_name & per_turbine)
+                    self.material_records.append({
+                        "timestamp": ts,
+                        "phase_name": phase_name,
+                        "category_name": category_name,
+                        "subcategory_name": subcategory_name,
+                        "subsubcategory_name": subsubcategory_name,
+                        "material_name": material_name,
+                        "mass": mass,
+                        "unit_cost": material_cost_per_mass,
+                        "CF": cf,
+                        "extended_cost": ext,
+                        "turbine_id": turbine_id,
+                        "per_turbine": per_turbine,
+                    })
+
+            # ---- Subcategory-level scaling model ----
+            if subcategory.get("scaling_models", {}).get("flag_DTU_scaling_model", False):
+                comp_name = str(subcategory_name).lower()
+                scaling_costs = self.scaling_model.turbine_component_costs.get(comp_name, {})
+                if isinstance(scaling_costs, dict):
+                    for v in scaling_costs.values():
+                        if isinstance(v, (np.ndarray, pd.Series)) and turbine_id is not None:
+                            total += float(v[turbine_id - 1])
+                        else:
+                            total += float(v)
+                elif isinstance(scaling_costs, (float, int, np.floating)):
+                    total += float(scaling_costs)
+                elif isinstance(scaling_costs, (np.ndarray, pd.Series)) and turbine_id is not None:
+                    total += float(scaling_costs[turbine_id - 1])
+
+            # ---- Append subcategory-level row ----
+            rows.append({
+                **base_row,
+                "item_name": f"{subcategory_name}_cost_item",
+                "subcategory_name": subcategory_name,
+                "subsubcategory_name": subsubcategory_name,
+                "cost": float(total),
+            })
+            item_cost += float(total)
+
+            # ---- Subsubcategory-level costs ----
+            for item in subcategory.get("subsubcategories", []) or []:
+                subsubcategory_name = item.get("name", "")
+                total = float(item.get("fixed_cost", 0) or 0)
+
+                # Materials at subsubcategory level
+                if item.get("flag_material_cost", False):
+                    materials = item.get("material", [])
+                    if isinstance(materials, dict):
+                        materials = [materials]
+
+                    for material in materials:
+                        material_name = material.get("name")
+                        material_cost_per_mass = float(self.material_unit_prices.get(material_name, 0.0) or 0.0)
+                        mass = float(material.get("mass", 0) or 0)
+                        cf = float(material.get("CF", 1) or 1)
+
+                        ext = mass * material_cost_per_mass * cf
+                        total += ext
+
+                        self.material_records.append({
+                            "timestamp": ts,
+                            "phase_name": phase_name,
+                            "category_name": category_name,
+                            "subcategory_name": subcategory_name,
+                            "subsubcategory_name": subsubcategory_name,
+                            "material_name": material_name,
+                            "mass": mass,
+                            "unit_cost": material_cost_per_mass,
+                            "CF": cf,
+                            "extended_cost": ext,
+                            "turbine_id": turbine_id,
+                            "per_turbine": per_turbine,
+                        })
+
+                # Scaling at subsubcategory level
+                if item.get("scaling_models", {}).get("flag_DTU_scaling_model", False):
+                    parent_comp = str(subcategory_name).lower()
+                    scaling_costs = self.scaling_model.turbine_component_costs.get(parent_comp, {})
+                    if isinstance(scaling_costs, dict):
+                        val = scaling_costs.get(subsubcategory_name, 0)
+                        if isinstance(val, (np.ndarray, pd.Series)) and turbine_id is not None:
+                            total += float(val[turbine_id - 1])
+                        else:
+                            total += float(val)
+
+                # Append subsubcategory-level row
+                rows.append({
+                    **base_row,
+                    "item_name": f"{subsubcategory_name}_cost_item",
+                    "subcategory_name": subcategory_name,
+                    "subsubcategory_name": subsubcategory_name,
+                    "cost": float(total),
+                })
+                item_cost += float(total)
+
+        # Batch-append to the records DataFrame
+        if rows:
+            self.cost_records = pd.concat([self.cost_records, pd.DataFrame(rows)], ignore_index=True)
+
+        self.total_cost += float(item_cost)
+
+        #print(f"Total capital cost for category '{category_name}': {item_cost}")
+
+        # Placeholders for future categories:
+        # - Installation & Commissioning (IC)
+        # - Development & Consenting (DC)
+        # - Decommissioning & Disposal (DD)
+
+    def get_cost_dataframe(self):
+        """Converts the cost records list to a DataFrame for further analysis."""
+        return pd.DataFrame(self.cost_records)
+    
+
+
+    def plot_cost_pies(self, turbine_id: int, **kwargs):
+        """
+        Wrapper around `plot_capex_cost_pies` using this instance's cost_records.
+        """
+        return plot_capex_cost_pies(self.cost_records, turbine_id, **kwargs)
+    
+    
+    def geometric_brownian_motion(self, S0, mu, sigma, T):
+        """Calculate a random realization of Geometric Brownian Motion."""
+        W = self.rng.normal(0, np.sqrt(T))  # Brownian motion component
+        return S0 * np.exp((mu - 0.5 * sigma**2) * T + sigma * W)
+
+    def jump_diffusion(self, S0, mu, sigma, T, lambda_jump, sigma_jump):
+        """Calculate a random realization of Jump Diffusion process."""
+        # Basic GBM component
+        S_t = self.geometric_brownian_motion(S0, mu, sigma, T)
+        # Number of jumps in the time interval
+        num_jumps = self.rng.poisson(lambda_jump * T)
+        # Apply jump diffusion adjustments
+        for _ in range(num_jumps):
+            jump_size = self.rng.normal(0, sigma_jump)
+            S_t *= np.exp(jump_size)
+        return S_t
+
+def load_capex_data(config):
+    """
+    Loads CAPEX and Material input parameters from configuration files, 
+    converting any nested duration parameters to hours.
+
+    Parameters
+    ----------
+    config : Configuration
+        The configuration object containing paths to CAPEX and Material input files.
+
+    Returns
+    -------
+    tuple
+        Two dictionaries containing CAPEX data and Material data, respectively.
+    """
+    capex_data = {}
+    material_data = {}
+
+    # Load CAPEX input files
+    if hasattr(config, 'Capex_inputFiles'):
+        for identifier, file_name in config.Capex_inputFiles.items():
+            capex_data[identifier] = load_yaml(config.valuewind_inputFolder, file_name)
+            capex_data[identifier] = process_duration_fields(capex_data[identifier])  # Process for duration fields
+
+        #print("Loaded CAPEX data structure:", capex_data)
+
+    # Load Material input files
+    if hasattr(config, 'Material_inputFiles'):
+        for identifier, file_name in config.Material_inputFiles.items():
+            material_data[identifier] = load_yaml(config.valuewind_inputFolder, file_name)
+            material_data[identifier] = process_duration_fields(material_data[identifier])  # Process for duration fields
+
+        #print("Loaded Material data structure:", material_data)
+
+    return capex_data, material_data
+
+
+
+
+
+def plot_capex_cost_pies(cost_records: pd.DataFrame,
+                         turbine_id: int,
+                         *,
+                         figsize_turbine=(8, 8),
+                         figsize_overall=(6, 6),
+                         ring_width=0.28,
+                         drop_zeros=True,
+                         textsize_outer=7,
+                         textsize_middle=8,
+                         textsize_inner=9,
+                         textsize_overall=10,
+                         show=True):
+    """
+    Draws:
+      1) Per-turbine nested donut: inner=Category, middle=Subcategory, outer=Subsubcategory.
+      2) Project-level pie by Category: (sum of all per-turbine rows) + (all per_turbine=False / BoP rows).
+    """
+    required = {"category_name", "subcategory_name", "subsubcategory_name", "cost", "turbine_id"}
+    missing = required.difference(cost_records.columns)
+    if missing:
+        raise ValueError(f"cost_records is missing required columns: {sorted(missing)}")
+
+    df = cost_records.copy()
+    df["cost"] = pd.to_numeric(df["cost"], errors="coerce").fillna(0.0)
+    if drop_zeros:
+        df = df[df["cost"] > 0]
+
+    def _labelize(x):
+        if pd.isna(x) or (isinstance(x, str) and x.strip() == ""):
+            return "Unspecified"
+        return str(x)
+
+    def make_autopct(values):
+        values = np.asarray(values, dtype=float)
+        total = values.sum() if values.size else 0.0
+        def _inner(pct):
+            if total <= 0:
+                return ""
+            val = pct * total / 100.0
+            return f"{val:,.0f}\n({pct:.1f}%)"
+        return _inner
+
+    # ---------- Robust turbine selection ----------
+    # mask that matches both numeric and string reps of turbine_id
+    def _mask_for_tid(series, tid):
+        num_match = pd.to_numeric(series, errors="coerce") == tid
+        str_match = series.astype(str) == str(tid)
+        return (num_match.fillna(False)) | (str_match.fillna(False))
+
+    dft = df[_mask_for_tid(df["turbine_id"], turbine_id)]
+
+    if dft.empty:
+        # try fallback: pick the first available turbine id (if any)
+        available = df["turbine_id"].dropna().unique()
+        if available.size > 0:
+            fallback_id = available[0]
+            #print(f"plot_capex_cost_pies: turbine_id={turbine_id} not found; using turbine_id={fallback_id} instead.")
+            dft = df[_mask_for_tid(df["turbine_id"], fallback_id)]
+            used_turbine_id = fallback_id
+        else:
+            used_turbine_id = None
+    else:
+        used_turbine_id = turbine_id
+
+    # ---------- Per-turbine nested donut ----------
+    if used_turbine_id is None or dft.empty:
+        # No per-turbine data available -> render a placeholder figure
+        fig_turbine, ax = plt.subplots(figsize=figsize_turbine)
+        ax.text(0.5, 0.5, "No per-turbine costs available", ha="center", va="center", fontsize=12)
+        ax.axis("off")
+    else:
+        cat_sum = (dft.groupby("category_name", dropna=False)["cost"].sum().sort_values(ascending=False))
+        subcat_sum = (dft.groupby(["category_name", "subcategory_name"], dropna=False)["cost"].sum())
+        subsub_sum = (dft.groupby(["category_name", "subcategory_name", "subsubcategory_name"], dropna=False)["cost"].sum())
+
+        inner_labels, inner_sizes = [], []
+        middle_labels, middle_sizes = [], []
+        outer_labels, outer_sizes = [], []
+
+        for cat in cat_sum.index:
+            inner_labels.append(_labelize(cat))
+            inner_sizes.append(float(cat_sum.loc[cat]))
+
+            # Subcategories
+            try:
+                sc_series = subcat_sum.loc[cat]
+                if isinstance(sc_series, pd.Series):
+                    for subcat, sc_val in sc_series.items():
+                        middle_labels.append(_labelize(subcat))
+                        middle_sizes.append(float(sc_val))
+
+                        # Subsubcategories
+                        try:
+                            ssub_series = subsub_sum.loc[(cat, subcat)]
+                            if isinstance(ssub_series, pd.Series):
+                                for ssub, ss_val in ssub_series.items():
+                                    outer_labels.append(_labelize(ssub))
+                                    outer_sizes.append(float(ss_val))
+                            else:
+                                outer_labels.append("Unspecified")
+                                outer_sizes.append(float(ssub_series))
+                        except KeyError:
+                            pass
+                else:
+                    middle_labels.append("Unspecified")
+                    middle_sizes.append(float(sc_series))
+            except KeyError:
+                pass
+
+        fig_turbine, ax = plt.subplots(figsize=figsize_turbine)
+        startangle = 90
+
+        # OUTER ring (Subsubcategory)
+        if len(outer_sizes) and np.sum(outer_sizes) > 0:
+            ax.pie(
+                outer_sizes,
+                labels=outer_labels,
+                autopct=make_autopct(outer_sizes),
+                pctdistance=0.85,
+                labeldistance=1.08,
+                radius=1.0,
+                startangle=startangle,
+                wedgeprops=dict(width=ring_width),
+                textprops=dict(fontsize=textsize_outer),
+            )
+
+        # MIDDLE ring (Subcategory)
+        if len(middle_sizes) and np.sum(middle_sizes) > 0:
+            ax.pie(
+                middle_sizes,
+                labels=middle_labels,
+                autopct=make_autopct(middle_sizes),
+                pctdistance=0.75,
+                labeldistance=0.95,
+                radius=1.0 - ring_width,
+                startangle=startangle,
+                wedgeprops=dict(width=ring_width),
+                textprops=dict(fontsize=textsize_middle),
+            )
+
+        # INNER ring (Category)
+        if len(inner_sizes) and np.sum(inner_sizes) > 0:
+            ax.pie(
+                inner_sizes,
+                labels=inner_labels,
+                autopct=make_autopct(inner_sizes),
+                pctdistance=0.65,
+                labeldistance=0.85,
+                radius=1.0 - 2 * ring_width,
+                startangle=startangle,
+                wedgeprops=dict(width=ring_width),
+                textprops=dict(fontsize=textsize_inner, weight="bold"),
+            )
+
+        ax.set(aspect="equal")
+        ax.set_title(f"Turbine {used_turbine_id} — Cost distribution\n(Category → Subcategory → Subsubcategory)")
+        plt.tight_layout()
+
+    # ---------- Project-level pie (sum of all turbines + BoP/project) ----------
+    if "per_turbine" in df.columns:
+        turbine_rows = df[df["per_turbine"] == True]
+        project_rows = df[df["per_turbine"] == False].copy()
+        # collapse duplicated project rows if they appear once per turbine_id
+        if not project_rows.empty and project_rows["turbine_id"].notna().any() and project_rows["turbine_id"].nunique() > 1:
+            project_rows = (
+                project_rows
+                .groupby(["category_name", "subcategory_name", "subsubcategory_name"], dropna=False, as_index=False)["cost"]
+                .mean()
+            )
+    else:
+        # heuristic: project rows have missing turbine_id
+        project_rows = df[df["turbine_id"].isna()].copy()
+        turbine_rows = df[df["turbine_id"].notna()].copy()
+        if not project_rows.empty and project_rows["turbine_id"].nunique() > 1:
+            project_rows = (
+                project_rows
+                .groupby(["category_name", "subcategory_name", "subsubcategory_name"], dropna=False, as_index=False)["cost"]
+                .mean()
+            )
+
+    overall_parts = []
+    if not turbine_rows.empty:
+        overall_parts.append(
+            turbine_rows.groupby("category_name", dropna=False)["cost"].sum().rename("cost")
+        )
+    if not project_rows.empty:
+        overall_parts.append(
+            project_rows.groupby("category_name", dropna=False)["cost"].sum().rename("cost")
+        )
+
+    if overall_parts:
+        overall_cat = pd.concat(overall_parts, axis=0).groupby(level=0).sum().sort_values(ascending=False)
+    else:
+        overall_cat = pd.Series(dtype=float)
+
+    overall_labels = [_labelize(c) for c in overall_cat.index]
+    overall_sizes = overall_cat.values
+
+    fig_overall, ax2 = plt.subplots(figsize=figsize_overall)
+    if overall_sizes.size and np.sum(overall_sizes) > 0:
+        ax2.pie(
+            overall_sizes,
+            labels=overall_labels,
+            autopct=make_autopct(overall_sizes),
+            pctdistance=0.7,
+            labeldistance=1.05,
+            startangle=90,
+            textprops=dict(fontsize=textsize_overall),
+        )
+    else:
+        ax2.text(0.5, 0.5, "No project costs to display", ha="center", va="center", fontsize=12)
+        ax2.axis("off")
+
+    ax2.set(aspect="equal")
+    ax2.set_title("Project cost distribution — (All turbines + Balance of Plant) by Category")
+    plt.tight_layout()
+
+    if show:
+        plt.show()
+
+    return fig_turbine, fig_overall

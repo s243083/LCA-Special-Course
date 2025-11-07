@@ -1,0 +1,26 @@
+Market:
+  MA_inputFolder: "M:\\Projects\\Cost Model\\HiperSim\\valuewind\\Inputs\\Market_Data"
+  mode: "timeseries"
+  timeseries: 
+    flag_external_ts: true
+    file: "HKNB_timeseries_full_filled.csv"
+    resolution: "10min" # [10min, 1h, 1d]
+    create_ts: false
+
+Revenue: 
+  inflation_rate: 0.02 # annual inflation_rate
+  price_inflation: true # if true, market prices are inflated annually by inflation_rate
+  index_strike_price: true # if true, strike price is indexed annually by inflation_rate
+  marketscheme: "FiT"
+  FiT:
+    strike_price: 87
+    settling_freq: "monthly" # [hourly, daily, monthly]
+    reference_freq: "monthly" # [hourly, daily, monthly]
+  CfD:  
+    strike_price: 87
+    settling_freq: "monthly" # [hourly, daily, monthly]
+    reference_freq: "monthly" # [hourly, daily, monthly]
+    one_sided: true # if true, negative differences are set to zero
+  Market:
+    settling_freq: "hourly" # [hourly, daily, monthly]  
+

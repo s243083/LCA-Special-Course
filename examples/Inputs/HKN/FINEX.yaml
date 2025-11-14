@@ -1,8 +1,8 @@
 FINEX:
   - name: "Debt"
     Parameters: 
-      debt_share: 75  # share of debt [%]
-      interest_rate: 6  # cost of debt [%] 
+      debt_share: 70  # share of debt [%]
+      interest_rate: 4  # cost of debt [%] 
       n_yearly_payments: 12 # number of payment per year, 12 eqauls monthly payments
       n_total_payments: 240 # total number of payments 
       start_debt_service:
@@ -16,11 +16,11 @@ FINEX:
         flag_CAPM: true 
         rf: 0.5  # risk free rate [%]
         beta: 0.5  # A measure of the asset’s volatility or systematic risk relative to the market (for wind energy project typically [0.4-0.7]) [-]
-        rm: 10  # Expected Market Return [%]
+        rm: 8  # Expected Market Return [%]
 
   - name: "Tax"
     Parameters:
-      tax_rate: 0.21  # corporate tax rate [%]
+      tax_rate: 21  # corporate tax rate [%]
 
   - name: "Depreciation"
     Parameters:

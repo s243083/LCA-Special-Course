@@ -83,9 +83,6 @@ For people who want to make changes to your project, it's helpful to have some d
 
 You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
 ## License
 For open source projects, say how it is licensed.
 
@@ -95,9 +92,9 @@ If you have run out of energy or time for your project, put a note at the top of
 
 ## 🪪 License
 
-This software — **ValueWind** — is licensed under the [Apache License 2.0](LICENSE).
+This software — **WINPACT** — is licensed under the [Apache License 2.0](LICENSE).
 
-© 2025 Structural Integrity and Loads Assessment (SIL), Technical University of Denmark (DTU).
+© 2025 Integrity and Reliability (IAR) Section, Technical University of Denmark (DTU).
 
 You are free to use, modify, and distribute this software (including in commercial or proprietary projects) under the conditions of the Apache 2.0 license.
 
@@ -107,7 +104,7 @@ See the accompanying [NOTICE](NOTICE) file for attribution details.
 
 ## 📖 How to Cite
 
-If you use **ValueWind** in your research or project, please cite it as follows:
+If you use **WINPACT** in your research or project, please cite it as follows:
 
 > Doe, J., Smith, J., & WindImpact Research Group (2025).  
 > *WindImpact Core (v1.0.0): A toolkit for impact assessment of wind energy projects.*  

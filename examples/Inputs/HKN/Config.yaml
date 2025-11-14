@@ -1,7 +1,7 @@
 name: valuewind
-valuewind_inputFolder: M:\Projects\Cost Model\HiperSim\valuewind\examples\Inputs
+valuewind_inputFolder: M:\Projects\Cost Model\HiperSim\WINPACT\examples\Inputs\HKN
 Capex_inputFiles:
-    PA: CAPEX_P&A.yaml
+    PA: CAPEX.yaml
 Finex_inputFiles:
     FI: FINEX.yaml
 Material_inputFiles: 

@@ -10,7 +10,7 @@ class MetEnvironment:
         self.environmental_data_ts = pd.DataFrame()
 
         
-        wind_price_TS_file = r"M:\Projects\Cost Model\HiperSim\valuewind\core\ResponseFramework\data\timeseries\HKNB_timeseries_full_filled_small_gaps_only.csv"
+        wind_price_TS_file = r"M:\Projects\Cost Model\HiperSim\WINPACT\core\ResponseFramework_dev\data\timeseries\HKNB_timeseries_full_filled_small_gaps_only.csv"
         input_resolution: str = "10min"                    # kept for simulate_block signature
         self.load_wind_timeseries(wind_price_TS_file, input_resolution)
         

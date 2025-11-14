@@ -7,7 +7,7 @@ from core.WindFarm import WindFarm
 from core.Valuation import Valuation
 from core.MarketEnvironment import MarketEnv
 from core.Revenue_Model import Revenue
-from core.ResponseFramework.Response_Framework import ResponseFramework
+from core.ResponseFramework_dev.Response_Framework import ResponseFramework
 from core.ResultsCollector import ResultsCollector
 from core.LTE import LifetimeExtension
 
@@ -35,10 +35,11 @@ class ValueWindEnv(simpy.Environment):
     def run_simulation(self, until=None):
         # Start the CAPEX process in the environment
         self.capex.start()
-        fig_t, fig_all = self.capex.plot_cost_pies(turbine_id=1)
+        self.capex.plot_cost_pies(turbine_id=1)
+
         
         # Start the wind farm process in the environment
-        #self.windFarm.start()
+        self.windFarm.start()
 
         # Calculate OPEX
         self.opex.calc_OPEX()
@@ -54,17 +55,9 @@ class ValueWindEnv(simpy.Environment):
         self.RevenueModel.calc_revenues()
 
 
-        # calculate finex (direct trigger)    
-        self.finex.calc_FINEX()
-
-
         # calculate Valuation
         self.valuation.project_valuation()
-        self.valuation.plot_cash_flows()
-        #self.valuation.plot_cash_flows(start_date="2017-04-10", end_date="2037-04-10")
-        #self.valuation.plot_cash_flows_lines()
-        #self.valuation.plot_cash_flows_lines(start_date="2017-04-10", end_date="2037-04-10")
-
+        
 
         # Call Reuslts Collector
         self.results_collector.collect_df()

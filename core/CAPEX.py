@@ -9,6 +9,9 @@ from core.File_Handling import load_yaml, process_duration_fields
 from core.DTU_Cost_Model.dtu_wind_cm_main import economic_evaluation
 from core.utils import apply_overrides
 
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+
 
 class CAPEX:
     """
@@ -47,7 +50,7 @@ class CAPEX:
                 "subsubcategory_name",
                 "cost",
                 "turbine_id",
-                "per_turbine",         # (optional but handy downstream)
+                "per_turbine",         #
             ]
         )
 
@@ -368,7 +371,11 @@ class CAPEX:
         """
         Wrapper around `plot_capex_cost_pies` using this instance's cost_records.
         """
-        return plot_capex_cost_pies(self.cost_records, turbine_id, **kwargs)
+        # Plot the dashboard first
+        capex_dashboard(self, turbine_id=turbine_id)
+        #plot_capex_cost_pies(self.cost_records, turbine_id, **kwargs)
+
+        return None
     
     
     def geometric_brownian_motion(self, S0, mu, sigma, T):
@@ -649,3 +656,335 @@ def plot_capex_cost_pies(cost_records: pd.DataFrame,
         plt.show()
 
     return fig_turbine, fig_overall
+
+
+
+def capex_dashboard(
+    self,
+    turbine_id: int = 1,
+    phase_filter: str | None = None,
+    drop_zeros: bool = True,
+    show: bool = True,
+):
+    """
+    Interactive CAPEX dashboard using Plotly.
+
+    - Figure 1: KPI indicators
+      (total CAPEX, avg per-turbine, selected turbine CAPEX, turbine share)
+    - Figure 2: Sunburst (per-turbine breakdown) + Sunburst (project breakdown)
+
+    Returns
+    -------
+    (fig_kpi, fig_sunbursts) : tuple of plotly.graph_objects.Figure
+    """
+    if not isinstance(self.cost_records, pd.DataFrame) or self.cost_records.empty:
+        raise ValueError("No CAPEX cost_records available. Run CAPEX.start() first.")
+
+    df = self.cost_records.copy()
+    df["cost"] = pd.to_numeric(df["cost"], errors="coerce").fillna(0.0)
+
+    if drop_zeros:
+        df = df[df["cost"] > 0]
+
+    if phase_filter is not None:
+        df = df[df["phase_name"] == phase_filter]
+
+    if df.empty:
+        raise ValueError("No CAPEX data available after filtering (phase_filter / drop_zeros).")
+
+    # -------- Helpers --------
+    def _labelize(x: str | None, fallback: str = "Unspecified"):
+        if pd.isna(x):
+            return fallback
+        if isinstance(x, str) and x.strip() == "":
+            return fallback
+        return str(x)
+
+    def _mask_for_tid(series, tid):
+        """Match both numeric and string representations of turbine_id."""
+        num_match = pd.to_numeric(series, errors="coerce") == tid
+        str_match = series.astype(str) == str(tid)
+        return (num_match.fillna(False)) | (str_match.fillna(False))
+
+    # -------- Basic splits --------
+    has_per_turbine = "per_turbine" in df.columns
+
+    if has_per_turbine:
+        turbine_rows = df[df["per_turbine"] == True]
+        project_rows = df.copy()  # project view uses all rows
+    else:
+        # Heuristic fallback: turbine rows = those with a turbine_id
+        turbine_rows = df[df["turbine_id"].notna()]
+        project_rows = df.copy()
+
+    # Number of turbines present
+    if not turbine_rows.empty:
+        n_turbines = turbine_rows["turbine_id"].dropna().nunique()
+    else:
+        n_turbines = 0
+
+    # Raw totals in base currency (e.g. EUR)
+    total_project_capex = float(project_rows["cost"].sum()) if not project_rows.empty else 0.0
+
+    # -------- Per-turbine dataframe (selected turbine) --------
+    dft = pd.DataFrame(columns=df.columns)
+    used_turbine_id = None
+
+    if not turbine_rows.empty:
+        dft = turbine_rows[_mask_for_tid(turbine_rows["turbine_id"], turbine_id)]
+        if dft.empty:
+            # fallback: first turbine we find
+            available = turbine_rows["turbine_id"].dropna().unique()
+            if available.size > 0:
+                used_turbine_id = available[0]
+                dft = turbine_rows[_mask_for_tid(turbine_rows["turbine_id"], used_turbine_id)]
+            else:
+                used_turbine_id = None
+        else:
+            used_turbine_id = turbine_id
+
+    # -------- KPIs --------
+    # Total CAPEX (M€)
+    kpi_total_capex_m = total_project_capex / 1e6
+
+    # Per-turbine CAPEX total (sum of all per_turbine rows, raw)
+    if not turbine_rows.empty:
+        per_turbine_capex_total_raw = float(turbine_rows["cost"].sum())
+    else:
+        per_turbine_capex_total_raw = 0.0
+
+    avg_per_turbine_capex_raw = (
+        per_turbine_capex_total_raw / n_turbines if n_turbines > 0 else 0.0
+    )
+    avg_per_turbine_capex_m = avg_per_turbine_capex_raw / 1e6
+
+    # Selected turbine CAPEX (raw + M€)
+    selected_turbine_capex_raw = float(dft["cost"].sum()) if not dft.empty else 0.0
+    selected_turbine_capex_m = selected_turbine_capex_raw / 1e6
+
+    # Share of project CAPEX (use RAW values for ratio)
+    turbine_share = (
+        selected_turbine_capex_raw / total_project_capex
+        if total_project_capex > 0 else 0.0
+    )
+
+    # Largest category for selected turbine
+    if not dft.empty:
+        cat_group = dft.groupby("category_name", dropna=False)["cost"].sum()
+        largest_cat_name = _labelize(cat_group.idxmax())
+        # share within turbine (use raw values; but we don't display this number directly)
+        largest_cat_share = (
+            float(cat_group.max() / selected_turbine_capex_raw)
+            if selected_turbine_capex_raw > 0 else 0.0
+        )
+    else:
+        largest_cat_name = "N/A"
+        largest_cat_share = 0.0
+
+    # -------- Sunburst builders --------
+    def build_sunburst_data(df_base: pd.DataFrame):
+        """
+        Build labels / parents / values / ids for a 3-level sunburst:
+        Category → Subcategory → Subsubcategory
+        Values are in M€.
+        """
+        if df_base.empty:
+            return ["No data"], [""], [1.0], ["root"]
+
+        cat_sum = (
+            df_base
+            .groupby("category_name", dropna=False)["cost"]
+            .sum()
+            .sort_values(ascending=False)
+        )
+        subcat_sum = (
+            df_base
+            .groupby(["category_name", "subcategory_name"], dropna=False)["cost"]
+            .sum()
+        )
+        subsub_sum = (
+            df_base
+            .groupby(["category_name", "subcategory_name", "subsubcategory_name"], dropna=False)["cost"]
+            .sum()
+        )
+
+        labels = []
+        parents = []
+        values = []
+        ids = []
+
+        # categories (top ring)
+        for cat, v_cat in cat_sum.items():
+            clab = _labelize(cat, "Unspecified category")
+            cid = f"cat:{clab}"
+            labels.append(clab)
+            parents.append("")
+            values.append(float(v_cat) / 1e6)   # M€
+            ids.append(cid)
+
+        # subcategories
+        for (cat, subcat), v_sc in subcat_sum.items():
+            clab = _labelize(cat, "Unspecified category")
+            slab = _labelize(subcat, "Unspecified subcategory")
+            cid = f"cat:{clab}"
+            sid = f"{cid}|sub:{slab}"
+            labels.append(slab)
+            parents.append(cid)
+            values.append(float(v_sc) / 1e6)    # M€
+            ids.append(sid)
+
+        # subsubcategories
+        for (cat, subcat, subsub), v_ss in subsub_sum.items():
+            clab = _labelize(cat, "Unspecified category")
+            slab = _labelize(subcat, "Unspecified subcategory")
+            ssub_lab = _labelize(subsub, "Unspecified subsubcategory")
+            cid = f"cat:{clab}"
+            sid = f"{cid}|sub:{slab}"
+            ssid = f"{sid}|ssub:{ssub_lab}"
+            labels.append(ssub_lab)
+            parents.append(sid)
+            values.append(float(v_ss) / 1e6)    # M€
+            ids.append(ssid)
+
+        return labels, parents, values, ids
+
+    labels_t, parents_t, values_t, ids_t = build_sunburst_data(dft)
+    labels_p, parents_p, values_p, ids_p = build_sunburst_data(project_rows)
+
+    # =====================================================================
+    #  FIGURE 1: KPI INDICATORS (separate figure)
+    # =====================================================================
+    fig_kpi = make_subplots(
+        rows=1, cols=4,
+        specs=[[{"type": "indicator"} for _ in range(4)]],
+        horizontal_spacing=0.06,
+    )
+
+    # KPI 1: Total project CAPEX
+    fig_kpi.add_trace(
+        go.Indicator(
+            mode="number",
+            value=float(kpi_total_capex_m),
+            title={"text": "Total Project CAPEX"},
+            number={"valueformat": ",.1f", "suffix": " M€"},
+        ),
+        row=1, col=1,
+    )
+
+    # KPI 2: Avg per-turbine CAPEX
+    fig_kpi.add_trace(
+        go.Indicator(
+            mode="number",
+            value=float(avg_per_turbine_capex_m),
+            title={"text": "Avg CAPEX per Turbine"},
+            number={"valueformat": ",.1f", "suffix": " M€"},
+        ),
+        row=1, col=2,
+    )
+
+    # KPI 3: Selected turbine CAPEX
+    fig_kpi.add_trace(
+        go.Indicator(
+            mode="number",
+            value=float(selected_turbine_capex_m),
+            title={"text": f"Turbine {used_turbine_id if used_turbine_id is not None else turbine_id} CAPEX"},
+            number={"valueformat": ",.1f", "suffix": " M€"},
+        ),
+        row=1, col=3,
+    )
+
+    # KPI 4: Turbine share + largest category
+    fig_kpi.add_trace(
+        go.Indicator(
+            mode="number",
+            value=float(turbine_share),
+            title={"text": f"Turbine Share of Project CAPEX<br><sub>Top category: {largest_cat_name}</sub>"},
+            number={"valueformat": ".1%"},
+        ),
+        row=1, col=4,
+    )
+
+    title_suffix = f" — Phase: {phase_filter}" if phase_filter is not None else ""
+    fig_kpi.update_layout(
+        title=dict(
+            text=f"CAPEX Overview — KPIs{title_suffix}",
+            font=dict(size=26),
+            x=0.01,
+        ),
+        template="plotly_white",
+        margin=dict(l=40, r=40, t=60, b=20),
+        height=250,
+    )
+
+    # =====================================================================
+    #  FIGURE 2: SUNBURSTS (big, clean layout)
+    # =====================================================================
+    fig_sun = make_subplots(
+        rows=1, cols=2,
+        specs=[[{"type": "domain"}, {"type": "domain"}]],
+        column_widths=[0.5, 0.5],
+        horizontal_spacing=0.08,
+    )
+
+    fig_sun.add_trace(
+        go.Sunburst(
+            labels=labels_t,
+            parents=parents_t,
+            values=values_t,
+            ids=ids_t,
+            branchvalues="total",
+            hovertemplate=(
+                "%{label}<br>"
+                "Cost: %{value:,.2f} M€<br>"
+                "Share: %{percentParent:.1%} of parent<br>"
+                "Global: %{percentRoot:.1%} of total<extra></extra>"
+            ),
+        ),
+        row=1, col=1,
+    )
+
+    fig_sun.add_trace(
+        go.Sunburst(
+            labels=labels_p,
+            parents=parents_p,
+            values=values_p,
+            ids=ids_p,
+            branchvalues="total",
+            hovertemplate=(
+                "%{label}<br>"
+                "Cost: %{value:,.2f} M€<br>"
+                "Share: %{percentParent:.1%} of parent<br>"
+                "Global: %{percentRoot:.1%} of total<extra></extra>"
+            ),
+        ),
+        row=1, col=2,
+    )
+
+    fig_sun.update_layout(
+        title=dict(
+            text=f"CAPEX Breakdown — Turbine vs Project{title_suffix}",
+            font=dict(size=26),
+            x=0.01,
+        ),
+        template="plotly_white",
+        margin=dict(l=40, r=40, t=80, b=40),
+        height=700,
+        annotations=[
+            dict(
+                text=f"Turbine {used_turbine_id if used_turbine_id is not None else turbine_id}",
+                x=0.19, y=0.02, xref="paper", yref="paper",
+                showarrow=False, font=dict(size=14),
+            ),
+            dict(
+                text="Project Total",
+                x=0.81, y=0.02, xref="paper", yref="paper",
+                showarrow=False, font=dict(size=14),
+            ),
+        ],
+    )
+
+    if show:
+        fig_kpi.show()
+        fig_sun.show()
+
+    return fig_kpi, fig_sun

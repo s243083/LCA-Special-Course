@@ -138,12 +138,12 @@ class OPEX:
         self.config = env.config
         self.env = env  # Access to simulation environment
         self.parameters = load_OMData(env.config)
-        self.parameters =  get_input_parameter(self.parameters, 'OM')
+        self.parameters =  get_input_parameter(self.parameters, 'OM','OM_Process')
 
         # Mode selection: 'capex_fraction' (default for backward compat), 'analytic_ctmc', 'time_march_ctmc'
-        self.mode = get_input_parameter(self.parameters,'OM_Process', 'Simulation_Mode')
-        self.OM_input_file = get_input_parameter(self.parameters,'OM_Process', 'OM_input_file')
-        self.OM_vessel_input_file = get_input_parameter(self.parameters,'OM_Process', 'OM_Vessel_input_file')
+        self.mode = get_input_parameter(self.parameters, 'Simulation_Mode')
+        self.OM_input_file = get_input_parameter(self.parameters, 'OM_input_file')
+        self.OM_vessel_input_file = get_input_parameter(self.parameters, 'OM_Vessel_input_file')
 
         self.project_start = pd.to_datetime(
             self.env.config.Project_StartDate,
@@ -154,24 +154,34 @@ class OPEX:
 
 
     # --------------------------- Entry point ---------------------------
-    def calc_OPEX(self) -> Dict[str, Any]:
-        """Compute OpEx artefacts according to selected mode.
-        Returns a dict with at least:
-          - 'OPEX_records': pd.DataFrame[timestamp, OM_payment]
-          - 'availability_summary': AvailabilitySummary (analytic/time-march), if available
-          - 'availability_profile': pd.DataFrame[timestamp, availability] (time-march), if available
-          - 'activity_log': pd.DataFrame (time-march), if available
+    def calc_OPEX(self) -> pd.DataFrame:
+        """
+        Compute OpEx time series and store auxiliary artefacts as attributes.
+        Returns
+        -------
+        pd.DataFrame
+            Columns: ['timestamp', 'OM_payment']
         """
         mode = self.mode
         if mode == "capex_fraction":
-            self.Opex_records = self._calc_opex_as_fraction_of_capex()
-            return None
+            opex_df, extras = self._calc_opex_as_fraction_of_capex()
         elif mode == "analytic_ctmc":
-            self.Opex_records = self._calc_opex_analytic_ctmc()
-            return None
+            opex_df, extras = self._calc_opex_analytic_ctmc()
         elif mode == "time_march_ctmc":
-            self.Opex_records = self._calc_opex_time_march()
-            return None
+            opex_df, extras = self._calc_opex_time_march()
+        else:
+            raise ValueError(f"Unsupported OPEX mode: {mode}")
+
+        # store metadata as attributes for inspection
+        self.availability_summary = extras.get("availability_summary")
+        self.availability_profile = extras.get("availability_profile")
+        self.activity_log = extras.get("activity_log")
+        self.OpEx_breakdown = extras.get("OpEx_breakdown")
+
+        # keep DataFrame reference and return
+        self.OPEX_records = opex_df
+        self.OPEX_records_extras = extras
+        return None
 
     # --------------------------- Shared helpers (stubs) ---------------------------
     def _load_maintenance_specs(self) -> List[MaintenanceSpec]:
@@ -490,34 +500,65 @@ class OPEX:
         per = np.repeat(total_opex_eur / len(idx), len(idx))
         return pd.DataFrame({"timestamp": idx, "OM_payment": per})
 
-    # --------------------------- Mode 1: CAPEX fraction (existing) ---------------------------
-    def _calc_opex_as_fraction_of_capex(self) -> Dict[str, Any]:
-        """Legacy/simple mode: OpEx as a fraction of CapEx.
-        Expects config keys:
-          - 'OM_FractionOfCapex': 0..1
-          - 'CapEx_Total': numeric (or derived elsewhere)
+    # --------------------------- Mode 1: CAPEX fraction ---------------------------
+    def _calc_opex_as_fraction_of_capex(self) -> tuple[pd.DataFrame, dict]:
         """
-        om_frac = float(getattr(self.config, "OM_FractionOfCapex", 0.03))
-        capex_total = float(getattr(self.config, "CapEx_Total", 1.0e9))
-        total_opex = om_frac * capex_total
+        Legacy/simple mode: OpEx as a fraction of CapEx.
+        Returns (OPEX_records_df, extras_dict)
+        """
+        # --- parameters ---
+        n_yearly_payments = int(get_input_parameter(self.parameters,'capex_fraction','n_yearly_payments'))
+        om_frac = float(get_input_parameter(self.parameters,'capex_fraction','capex_fraction'))  # e.g., 3% of CAPEX
 
-        idx = self._project_time_index()
-        opex_df = self._even_payment_schedule(total_opex, idx)
+        # --- CAPEX total (must exist) ---
+        capex_df = self.env.capex.get_cost_dataframe()
+        if capex_df is None or capex_df.empty or "cost" not in capex_df.columns:
+            raise ValueError("CAPEX data is missing or invalid — cannot compute OPEX as fraction of CAPEX.")
 
-        # Dummy availability (unchanged legacy behaviour); caller may override
+        capex_total = float(pd.to_numeric(capex_df["cost"], errors="coerce").fillna(0.0).sum())
+        total_opex = om_frac * capex_total  # total over entire ops window
+
+        # --- project index using helper ---
+        idx, op_start_ts, op_end_ts, T_h = self._project_time_index()
+
+        # --- even payment schedule using helper ---
+        # Pass total_opex as negative (outflow convention)
+        opex_df = self._even_payment_schedule(total_opex_eur=-abs(total_opex), idx=idx)
+
+        # --- optional: scale production by availability ---
+        availability = float(getattr(self, "availability", 0.93))
+        if getattr(self.env, "windFarm", None) is not None:
+            power_df = getattr(self.env.windFarm, "power_records", None)
+            if power_df is not None and not power_df.empty:
+                prod_cols = [c for c in power_df.columns if c != "timestamp"]
+                self.env.windFarm.power_records[prod_cols] = (
+                    self.env.windFarm.power_records[prod_cols]
+                    .apply(pd.to_numeric, errors="coerce")
+                    .fillna(0.0)
+                    * availability
+                )
+
+        # --- extras payload ---
         availability_summary = AvailabilitySummary(
-            component_A={}, turbine_A={}, farm_A=0.93, downtime_h={}
+            component_A={}, turbine_A={}, farm_A=availability, downtime_h={}
         )
-        return {
-            "mode": "capex_fraction",
-            "OPEX_records": opex_df,
+
+        extras = {
             "availability_summary": availability_summary,
             "availability_profile": None,
             "activity_log": None,
             "OpEx_breakdown": OpExBreakdown(
-                fixed_OM_eur=total_opex, CM_cost_eur=0.0, PM_cost_eur=0.0, transport_eur=0.0, labour_eur=0.0, spares_eur=0.0,
+                fixed_OM_eur=total_opex,
+                CM_cost_eur=0.0,
+                PM_cost_eur=0.0,
+                transport_eur=0.0,
+                labour_eur=0.0,
+                spares_eur=0.0,
             ),
         }
+
+        return opex_df, extras
+
 
     # --------------------------- Mode 2: Analytical CTMC ---------------------------
     def _calc_opex_analytic_ctmc(self) -> Dict[str, Any]:

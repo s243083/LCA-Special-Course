@@ -52,7 +52,7 @@ Commodity:
       prediction_horizon:
         value: 12
         unit: months 
-      material_cost: 150000  # €/t
+      material_cost: 90000  # €/t
       flag_GBM: false
       mu: 0.10
       sigma: 0.30
@@ -180,7 +180,7 @@ Commodity:
       prediction_horizon:
         value: 12
         unit: months
-      material_cost: 200000  # €/t (SiC/IGBT stacks, DC link, control)
+      material_cost: 50000  # €/t (SiC/IGBT stacks, DC link, control)
       flag_GBM: false
       mu: 0.06
       sigma: 0.30

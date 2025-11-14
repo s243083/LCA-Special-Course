@@ -3,16 +3,17 @@ import numpy as np
 import pandas as pd
 
 import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
+# removed: matplotlib.dates as mdates (unused)
 
-
-
-
-
-# NEW imports for interactivity
+# Interactivity
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from core.utils import apply_overrides , get_input_parameter
+
+
+
+from core.utils import apply_overrides, get_input_parameter
+from core.CashFlowEngine import CashFlowEngine
+
 
 class Valuation:
     def __init__(self, env):
@@ -24,374 +25,264 @@ class Valuation:
         if hasattr(self.env.config, 'Valuation_overrides'):
             apply_overrides(self.valuationInput, self.env.config.Valuation_overrides)
 
-        # project start retained if needed elsewhere, but aggregation uses timestamps directly
+        # project start retained if needed elsewhere
         self.project_start = self.env.config.Project_StartDate
 
-        # Expect these to already be DataFrames
-        # capex_costs: columns include ['timestamp','cost','category_name','subcategory_name','item_name', ...]
-        # finex_costs: columns include ['timestamp','debt_payment']
-        # revenue_records: columns include ['timestamp','revenue']
-        self.capex_costs = pd.DataFrame
-        self.finex_costs = pd.DataFrame
-        self.revenue_records = pd.DataFrame
-        self.opex_costs = pd.DataFrame
-
-        self.cashflow_records = pd.DataFrame
-        self.cashflow_discounted_records = pd.DataFrame
-
-        self.valuemetrics = pd.DataFrame
-    # ------------------------------ Public API ------------------------------
-
-    def project_valuation(self):
-            self.capex_costs = self.env.capex.cost_records
-            self.finex_records = self.env.finex.finex_records
-            self.revenue_records = self.env.RevenueModel.revenue_records
-            self.power_records = self.env.windFarm.power_records
-            self.opex_costs = self.env.opex.OPEX_records
-            self.tax_rate = self.env.finex.tax_rate
-            self.discount_rate = self.env.finex.WACC_annual
-
-
-            # Build and store both undiscounted & discounted cash-flow tables
-            self.calculate_cash_flows()
-
-            #print(self.cashflow_discounted_records)  # or self.cashflow_records
-            self.valuation()
-
-    # ------------------------------ Cash-flow engine ------------------------------
-    def calculate_cash_flows(self):
-        """
-        Populates:
-          - self.unified_records (tall records, undiscounted)
-          - self.cashflow_records (aggregated by period, undiscounted)
-          - self.cashflow_discounted_records (aggregated + discount columns when rate given)
-
-        Returns the discounted DataFrame if discount_rate is provided,
-        otherwise the undiscounted aggregated DataFrame.
-        """
-
+        self.power_records = self.env.windFarm.power_records if hasattr(self.env, "windFarm") else None
         
-        # 1) Build unified tall records once
-        self.unified_records = pd.concat(
-            [self._capex_df(), self._finex_df(), self._revenue_df(), self._opex_df()],
-            ignore_index=True
-        ).dropna(subset=["timestamp"]).sort_values("timestamp")
 
-        # 2) Aggregate (UNDISCOUNTED) and store
-        self.cashflow_records = self.aggregate_cash_flows(self.unified_records)
+        # Placeholders (instances, not classes)
+        self.capex_costs = pd.DataFrame()
+        self.finex_costs = pd.DataFrame()
+        self.revenue_records = pd.DataFrame()
+        self.opex_costs = pd.DataFrame()
 
-        # 3) Optionally add discounting and store the discounted table
-        if self.discount_rate is not None:
-            self.cashflow_discounted_records = self.discount_cash_flows(
-                self.cashflow_records
-            )
+        self.cashflow_records = pd.DataFrame()
+        self.cashflow_discounted_records = pd.DataFrame()
+        self.valuemetrics = pd.DataFrame()
 
-    # ------------------------------ Normalization ------------------------------
+        self.discount_rate = None
+        self.tax_rate = None
+        self.power_records = None
 
-    def _ensure_ts(self, df, col="timestamp"):
-        out = df.copy()
-        if col not in out.columns:
-            raise ValueError(f"Expected '{col}' column in DataFrame.")
-        out[col] = pd.to_datetime(out[col], errors="coerce")
-        return out
+    # ------------------------------ Public API ------------------------------
+    def project_valuation(self):
+        # 1) FINEX
+        finex_df = self.env.finex.calc_FINEX()
+        self.wacc_annual = self.env.finex.WACC_annual
+        self.tax_rate = self.env.finex.tax_rate or 0.0  # fraction (e.g., 0.22)
 
-    def _capex_df(self):
-        df = self._ensure_ts(self.capex_costs)
-        # Negative = outflow
-        out = pd.DataFrame({
-            "timestamp": df["timestamp"],
-            "amount": -df["cost"].astype(float),
-            "type": "capex",
-            "category": df.get("category_name"),
-            "subcategory": df.get("subcategory_name"),
-            "label": df.get("item_name")
-        })
-        return out
+        # cost of equity (annual)
+        self.cost_of_equity_annual = self.env.finex.equity_annual
 
-    def _finex_df(self):
-        """
-        Produces tall records from FINEX:
-        - 'finex' rows for debt payments (cash outflow)
-        - 'depreciation' rows if available (non-cash value preserved)
-        """
-        df = self._ensure_ts(self.finex_records)
+        # Optional power for LCOE
+        if hasattr(self.env, "windFarm") and hasattr(self.env.windFarm, "power_records"):
+            self.power_records = self.env.windFarm.power_records
 
-        frames = []
+        # 2) CashFlowEngine
+        start_ts = pd.to_datetime(self.env.config.Project_StartDate, format="%d.%m.%Y")
+        end_h = float(getattr(self.env.config, "WF_OperationsEnd_h", 0.0) or 0.0)
+        op_end_ts = start_ts + pd.to_timedelta(end_h, unit="h")
 
-        # Debt payments (cash)
-        if "debt_payment" in df.columns:
-            frames.append(pd.DataFrame({
-                "timestamp": df["timestamp"],
-                "amount": -df["debt_payment"].fillna(0.0).astype(float),  # outflow
-                "type": "finex",
-                "category": None,
-                "subcategory": None,
-                "label": "debt_payment"
-            }))
+        # hardcoded monthly calendar (month start frequency)
+        calendar = pd.date_range(start=start_ts, end=op_end_ts, freq="MS")
 
-        # Depreciation (non-cash value preserved; exclude from net cash later)
-        if "depreciation" in df.columns:
-            frames.append(pd.DataFrame({
-                "timestamp": df["timestamp"],
-                "amount": -df["depreciation"].fillna(0.0).astype(float),
-                "type": "depreciation",
-                "category": None,
-                "subcategory": None,
-                "label": "depreciation"
-            }))
+        # pass it to the CashFlowEngine
+        cfe = CashFlowEngine(self.env, calendar=calendar)
+        wf = cfe.run_waterfall(
+            capex_df=self.env.capex.cost_records,
+            opex_df=self.env.opex.OPEX_records,
+            revenue_df=self.env.RevenueModel.revenue_records,
+            finex_df=finex_df,
+            tax_rate=self.tax_rate,
+        )
 
-        return pd.concat(frames, ignore_index=True)
+        # 3) Aggregate & discount
+        self.cashflow_records = self.aggregate_cash_flows(wf)
+        self.cashflow_discounted_records = self.discount_cash_flows(self.cashflow_records)
 
-    def _revenue_df(self):
-        df = self._ensure_ts(self.revenue_records)
-        out = pd.DataFrame({
-            "timestamp": df["timestamp"],
-            "amount": df["total_revenue"].astype(float),  # inflow
-            "type": "revenue",
-            "category": None,
-            "subcategory": None,
-            "label": "revenue"
-        })
+        # 4) KPIs
+        self.valuation()
 
-        return out
-    
-    def _opex_df(self):
-        df = self._ensure_ts(self.opex_costs)
-        out = pd.DataFrame({
-            "timestamp": df["timestamp"],
-            "amount": -df["OM_payment"].astype(float),
-            "type": "opex",
-            "category": None,
-            "subcategory": None,
-            "label": "opex"
-        })
-        return out
+        # 1) Executive overview dashboard
+        self.overview_dashboard(scenario_name="Base")
+        # Cash flow plot
+        self.plot_cash_flows()
 
-    # ------------------------------ Aggregation & Discounting ------------------------------
+        # 2) NPV contribution bridge (equity and firm views)
+        self.pv_bridge(use_equity=True)   # → NPV (Equity)
 
-    def aggregate_cash_flows(self, records_df):
-        """
-        Aggregates raw records into period cash flows.
 
-        Produces:
-        - free_cash_flow: FCFF using taxes on EBIT (EBIT = revenue + opex + depreciation),
-        then add back depreciation (non-cash), include capex, exclude finex.
-        - net_cash_flow: includes finex (sum of revenue + opex + capex + finex), excludes depreciation.
+        self.pv_bridge(use_equity=False)    # → NPV (Firm)
 
-        Notes:
-        - Assumes amounts in records_df['amount'] are already signed:
-            revenue > 0, opex/capex/finex < 0, depreciation < 0 (non-cash).
-        - Taxes are applied to positive EBIT only (no tax credit on negative EBIT).
-        """
-        import pandas as pd
-        import numpy as np
+
+        # 3) DSCR calendar heatmap
+        self.dscr_heatmap()
+
+
+
+        return self.cashflow_discounted_records
+
+
+    # ------------------------------ Aggregation (WIDE) ------------------------------
+    def aggregate_cash_flows(self, df_wide: pd.DataFrame) -> pd.DataFrame:
         period = self.cf_aggregation_period
-
         freq_map = {"monthly": "M", "quarterly": "Q", "yearly": "A"}
         if period not in freq_map:
-            raise ValueError("period must be one of: 'monthly', 'quarterly', 'yearly'.")
-
+            raise ValueError("cf_aggregation_period must be one of: 'monthly', 'quarterly', 'yearly'.")
         freq = freq_map[period]
-        df = records_df.copy().sort_values("timestamp")
 
-        grouped = (
-            df.groupby([pd.Grouper(key="timestamp", freq=freq), "type"])["amount"]
-            .sum()
-            .unstack(fill_value=0)
-        )
+        df = df_wide.copy()
+        df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
+        df = df.dropna(subset=["timestamp"]).sort_values("timestamp")
 
-        # Ensure columns exist even if missing in data
-        for col in ("capex", "finex", "opex", "revenue", "depreciation"):
-            if col not in grouped.columns:
-                grouped[col] = 0.0
+        # Sum numeric columns (except DSCR which we average)
+        numcols = df.select_dtypes(include=[np.number]).columns.tolist()
+        sum_cols = [c for c in numcols if c != "DSCR"]
 
-        # -------------------- Net cash flow (exclude depreciation) --------------------
-        grouped["net_cash_flow"] = grouped[["revenue", "opex", "capex", "finex"]].sum(axis=1)
+        agg_sum = df.groupby(pd.Grouper(key="timestamp", freq=freq))[sum_cols].sum()
+        out = agg_sum
+        if "DSCR" in df.columns:
+            out = out.join(df.groupby(pd.Grouper(key="timestamp", freq=freq))["DSCR"].mean(), how="left")
 
-        # -------------------- Free cash flow (tax on EBIT) ---------------------------
-        tax_rate = float(getattr(self, "tax_rate", 0.0) or 0.0)
+        out = out.reset_index().rename(columns={"timestamp": "period_end"})
 
-        # EBIT includes depreciation (non-cash) to capture the tax shield
-        ebit = grouped["revenue"] + grouped["opex"] + grouped["depreciation"]
+        # Equity "net" line for convenience
+        if "Equity_CF" in out.columns:
+            out["net_cash_flow"] = out["Equity_CF"]
 
-        # Tax only when EBIT > 0 (no immediate tax credit on negative EBIT)
-        tax = np.where(ebit > 0.0, ebit * tax_rate, 0.0)
-
-        # NOPAT = EBIT - tax
-        nopat = ebit - tax
-
-        # Add back depreciation (it's negative in the table, so add back -depreciation)
-        dep_addback = -grouped["depreciation"]
-
-        # FCFF: NOPAT + Depreciation add-back + CapEx (signed; usually negative). Excludes FinEx.
-        grouped["free_cash_flow"] = nopat + dep_addback + grouped["capex"]
-
-        # Turn the index back into a column (period end timestamps)
-        grouped = grouped.reset_index().rename(columns={"timestamp": "period_end"})
-        return grouped
-
-
-
-
-    def discount_cash_flows(self, df):
-        """
-        Apply discounting to both free_cash_flow and net_cash_flow.
-
-        Args:
-            df: DataFrame with at least 'period_end', 'free_cash_flow', 'net_cash_flow'
-            discount_rate_annual: annual discount rate (e.g., 0.02 for 2%)
-            period: one of {"monthly", "quarterly", "yearly"}
-        """
-        discount_rate_annual = self.discount_rate
-        period = self.cf_aggregation_period
-
-        periods_per_year = {"monthly": 12, "quarterly": 4, "yearly": 1}[period]
-        r = discount_rate_annual / periods_per_year
-
-        out = df.copy().sort_values("period_end").reset_index(drop=True)
-        out["t"] = np.arange(len(out))  # 0,1,2,... per period
-        out["discount_factor"] = (1.0 / (1.0 + r)) ** out["t"]
-
-        # Discount both cash flow types
-        if "net_cash_flow" in out:
-            out["discounted_net_cash_flow"] = out["net_cash_flow"] * out["discount_factor"]
-        if "free_cash_flow" in out:
-            out["discounted_free_cash_flow"] = out["free_cash_flow"] * out["discount_factor"]
+        # ---- FCFF (for NPV_firm) ----
+        needed = {"EBIT", "Tax", "depreciation", "capex"}
+        if needed.issubset(out.columns):
+            nopat = out["EBIT"] + out["Tax"]              # Tax is negative → EBIT - tax
+            dep_addback = -out["depreciation"]            # depreciation stored as negative → add back as positive
+            out["FCFF"] = nopat + dep_addback + out["capex"]
+        else:
+            # If any component is missing, create FCFF with NaNs to avoid silent misuse
+            out["FCFF"] = np.nan
 
         return out
 
+
+    # ------------------------------ Discounting ------------------------------
+    def discount_cash_flows(self, df: pd.DataFrame) -> pd.DataFrame:
+        if not isinstance(df, pd.DataFrame) or df.empty:
+            raise ValueError("cashflow table is empty. Run project_valuation() first.")
+
+        if self.wacc_annual is None or self.cost_of_equity_annual is None:
+            raise ValueError("WACC or cost of equity not set. Ensure project_valuation() computed them.")
+
+        period = self.cf_aggregation_period
+        ppy = {"monthly": 12, "quarterly": 4, "yearly": 1}[period]
+
+        r_wacc   = (1.0 + float(self.wacc_annual))**(1.0/ppy)   - 1.0
+        r_equity = (1.0 + float(self.cost_of_equity_annual))**(1.0/ppy) - 1.0
+
+        out = df.copy().sort_values("period_end").reset_index(drop=True)
+        out["period_end"] = pd.to_datetime(out["period_end"], errors="coerce")
+        if out["period_end"].isna().any():
+            raise ValueError("Invalid 'period_end' timestamp(s) after aggregation.")
+
+        out["t"] = np.arange(len(out))
+
+        out["df_wacc"] = (1.0 / (1.0 + r_wacc)) ** out["t"]
+        out["df_equity"] = (1.0 / (1.0 + r_equity)) ** out["t"]
+
+        if "Equity_CF" in out.columns:
+            out["discounted_equity_cf"] = out["Equity_CF"] * out["df_equity"]
+        if "FCFF" in out.columns:
+            out["discounted_fcff"] = out["FCFF"] * out["df_wacc"]
+        if "CFADS" in out.columns:
+            out["discounted_cfads"] = out["CFADS"] * out["df_wacc"]
+
+        return out
+
+
+    # ------------------------------ KPIs ------------------------------
     def valuation(self):
         """
-        Uses already-created inputs:
-        - self.cashflow_records (UNDISCOUNTED, with capex/finex/opex/revenue/free_cash_flow/net_cash_flow)
-        - self.cashflow_discounted_records (has discount_factor & discounted_* columns)
-        - self.power_records (optional, for LCOE)
-
-        Returns dict with NPV (from discounted FREE cash flow), 
-        IRR (from UNdiscounted FREE cash flow), 
-        LCOE (if computable), and the discounted CF table.
+        KPIs:
+          - NPV (discounted Equity_CF)
+          - IRR (undiscounted Equity_CF series)
+          - LCOE (if power records provided) using PV(capex+opex) / PV(energy)
         """
-        import pandas as pd
-
         cf_disc = self.cashflow_discounted_records
         cf_undisc = self.cashflow_records
-        aggregation_period = self.cf_aggregation_period
-    
-
-        # ---------- NPV (from DISCOUNTED FREE cash flows) ----------
-        self.npv = (
-            float(cf_disc["discounted_free_cash_flow"].sum())
-            if isinstance(cf_disc, pd.DataFrame) and "discounted_free_cash_flow" in cf_disc.columns
+        # ---- NPVs ----
+        self.npv_equity = (
+            float(cf_disc["discounted_equity_cf"].sum())
+            if isinstance(cf_disc, pd.DataFrame) and "discounted_equity_cf" in cf_disc.columns
             else None
         )
-        print(f"NPV (from FCF): {self.npv}")
+        self.npv_firm = (
+            float(cf_disc["discounted_fcff"].sum())
+            if isinstance(cf_disc, pd.DataFrame) and "discounted_fcff" in cf_disc.columns
+            else None
+        )
+        print(f"NPV_equity: {self.npv_equity}")
+        print(f"NPV_firm:   {self.npv_firm}")
 
-        # ---------- IRR (from UNdiscounted FREE cash flows) ----------
+        # ---- IRR (Equity) ----
         self.irr = None
-        if isinstance(cf_undisc, pd.DataFrame) and not cf_undisc.empty and "free_cash_flow" in cf_undisc.columns:
+        if isinstance(cf_undisc, pd.DataFrame) and not cf_undisc.empty and "Equity_CF" in cf_undisc.columns:
             irr_series = (
-                cf_undisc.sort_values("period_end")["free_cash_flow"]
+                cf_undisc.sort_values("period_end")["Equity_CF"]
                 .astype(float)
                 .to_numpy()
             )
             self.irr = self._compute_irr(irr_series)
-        print(f"IRR (from FCF): {self.irr}")
-
-        # ---------- LCOE (optional; requires self.power_records) ----------
+        print(f"IRR (Equity_CF): {self.irr}")
+        # ---- LCOE (optional; excludes financing) ----
         self.lcoe = None
         if isinstance(getattr(self, "power_records", None), pd.DataFrame):
-            base = cf_disc[["period_end", "discount_factor", "capex", "finex", "opex"]].copy()
-            base[["capex", "finex", "opex"]] = base[["capex", "finex", "opex"]].fillna(0.0)
-            # Treat spends as positive in the numerator
-            base["costs"] = -(base["capex"] + base["opex"])
+            base_cols = ["period_end", "df_wacc", "capex", "opex"]
+            if all(c in cf_disc.columns for c in base_cols):
+                base = cf_disc[base_cols].copy().fillna(0.0)
+                # Treat spends as positive in numerator (capex/opex are negative)
+                base["costs"] = -(base["capex"] + base["opex"])
 
-            freq = {"monthly": "M", "quarterly": "Q", "yearly": "A"}[aggregation_period]
+                freq = {"monthly": "M", "quarterly": "Q", "yearly": "A"}[self.cf_aggregation_period]
 
-            pr = self.power_records.copy()
-            pr.columns = ["timestamp", "Total_Production"]
-            pr["timestamp"] = pd.to_datetime(pr["timestamp"], errors="coerce")
-            pr["Total_Production"] = pd.to_numeric(pr["Total_Production"], errors="coerce")
-            pr = (
-                pr.dropna(subset=["timestamp", "Total_Production"])
-                .sort_values("timestamp")
-                .reset_index(drop=True)
-            )
+                pr = self.power_records.copy()
+                pr.columns = ["timestamp", "Total_Production"]
+                pr["timestamp"] = pd.to_datetime(pr["timestamp"], errors="coerce")
+                pr["Total_Production"] = pd.to_numeric(pr["Total_Production"], errors="coerce")
+                pr = pr.dropna(subset=["timestamp", "Total_Production"]).sort_values("timestamp")
 
-            energy_agg = (
-                pr.groupby(pd.Grouper(key="timestamp", freq=freq))["Total_Production"]
-                .sum()
-                .reset_index()
-                .rename(columns={"timestamp": "period_end", "Total_Production": "energy"})
-            )
+                energy_agg = (
+                    pr.groupby(pd.Grouper(key="timestamp", freq=freq))["Total_Production"]
+                      .sum()
+                      .reset_index()
+                      .rename(columns={"timestamp": "period_end", "Total_Production": "energy"})
+                )
 
-            lcoe_df = (
-                base.merge(energy_agg, on="period_end", how="left")
-                    .fillna({"energy": 0.0})
-                    .sort_values("period_end")
-                    .reset_index(drop=True)
-            )
-            lcoe_df["pv_costs"] = lcoe_df["costs"] * lcoe_df["discount_factor"]
-            lcoe_df["pv_energy"] = lcoe_df["energy"] * lcoe_df["discount_factor"]
+                lcoe_df = (
+                    base.merge(energy_agg, on="period_end", how="left")
+                        .fillna({"energy": 0.0})
+                        .sort_values("period_end")
+                        .reset_index(drop=True)
+                )
+                lcoe_df["pv_costs"] = lcoe_df["costs"] * lcoe_df["df_wacc"]
+                lcoe_df["pv_energy"] = lcoe_df["energy"] * lcoe_df["df_wacc"]
 
-            denom = float(lcoe_df["pv_energy"].sum())
-            self.lcoe = float(lcoe_df["pv_costs"].sum() / denom) if denom > 0 else None
-            print(f"LCOE: {self.lcoe}")
+                denom = float(lcoe_df["pv_energy"].sum())
+                self.lcoe = float(lcoe_df["pv_costs"].sum() / denom) if denom > 0 else None
+                print(f"LCOE: {self.lcoe}")
 
-        # ---------- append to self.valuemetrics ----------
-        metrics_row = {
-            "npv": self.npv,
-            "irr": self.irr,
-            "lcoe": self.lcoe,
-        }
-
+        # ---- store metrics ----
+        metrics_row = {"npv_firm": self.npv_firm,"npv_equity": self.npv_equity, "irr": self.irr, "lcoe": self.lcoe}
         row_df = pd.DataFrame([metrics_row])
         if not isinstance(getattr(self, "valuemetrics", None), pd.DataFrame) or self.valuemetrics.empty:
             self.valuemetrics = row_df
         else:
             self.valuemetrics = pd.concat([self.valuemetrics, row_df], ignore_index=True)
 
-
-
+    # ------------------------------ IRR helpers ------------------------------
     def _compute_irr(self, cashflows):
-        """
-        IRR via numpy_financial if available; otherwise Newton's method fallback.
-        cashflows: 1D array-like of period cash flows (t=0,1,2,...)
-        Returns float (periodic IRR), converted to annualized based on aggregation period
-        to be comparable with annual discount rates.
-        """
         if cashflows is None or len(cashflows) == 0:
             return None
-
-        # quick exit if all same sign (no IRR)
         if np.all(cashflows >= 0) or np.all(cashflows <= 0):
             return None
-
-        # try numpy_financial
-        irr = None
-
         import numpy_financial as npf
         irr_periodic = npf.irr(cashflows)
-        irr = self._annualize_rate(irr_periodic)
-        return irr
+        return self._annualize_rate(irr_periodic)
 
     def _annualize_rate(self, r_periodic):
         if r_periodic is None or not np.isfinite(r_periodic):
             return None
-        # map aggregation period to periods/year
-        agg = self.cf_aggregation_period
-        periods_per_year = {"monthly": 12, "quarterly": 4, "yearly": 1}.get(agg, 12)
+        periods_per_year = {"monthly": 12, "quarterly": 4, "yearly": 1}.get(self.cf_aggregation_period, 12)
         try:
             return (1.0 + r_periodic) ** periods_per_year - 1.0
         except Exception:
             return None
-        
 
+    # ------------------------------ Plotting ------------------------------
 
     def plot_cash_flows(
         self,
         use_discounted: bool = False,
         include_net_line: bool = True,
-        figsize=(12, 6),
+        figsize=(18, 6),   # wider figure
         bar_width: float = 0.2,
         title: str | None = None,
         start_date: str | pd.Timestamp | None = None,
@@ -401,23 +292,19 @@ class Valuation:
         # pick source
         df = self.cashflow_discounted_records if use_discounted else self.cashflow_records
         if not isinstance(df, pd.DataFrame) or df.empty:
-            raise ValueError("Cash-flow table is empty. Run calculate_cash_flows() first.")
+            raise ValueError("Cash-flow table is empty. Run project_valuation() first.")
 
-        # ensure required cols
-        cols = ["capex", "finex", "opex", "revenue", "net_cash_flow", "period_end"]
-        for c in cols:
+        required = ["capex", "DS", "opex", "revenue", "Equity_CF", "period_end"]
+        for c in required:
             if c not in df.columns:
-                if c == "period_end":
-                    raise ValueError("Expected 'period_end' in cash-flow table.")
-                df[c] = 0.0
+                raise ValueError(f"Expected '{c}' in cash-flow table. Missing column '{c}'.")
 
-        # dates
         base = df.copy()
         base["period_end"] = pd.to_datetime(base["period_end"], errors="coerce")
         if base["period_end"].isna().any():
             raise ValueError("Found invalid 'period_end' timestamps in cash-flow table.")
 
-        # filter if needed
+        # optional range filter
         if start_date or end_date:
             sd = pd.to_datetime(start_date, errors="coerce") if start_date else None
             ed = pd.to_datetime(end_date, errors="coerce") if end_date else None
@@ -431,234 +318,335 @@ class Valuation:
                 raise ValueError("No cash flows in the selected window.")
 
         data = base.sort_values("period_end").reset_index(drop=True)
-        series_order = ["capex", "finex", "opex", "revenue"]
-        plot_title = title or ("Discounted Cash Flows by Period" if use_discounted else "Cash Flows by Period")
 
-        # -------- interactive branch (Plotly) --------
-        if interactive:
-            fig = make_subplots(specs=[[{"secondary_y": include_net_line}]])
-            for i, s in enumerate(series_order):
-                fig.add_trace(
-                    go.Bar(
-                        x=data["period_end"],
-                        y=data[s].astype(float),
-                        name=s,
-                        offsetgroup=str(i),
-                    ),
-                    secondary_y=False,
-                )
-            if include_net_line:
-                fig.add_trace(
-                    go.Scatter(
-                        x=data["period_end"],
-                        y=data["net_cash_flow"].astype(float),
-                        name="net_cash_flow",
-                        mode="lines+markers",
-                    ),
-                    secondary_y=True,
-                )
-
-            fig.update_layout(
-                barmode="group",
-                title=plot_title,
-                hovermode="x unified",
-                width=int(figsize[0] * 80),
-                height=int(figsize[1] * 80),
-            )
-            fig.update_xaxes(title_text="Period end", tickformat="%Y-%m")
-            fig.update_yaxes(title_text="Cash flow", secondary_y=False)
-            if include_net_line:
-                fig.update_yaxes(title_text="Net cash flow", secondary_y=True)
-
-            fig.show()
-            return fig
-
-        # -----------------------
-        # Matplotlib fallback
-        # -----------------------
-        # (Your original logic, unchanged)
-        y = [data[s].astype(float).values for s in series_order]
-        n = len(series_order)
-        group_gap = 0.2
-        group_width = n * bar_width
-        centers = np.arange(len(data)) * (group_width + group_gap)
-        offsets = (np.arange(n) - (n - 1) / 2.0) * bar_width
-
-        fig, ax = plt.subplots(figsize=figsize)
-        for i, (name, yi) in enumerate(zip(series_order, y)):
-            ax.bar(centers + offsets[i], yi, width=bar_width, label=name)
-
-        ax.axhline(0, linewidth=1)
-        ax.grid(True, axis="y", linestyle="--", alpha=0.4)
-
-        dates = data["period_end"]
-        max_labels = 12
-        n_points = len(dates)
-        step = max(1, int(np.ceil(n_points / max_labels)))
-        tick_idx = np.arange(0, n_points, step)
-        if len(tick_idx) == 0 or tick_idx[-1] != n_points - 1:
-            tick_idx = np.unique(np.append(tick_idx, n_points - 1))
-
-        ax.set_xticks(centers[tick_idx])
-        ax.set_xticklabels([dates.iloc[i].strftime("%Y-%m") for i in tick_idx], rotation=45, ha="right")
-
-        if include_net_line:
-            ax2 = ax.twinx()
-            ax2.plot(centers, data["net_cash_flow"].values, marker="o", linestyle="-", label="net_cash_flow")
-            ax2.set_ylabel("Net cash flow")
-            h1, l1 = ax.get_legend_handles_labels()
-            h2, l2 = ax2.get_legend_handles_labels()
-            ax.legend(h1 + h2, l1 + l2, loc="best")
+        # compute FCF (free cash flow)
+        if "FCFF" in data.columns:
+            data["FCF"] = data["FCFF"]
         else:
-            ax.legend(loc="best")
+            data["FCF"] = data["revenue"] + data["opex"] + data["capex"]
 
-        ax.set_title(plot_title)
-        ax.set_xlabel("Period end")
-        ax.set_ylabel("Cash flow")
+        series_order = ["capex", "DS", "opex", "revenue"]
 
-        pad = group_gap / 2
-        ax.set_xlim(centers[0] - group_width / 2 - pad, centers[-1] + group_width / 2 + pad)
+        default_title = "Discounted Cash Flows by Period" if use_discounted else "Cash Flows by Period"
+        plot_title = title or default_title
 
-        fig.tight_layout()
-        plt.show()
-        return fig, ax
+        # --------------------------- Plotly Figure ---------------------------
+        fig = make_subplots(specs=[[{"secondary_y": False}]])
+
+        # Bar series
+        for i, s in enumerate(series_order):
+            fig.add_trace(
+                go.Bar(
+                    x=data["period_end"],
+                    y=data[s].astype(float),
+                    name=s,
+                    offsetgroup=str(i),
+                    hovertemplate=(
+                        "%{x|%Y-%m-%d}<br>"
+                        + f"{s}: "
+                        + "%{y:,.0f}<extra></extra>"
+                    ),
+                ),
+                secondary_y=False,
+            )
+
+        # Equity line
+        fig.add_trace(
+            go.Scatter(
+                x=data["period_end"],
+                y=data["Equity_CF"].astype(float),
+                name="Equity_CF",
+                mode="lines+markers",
+                line=dict(width=2),
+                hovertemplate="Equity_CF: %{y:,.0f}<extra></extra>",
+            ),
+            secondary_y=False,
+        )
+
+        # Free cash flow line
+        fig.add_trace(
+            go.Scatter(
+                x=data["period_end"],
+                y=data["FCF"].astype(float),
+                name="Free Cash Flow",
+                mode="lines",
+                line=dict(width=2, dash="dot"),
+                hovertemplate="FCF: %{y:,.0f}<extra></extra>",
+            ),
+            secondary_y=False,
+        )
+
+        # Layout
+        fig.update_layout(
+            template="plotly_white",
+            barmode="group",
+            title=dict(text=plot_title, x=0.01),
+            hovermode="x unified",
+            width=1400,                   # <<— wider figure
+            height=int(figsize[1] * 80),
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="left",
+                x=0,
+            ),
+            margin=dict(l=50, r=50, t=80, b=50),
+        )
+
+        fig.update_xaxes(
+            title_text="Period end",
+            tickformat="%Y-%m",
+            showgrid=True,
+        )
+
+        fig.update_yaxes(
+            title_text="Cash flow",
+            zeroline=True,
+            zerolinewidth=1,
+        )
+
+        if interactive:
+            fig.show()
+
+        return fig
 
     
 
-    def plot_cash_flows_lines(
-        self,
-        use_discounted: bool = False,
-        include_net_line: bool = True,
-        figsize=(12, 6),
-        title: str | None = None,
-        start_date: str | pd.Timestamp | None = None,
-        end_date: str | pd.Timestamp | None = None,
-    ):
-        """
-        Plot time series lines of capex, finex, opex, revenue per aggregated period.
-        Optionally restrict the plot to a date window.
+    def overview_dashboard(self, scenario_name="Base"):
+        cf = self.cashflow_discounted_records.copy()
+        cf = cf.sort_values("period_end")
 
-        Parameters
-        ----------
-        use_discounted : bool
-            If True, use self.cashflow_discounted_records; otherwise use self.cashflow_records.
-        include_net_line : bool
-            If True, overlays a line for net cash flow per period.
-        figsize : tuple
-            Matplotlib figure size.
-        title : str | None
-            Optional custom title.
-        start_date : str | pd.Timestamp | None
-            Inclusive start of the window (compared to 'period_end'). If None, unbounded on the left.
-        end_date : str | pd.Timestamp | None
-            Inclusive end of the window (compared to 'period_end'). If None, unbounded on the right.
+        # ----- KPIs
+        kpi = {
+            "npv_equity": self.npv_equity,
+            "npv_firm": self.npv_firm,
+            "irr": self.irr,
+            "lcoe": self.lcoe,
+        }
 
-        Returns
-        -------
-        (fig, ax)
-            Matplotlib figure and axis.
-        """
-        # Pick the source table
-        df = self.cashflow_discounted_records if use_discounted else self.cashflow_records
-        if not isinstance(df, pd.DataFrame) or df.empty:
-            raise ValueError("Cash-flow table is empty. Run calculate_cash_flows() first.")
+        # ----- cumulative discounted equity & project (firm) value
+        cf["cum_disc_eq"] = cf["discounted_equity_cf"].cumsum()
 
-        # Ensure required columns
-        cols = ["capex", "finex", "opex", "revenue", "net_cash_flow", "period_end"]
-        for c in cols:
-            if c not in df.columns:
-                if c == "period_end":
-                    raise ValueError("Expected 'period_end' in cash-flow table.")
-                df[c] = 0.0
+        if "discounted_fcff" in cf.columns:
+            cf["cum_disc_firm"] = cf["discounted_fcff"].cumsum()
+        else:
+            cf["cum_disc_firm"] = np.nan   # fail-safe
 
-        # Coerce period_end to datetime and filter window
-        base = df.copy()
-        base["period_end"] = pd.to_datetime(base["period_end"], errors="coerce")
-        if base["period_end"].isna().any():
-            raise ValueError("Found invalid 'period_end' timestamps in cash-flow table.")
+        # ----- Subplots layout
+        fig = make_subplots(
+            rows=2, cols=4,
+            specs=[
+                [{"type": "indicator"}, {"type": "indicator"}, {"type": "indicator"}, {"type": "indicator"}],
+                [{"colspan": 4, "type": "xy"}, None, None, None],
+            ],
+            vertical_spacing=0.12, horizontal_spacing=0.05,
+        )
 
-        if start_date is not None or end_date is not None:
-            sd = pd.to_datetime(start_date, errors="coerce") if start_date is not None else None
-            ed = pd.to_datetime(end_date, errors="coerce") if end_date is not None else None
-            if start_date is not None and pd.isna(sd):
-                raise ValueError(f"Could not parse start_date={start_date!r}")
-            if end_date is not None and pd.isna(ed):
-                raise ValueError(f"Could not parse end_date={end_date!r}")
+        # ----- KPI cards
+        fig.add_trace(go.Indicator(
+            mode="number",
+            value=float(kpi["npv_equity"] or 0),
+            title={"text": "NPV (Equity)"},
+        ), row=1, col=1)
 
-            mask = pd.Series(True, index=base.index)
-            if sd is not None:
-                mask &= base["period_end"] >= sd
-            if ed is not None:
-                mask &= base["period_end"] <= ed
+        fig.add_trace(go.Indicator(
+            mode="number",
+            value=float(kpi["npv_firm"] or 0),
+            title={"text": "NPV (Firm)"},
+        ), row=1, col=2)
 
-            base = base.loc[mask]
-            if base.empty:
-                raise ValueError("No cash flows in the selected window.")
+        fig.add_trace(go.Indicator(
+            mode="number",
+            value=float(kpi["irr"] or 0),
+            number={"suffix": "%", "valueformat": ".2%"},
+            title={"text": "IRR (Equity)"},
+        ), row=1, col=3)
 
-        # Sort by time
-        data = base.sort_values("period_end").reset_index(drop=True)
-        dates = data["period_end"]
+        fig.add_trace(go.Indicator(
+            mode="number",
+            value=float(kpi["lcoe"] or 0),
+            title={"text": "LCOE"},
+        ), row=1, col=4)
 
-        # Series to plot
-        series_order = ["capex", "finex", "opex", "revenue"]
+        # ----- PLOT 1: cumulative discounted equity value
+        fig.add_trace(go.Scatter(
+            x=cf["period_end"],
+            y=cf["cum_disc_eq"],
+            mode="lines+markers",
+            name="Cumulative PV Equity CF",
+            line=dict(width=3),
+        ), row=2, col=1)
 
-        # --- Plot ---
-        fig, ax = plt.subplots(figsize=figsize)
+        # ----- PLOT 2: cumulative discounted FCFF (project value)
+        fig.add_trace(go.Scatter(
+            x=cf["period_end"],
+            y=cf["cum_disc_firm"],
+            mode="lines",
+            name="Cumulative PV Project Value (FCFF)",
+            line=dict(width=2, dash="dot"),
+        ), row=2, col=1)
+        
+        # ----- Breakeven annotations (equity + firm)
+        def _first_recovery_index(vals: np.ndarray):
+            """First index where cum >= 0 *after* having been negative."""
+            vals = np.asarray(vals, dtype=float)
+            if vals.size == 0 or not np.isfinite(vals).any():
+                return None
 
-        for name in series_order:
-            yi = data[name].astype(float).values
-            ax.plot(dates, yi, label=name, linewidth=1.8)
+            neg_mask = vals < 0
+            had_negative_before = np.cumsum(neg_mask) > 0
 
-        if include_net_line:
-            ax.plot(dates, data["net_cash_flow"].values, label="net_cash_flow",
-                    linewidth=2.2, linestyle="--", marker=None)
+            crossing_mask = (vals >= 0) & had_negative_before
+            idxs = np.where(crossing_mask)[0]
+            return int(idxs[0]) if idxs.size > 0 else None
 
-        # Baseline, grid, labels
-        ax.axhline(0, linewidth=1)
-        ax.grid(True, axis="y", linestyle="--", alpha=0.4)
+        # equity breakeven (cumulative discounted equity CF)
+        idx_eq = _first_recovery_index(cf["cum_disc_eq"].values)
 
-        # Thin x tick labels (max ~12) for readability
-        max_labels = 12
-        n_points = len(dates)
-        if n_points:
-            step = max(1, int(np.ceil(n_points / max_labels)))
-            tick_idx = np.arange(0, n_points, step)
-            if tick_idx[-1] != n_points - 1:
-                tick_idx = np.append(tick_idx, n_points - 1)
-            ax.set_xticks(dates.iloc[tick_idx])
-            ax.set_xticklabels([dates.iloc[i].strftime("%Y-%m") for i in tick_idx],
-                            rotation=45, ha="right")
+        # firm / project breakeven (cumulative discounted FCFF), if available
+        idx_firm = None
+        if "cum_disc_firm" in cf.columns and np.isfinite(cf["cum_disc_firm"]).any():
+            idx_firm = _first_recovery_index(cf["cum_disc_firm"].values)
 
-        # Titles & axes labels
-        default_title = "Discounted Cash Flows (lines)" if use_discounted else "Cash Flows (lines)"
-        ax.set_title(title or default_title)
-        ax.set_xlabel("Period end")
-        ax.set_ylabel("Cash flow")
+        # draw equity breakeven marker
+        if idx_eq is not None:
+            x_eq = cf["period_end"].iloc[idx_eq]
+            y_eq = cf["cum_disc_eq"].iloc[idx_eq]
 
-        # Compact legend
-        num_lines = len(series_order) + (1 if include_net_line else 0)
-        ax.legend(loc="best", ncol=2 if num_lines >= 5 else 1, frameon=True)
+            fig.add_vline(
+                x=x_eq,
+                line_dash="dash",
+                row=2, col=1,
+                exclude_empty_subplots=False,
+            )
+            fig.add_annotation(
+                x=x_eq,
+                y=y_eq,
+                text="Equity Breakeven",
+                showarrow=True,
+                row=2, col=1,
+            )
 
-        fig.tight_layout()
-        plt.show()
-        return fig, ax
+        # draw firm/project breakeven marker (different dash style)
+        if idx_firm is not None:
+            x_firm = cf["period_end"].iloc[idx_firm]
+            y_firm = cf["cum_disc_firm"].iloc[idx_firm]
+
+            # if both breakevens fall on the same date, nudge the annotation a bit
+            same_x = (idx_eq is not None) and (x_firm == cf["period_end"].iloc[idx_eq])
+
+            fig.add_vline(
+                x=x_firm,
+                line_dash="dot",         # distinguish from equity
+                row=2, col=1,
+                exclude_empty_subplots=False,
+            )
+            fig.add_annotation(
+                x=x_firm,
+                y=y_firm * (1.02 if same_x else 1.0),  # small vertical offset if overlapping
+                text="Project Breakeven",
+                showarrow=True,
+                row=2, col=1,
+            )
+
+
+        # ----- Layout
+        fig.update_layout(
+            title=f"Project Overview — {scenario_name}",
+            hovermode="x unified",
+            height=700,
+            legend=dict(orientation="h", yanchor="bottom", y=1.02),
+        )
+
+        fig.update_xaxes(title="Period end", row=2, col=1)
+        fig.update_yaxes(title="PV (currency)", row=2, col=1)
+
+        fig.show()
+        return fig
+
+
+    def pv_bridge(self, use_equity: bool = True):
+
+        # use raw cashflows (not yet discounted)
+        df = self.cashflow_records.copy()
+
+        # bring in discount factors
+        disc = self.cashflow_discounted_records[["period_end", "df_equity", "df_wacc"]]
+        df = df.merge(disc, on="period_end", how="left")
+
+        # select correct discount factor
+        if use_equity:
+            df["df"] = df["df_equity"]
+        else:
+            df["df"] = df["df_wacc"]
+
+        if use_equity:
+            # Prefer true equity capex if available; otherwise fall back to full capex
+            if "equity_contribution" in df.columns:
+                df["equity_capex"] = df["equity_contribution"]
+            else:
+                df["equity_capex"] = df["capex"]
+
+            pv = {
+                "Revenue":       (df["revenue"] * df["df"]).sum(),
+                "Opex":          (df["opex"] * df["df"]).sum(),
+                "Tax":           (df["Tax"] * df["df"]).sum(),
+                "Debt Service":  (df["DS"] * df["df"]).sum(),
+                "Equity Capex":  (df["equity_capex"] * df["df"]).sum(),
+            }
+            # NPV to equity = PV of Equity_CF using equity discount factor
+            end_total = (df["Equity_CF"] * df["df"]).sum()
+            label = "NPV Equity"
+
+        else:
+            pv = {
+                "Revenue":  (df["revenue"] * df["df"]).sum(),
+                "Opex":     (df["opex"] * df["df"]).sum(),
+                "Tax":      (df["Tax"] * df["df"]).sum(),
+                "Capex":    (df["capex"] * df["df"]).sum(),
+            }
+            # NPV to firm = PV of FCFF using WACC discount factor
+            end_total = (df["FCFF"] * df["df"]).sum()
+            label = "NPV Firm"
+
+        # plot waterfall
+        x = list(pv.keys()) + [label]
+        y = list(pv.values()) + [end_total]
+        measures = ["relative"] * (len(x) - 1) + ["total"]
+
+        fig = go.Figure(go.Waterfall(x=x, y=y, measure=measures))
+        fig.update_layout(title=f"NPV Bridge — {label}")
+        fig.show()
+
+        return fig
+
+    
+
+    def dscr_heatmap(self):
+        df = self.cashflow_records.copy()
+        df["y"] = df["period_end"].dt.year.astype(str)
+        df["m"] = df["period_end"].dt.strftime("%b")
+        pivot = df.pivot_table(index="y", columns="m", values="DSCR", aggfunc="mean")
+        # Order months
+        months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+        pivot = pivot.reindex(columns=months)
+        fig = go.Figure(data=go.Heatmap(z=pivot.values, x=pivot.columns, y=pivot.index, zmin=0.5, zmax=2.0,
+                                        colorbar_title="DSCR"))
+        fig.update_layout(title="DSCR Calendar Heatmap")
+        fig.show()
+        return fig
+
 
 
 
 def load_valuationInput(config):
     """
     Loads wind farm input parameters from the configuration file.
-
-    Returns
-    -------
-    dict
-        Dictionary with wind farm parameters.
     """
     valuationInput = {}
-
     if hasattr(config, 'Valuation_inputFiles'):
         for identifier, file_name in config.Valuation_inputFiles.items():
             valuationInput[identifier] = load_yaml(config.valuewind_inputFolder, file_name)
             valuationInput[identifier] = process_duration_fields(valuationInput[identifier])
-
     return valuationInput

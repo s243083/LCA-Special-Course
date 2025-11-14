@@ -69,10 +69,7 @@ Phase:
           - name: "Main_shaft_and_bearings"
             fixed_cost: 0
             flag_material_cost: true
-            material:
-              - name: "Steel"     # main shaft 4.1 t + bearings 42.6 t + 12.4 t
-                mass: 59.1        # total ≈ 4.1 + 42.6 + 12.4
-                CF: 2.0
+
             subsubcategories:
               - name: "CARB_upwind_bearing"
                 fixed_cost: 0
@@ -103,7 +100,7 @@ Phase:
             material:
               - name: "NdFeB"
                 mass: 25.2
-                CF: 1.2
+                CF: 1.1
               - name: "Copper"
                 mass: 17.1
                 CF: 1.5
@@ -157,13 +154,18 @@ Phase:
                 mass: 39.2
                 CF: 2.0
 
-          - name: "Converter_and_transformer"
-            fixed_cost: 0
-            flag_material_cost: true
+          - name: "Converter"
+            fixed_cost: 1500000
+            flag_material_cost: false
             material:
               - name: "Power_electronics_modules"
                 mass: 17.4
                 CF: 3.0
+
+          - name: "Transformer"
+            fixed_cost: 900000
+            flag_material_cost: false
+            material:
               - name: "Transformer_unit"
                 mass: 44.0
                 CF: 2.5
@@ -191,19 +193,29 @@ Phase:
                 mass: 8.0       # flanges, bolts, adapter plates allowance
                 CF: 2.0
 
+          - name: "Substructure"
+            per_turbine: true
+            project_time:
+              value: 5
+              unit: months
+            subsubcategories:
+              - name: "Tower"
+                fixed_cost: 0
+                flag_material_cost: true
+                material:
+                  - name: "Steel"
+                    mass: 1574
+                    CF: 1.5
+
+# -------------BoP -------------------------------
+  - name: "Project & Balance of Plant"
+    categories:
       - name: "Substructure"
         per_turbine: true
         project_time:
           value: 5
           unit: months
-        subsubcategories:
-          - name: "Tower"
-            fixed_cost: 0
-            flag_material_cost: true
-            material:
-              - name: "Steel"
-                mass: 1574
-                CF: 1.5
+        subcategories:
           - name: "Transition_piece"
             fixed_cost: 0
             flag_material_cost: true
@@ -218,13 +230,6 @@ Phase:
               - name: "Steel"
                 mass: 2097
                 CF: 1.5
-
-
-
-# -------------BoP -------------------------------
-  - name: "Project & Balance of Plant"
-    categories:
-
       # ---------------- ELECTRICAL SYSTEM ----------------
       - name: "Array_cabling"
         per_turbine: false

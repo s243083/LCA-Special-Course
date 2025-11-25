@@ -47,7 +47,7 @@ class ValueWindEnv(simpy.Environment):
 
 
         # Apply Lifetime Extension if enabled
-        self.lifetimeExtension.apply()
+        # self.lifetimeExtension.apply()
 
 
 

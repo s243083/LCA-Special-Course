@@ -1,0 +1,26 @@
+name: winpact_trend
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - ipykernel
+  - nbformat>=4.2.0
+  - pyarrow
+  - pip:
+      - astral==3.2
+      - attr==0.3.2
+      - attrs==25.4.0
+      - git+https://gitlab.windenergy.dtu.dk/AESOpt/maesopt.git
+      - matplotlib==3.10.7
+      - numpy_financial==1.0.0
+      - pandas==2.3.3
+      - plotly==6.0.1
+      - py_wake==2.6.11
+      - PyYAML==6.0.3
+      - scipy==1.16.3
+      - simpy==4.1.1
+      - wind_farm_loads==0.19.1
+      - windio==2.0.1
+
+

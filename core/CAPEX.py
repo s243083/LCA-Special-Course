@@ -12,6 +12,12 @@ from core.utils import apply_overrides
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+# Blade Mass estimator implementation
+
+from maesopt.structure.mcsprop import BladeMassEstimator
+
+
+
 
 class CAPEX:
     """
@@ -73,6 +79,12 @@ class CAPEX:
 
         # Precompute once at construction (you can move to start() if you prefer)
         self.precompute_material_prices()
+
+        # Blade Mass Estimator implementation
+        self.blade_mass_results = None          # raw xarray dataset from estimator
+        self.blade_total_mass = None            # kg, per blade
+        self.blade_material_mass = {}           # {material_key: mass_kg_per_blade}
+        self.n_blades_per_turbine = 3           # or take from config
 
     # ---------------------------
     # Data extraction
@@ -199,6 +211,8 @@ class CAPEX:
             rated_rpm, rotor_diameter, rated_power,
             hub_height, water_depth, cabling_cost
         )
+        # Call blade mass estimator once
+        self.run_blade_mass_estimator()
 
         for phase_name, timing_hours, category, per_turbine in self.cost_items:
             timestamp = self.project_start + pd.Timedelta(hours=float(timing_hours))
@@ -236,13 +250,58 @@ class CAPEX:
             subsubcategory_name = subcategory_name  # for the subcategory-level row
             total = float(subcategory.get("fixed_cost", 0) or 0)
 
-            # ---- Subcategory-level material costs ----
-            if subcategory.get("flag_material_cost", False):
-                materials = subcategory.get("material", [])
-                if isinstance(materials, dict):
-                    materials = [materials]
+            # Flags
+            flag_material_cost_sub = bool(subcategory.get("flag_material_cost", False))
+            use_bme = bool(subcategory.get("use_blade_mass_estimator", False))
 
-                for material in materials:
+            # Normalize materials at subcategory level
+            materials_sub = subcategory.get("material", [])
+            if isinstance(materials_sub, dict):
+                materials_sub = [materials_sub]
+
+            # ---- Subcategory-level material costs ----
+            if use_bme:
+                # Blade Mass Estimator path (only when explicitly requested)
+                # self.run_blade_mass_estimator() no need to call for each turbine
+
+                # Build a lookup: material_name -> CF from YAML
+                cf_by_name = {
+                    m.get("name"): float(m.get("CF", 1) or 1)
+                    for m in materials_sub
+                    if m.get("name") is not None
+                }
+
+                # Loop over estimator material masses directly
+                for material_name, mass_per_blade in self.blade_material_mass.items():
+                    # per turbine: multiply by number of blades, convert to tonnes
+                    n_blades = self.n_blades_per_turbine
+                    total_mass_for_turbine = mass_per_blade * n_blades / 1000.0  # kg → t
+
+                    unit_price = float(self.material_unit_prices.get(material_name, 0.0) or 0.0)
+                    cf = cf_by_name.get(material_name, 1.0)
+
+                    ext = total_mass_for_turbine * unit_price * cf
+                    total += ext
+
+                    self.material_records.append({
+                        "timestamp": ts,
+                        "phase_name": phase_name,
+                        "category_name": category_name,
+                        "subcategory_name": subcategory_name,
+                        "subsubcategory_name": subsubcategory_name,
+                        "material_name": material_name,
+                        "mass": total_mass_for_turbine,
+                        "unit_cost": unit_price,
+                        "CF": cf,
+                        "extended_cost": ext,
+                        "turbine_id": turbine_id,
+                        "per_turbine": per_turbine,
+                        "source": "blade_mass_estimator",
+                    })
+
+            elif flag_material_cost_sub:
+                # Standard subcategory material costing (no blade estimator)
+                for material in materials_sub:
                     material_name = material.get("name")
                     material_cost_per_mass = float(self.material_unit_prices.get(material_name, 0.0) or 0.0)
                     mass = float(material.get("mass", 0) or 0)
@@ -251,7 +310,6 @@ class CAPEX:
                     ext = mass * material_cost_per_mass * cf
                     total += ext
 
-                    # Optional: keep a detailed material trail (now includes phase_name & per_turbine)
                     self.material_records.append({
                         "timestamp": ts,
                         "phase_name": phase_name,
@@ -271,6 +329,7 @@ class CAPEX:
             if subcategory.get("scaling_models", {}).get("flag_DTU_scaling_model", False):
                 comp_name = str(subcategory_name).lower()
                 scaling_costs = self.scaling_model.turbine_component_costs.get(comp_name, {})
+
                 if isinstance(scaling_costs, dict):
                     for v in scaling_costs.values():
                         if isinstance(v, (np.ndarray, pd.Series)) and turbine_id is not None:
@@ -297,8 +356,10 @@ class CAPEX:
                 subsubcategory_name = item.get("name", "")
                 total = float(item.get("fixed_cost", 0) or 0)
 
+                flag_material_cost_subsub = bool(item.get("flag_material_cost", False))
+
                 # Materials at subsubcategory level
-                if item.get("flag_material_cost", False):
+                if flag_material_cost_subsub:
                     materials = item.get("material", [])
                     if isinstance(materials, dict):
                         materials = [materials]
@@ -354,12 +415,40 @@ class CAPEX:
 
         self.total_cost += float(item_cost)
 
+
         #print(f"Total capital cost for category '{category_name}': {item_cost}")
 
         # Placeholders for future categories:
         # - Installation & Commissioning (IC)
         # - Development & Consenting (DC)
         # - Decommissioning & Disposal (DD)
+
+    def run_blade_mass_estimator(self):
+        # 1) Load windIO turbine data (path or object comes from env.config)
+        
+        from maesopt.structure.mcsprop import BladeMassEstimator
+        from windIO import load_yaml as load_yaml
+        import windIO.examples.turbine as wio_turb
+        from pathlib import Path
+        wio_data = load_yaml(Path(wio_turb.__file__).parent/"IEA-22-280-RWT.yaml")
+
+        # 2) Build and populate the estimator
+        bme = BladeMassEstimator()
+        bme.from_windIO(wio_data)
+
+        # 3) Run the estimator and store results
+        out = bme.run(return_flag=3)  # xarray.Dataset
+
+        self.blade_mass_results = out
+        self.blade_total_mass = float(out["mass"])  # kg, per blade
+
+        # 4) Extract a per-material mass breakdown
+        # depends on how the estimator names dims, but conceptually:
+        material_names = list(out.material_names.values)     # ["glass", "carbon", ...]
+        material_masses = list(out.material_mass.values)     # [kg]
+
+        self.blade_material_mass = dict(zip(material_names, material_masses))
+
 
     def get_cost_dataframe(self):
         """Converts the cost records list to a DataFrame for further analysis."""
@@ -373,6 +462,7 @@ class CAPEX:
         """
         # Plot the dashboard first
         capex_dashboard(self, turbine_id=turbine_id)
+        #material_dashboard(self, turbine_id=turbine_id)
         #plot_capex_cost_pies(self.cost_records, turbine_id, **kwargs)
 
         return None
@@ -669,13 +759,13 @@ def capex_dashboard(
     """
     Interactive CAPEX dashboard using Plotly.
 
-    - Figure 1: KPI indicators
-      (total CAPEX, avg per-turbine, selected turbine CAPEX, turbine share)
-    - Figure 2: Sunburst (per-turbine breakdown) + Sunburst (project breakdown)
+    KPIs:
+      - Total Project CAPEX
+      - Turbine <turbine_id> CAPEX
+      - Turbine <turbine_id> Rotor Cost (3_blades)
+      - Share of Turbine CAPEX (all turbines) from Total CAPEX
 
-    Returns
-    -------
-    (fig_kpi, fig_sunbursts) : tuple of plotly.graph_objects.Figure
+    Figure 2: Sunburst (per-turbine breakdown) + Sunburst (project breakdown)
     """
     if not isinstance(self.cost_records, pd.DataFrame) or self.cost_records.empty:
         raise ValueError("No CAPEX cost_records available. Run CAPEX.start() first.")
@@ -743,43 +833,38 @@ def capex_dashboard(
         else:
             used_turbine_id = turbine_id
 
-    # -------- KPIs --------
-    # Total CAPEX (M€)
+    # ===========================
+    #          KPIs
+    # ===========================
+    # 1) Total project CAPEX (M€)
     kpi_total_capex_m = total_project_capex / 1e6
 
-    # Per-turbine CAPEX total (sum of all per_turbine rows, raw)
+    # 2) Turbine CAPEX (selected turbine)
+    selected_turbine_capex_raw = float(dft["cost"].sum()) if not dft.empty else 0.0
+    selected_turbine_capex_m = selected_turbine_capex_raw / 1e6
+
+    # 3) Turbine Rotor Cost (3_blades) for selected turbine
+    if not dft.empty:
+        mask_3_blades = (
+            (dft["category_name"] == "3_blades") |
+            (dft["subcategory_name"] == "3_blades") |
+            (dft["subsubcategory_name"] == "3_blades")
+        )
+        rotor_cost_raw = float(dft.loc[mask_3_blades, "cost"].sum())
+    else:
+        rotor_cost_raw = 0.0
+    rotor_cost_m = rotor_cost_raw / 1e6
+
+    # 4) Share of Turbine CAPEX (all turbines) from total CAPEX
     if not turbine_rows.empty:
         per_turbine_capex_total_raw = float(turbine_rows["cost"].sum())
     else:
         per_turbine_capex_total_raw = 0.0
 
-    avg_per_turbine_capex_raw = (
-        per_turbine_capex_total_raw / n_turbines if n_turbines > 0 else 0.0
-    )
-    avg_per_turbine_capex_m = avg_per_turbine_capex_raw / 1e6
-
-    # Selected turbine CAPEX (raw + M€)
-    selected_turbine_capex_raw = float(dft["cost"].sum()) if not dft.empty else 0.0
-    selected_turbine_capex_m = selected_turbine_capex_raw / 1e6
-
-    # Share of project CAPEX (use RAW values for ratio)
-    turbine_share = (
-        selected_turbine_capex_raw / total_project_capex
+    share_turbine_capex_total = (
+        per_turbine_capex_total_raw / total_project_capex
         if total_project_capex > 0 else 0.0
     )
-
-    # Largest category for selected turbine
-    if not dft.empty:
-        cat_group = dft.groupby("category_name", dropna=False)["cost"].sum()
-        largest_cat_name = _labelize(cat_group.idxmax())
-        # share within turbine (use raw values; but we don't display this number directly)
-        largest_cat_share = (
-            float(cat_group.max() / selected_turbine_capex_raw)
-            if selected_turbine_capex_raw > 0 else 0.0
-        )
-    else:
-        largest_cat_name = "N/A"
-        largest_cat_share = 0.0
 
     # -------- Sunburst builders --------
     def build_sunburst_data(df_base: pd.DataFrame):
@@ -852,7 +937,7 @@ def capex_dashboard(
     labels_p, parents_p, values_p, ids_p = build_sunburst_data(project_rows)
 
     # =====================================================================
-    #  FIGURE 1: KPI INDICATORS (separate figure)
+    #  FIGURE 1: KPI INDICATORS
     # =====================================================================
     fig_kpi = make_subplots(
         rows=1, cols=4,
@@ -871,18 +956,7 @@ def capex_dashboard(
         row=1, col=1,
     )
 
-    # KPI 2: Avg per-turbine CAPEX
-    fig_kpi.add_trace(
-        go.Indicator(
-            mode="number",
-            value=float(avg_per_turbine_capex_m),
-            title={"text": "Avg CAPEX per Turbine"},
-            number={"valueformat": ",.1f", "suffix": " M€"},
-        ),
-        row=1, col=2,
-    )
-
-    # KPI 3: Selected turbine CAPEX
+    # KPI 2: Turbine CAPEX (selected turbine)
     fig_kpi.add_trace(
         go.Indicator(
             mode="number",
@@ -890,15 +964,26 @@ def capex_dashboard(
             title={"text": f"Turbine {used_turbine_id if used_turbine_id is not None else turbine_id} CAPEX"},
             number={"valueformat": ",.1f", "suffix": " M€"},
         ),
-        row=1, col=3,
+        row=1, col=2,
     )
 
-    # KPI 4: Turbine share + largest category
+    # KPI 3: Turbine Rotor Cost (3_blades)
     fig_kpi.add_trace(
         go.Indicator(
             mode="number",
-            value=float(turbine_share),
-            title={"text": f"Turbine Share of Project CAPEX<br><sub>Top category: {largest_cat_name}</sub>"},
+            value=float(rotor_cost_m),
+            title={"text": f"Turbine {used_turbine_id if used_turbine_id is not None else turbine_id} Rotor Cost<br><sub>3_blades</sub>"},
+            number={"valueformat": ",.2f", "suffix": " M€"},
+        ),
+        row=1, col=3,
+    )
+
+    # KPI 4: Share of Turbine CAPEX (all turbines) from total CAPEX
+    fig_kpi.add_trace(
+        go.Indicator(
+            mode="number",
+            value=float(share_turbine_capex_total),
+            title={"text": "Share of Turbine CAPEX<br><sub>All turbines / Total CAPEX</sub>"},
             number={"valueformat": ".1%"},
         ),
         row=1, col=4,

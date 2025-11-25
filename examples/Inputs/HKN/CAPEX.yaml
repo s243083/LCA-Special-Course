@@ -12,21 +12,22 @@ Phase:
           - name: "3_blades"
             fixed_cost: 0
             flag_material_cost: true
+            use_blade_mass_estimator: true
             # Mass basis: 3 × 82.301 t = 246.903 t (report Table 1).
             # Material split is approximate to cover cost lookups; CFs capture manufacturing complexity.
             material:
-              - name: "Glass_fiber"
-                mass: 150        # t, approx share of total blade mass across 3 blades
-                CF: 2.0
-              - name: "Carbon_fiber"
-                mass: 75         # t, pultruded spar caps & reinforcement (approx)
-                CF: 2.5
-              - name: "Foam_core"
-                mass: 15         # t, sandwich cores (approx)
-                CF: 1.8
-              - name: "Steel"
-                mass: 6.9        # t, bolts/ inserts etc. (balance to total)
-                CF: 2.0
+              - name: "glass_uniax"
+                CF: 1.5        # unidirectional → moderate handling/curing complexity
+              - name: "glass_biax"
+                CF: 1.5        # biaxial fabric → heavier, more stitching, higher labor
+              - name: "glass_triax"
+                CF: 1.5     # triaxial → thick multiaxial reinforcement, complex layup
+              - name: "carbon_uniax"
+                CF: 1.5        # carbon fiber UD → precision layup, expensive QC
+              - name: "gelcoat"
+                CF: 1.5        # polymer coating → low complexity but requires good finish/QC
+              - name: "medium_density_foam"
+                CF: 1.5        # foam core → shaping + bonding, moderate effort
             scaling_models:
               flag_DTU_scaling_model: false
               material: "Glass_fiber"
@@ -292,20 +293,44 @@ Phase:
           value: 10
           unit: months
         subcategories:
+
+          # --- Cable & Electrical Installation ---
           - name: "Cable_lay_vessel_campaign"
-            fixed_cost: 24000000      # ~120 d × 200 k€/d (incl. burial tools share)
+            fixed_cost: 24000000        # ~120 d × 200 k€/d (incl. burial tools share)
             flag_material_cost: false
+
           - name: "Heavy_lift_for_substation_install"
-            fixed_cost: 8000000       # ~20 d × 400 k€/d
+            fixed_cost: 8000000         # ~20 d × 400 k€/d
             flag_material_cost: false
+
+          # --- Support Vessels ---
           - name: "Support_vessels_and_guard_ships"
             fixed_cost: 3000000
             flag_material_cost: false
+
+          # --- Port & Logistics ---
           - name: "Port_staging_and_storage"
             fixed_cost: 20000000
             flag_material_cost: false
+
           - name: "AIS_nav_aids_metocean_and_marking"
             fixed_cost: 2000000
+            flag_material_cost: false
+
+          # ======================================================
+          #           TURBINE INSTALLATION (MAJOR COST)
+          # ======================================================
+
+          - name: "WTG_installation_campaign"
+            fixed_cost: 72000000        # ~180 vessel-days × 400 k€/d
+            flag_material_cost: false
+
+          - name: "Towing_and_tug_support"
+            fixed_cost: 4000000         # tugs for barge moves, positioning, port operations
+            flag_material_cost: false
+
+          - name: "Offshore_commissioning_and_QC_teams"
+            fixed_cost: 3000000         # commissioning crews, QA/QC inspectors, temporary power
             flag_material_cost: false
 
       # ---------------- OWNER / DEV COSTS ----------------

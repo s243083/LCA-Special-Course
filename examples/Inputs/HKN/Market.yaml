@@ -1,11 +1,15 @@
 Market:
-  MA_inputFolder: "M:\\Projects\\Cost Model\\HiperSim\\valuewind\\Inputs\\Market_Data"
-  mode: "timeseries"
+  mode: "fixed"  # [fixed, fromMetEnv, external]
   timeseries: 
-    flag_external_ts: true
-    file: "HKNB_timeseries_full_filled.csv"
-    resolution: "10min" # [10min, 1h, 1d]
-    create_ts: false
+    fixed: 
+      price: 50  # used if mode is "fixed"
+      resolution: "1h" # [10min, 1h, 1d]
+    external:
+      file: "HKNB_timeseries_full_filled.csv"
+      resolution: "10min" # [10min, 1h, 1d]
+    fromMetEnv:
+      variable: "electricity_price" # variable name in metEnv # dummy
+
 
 Revenue: 
   inflation_rate: 0.02 # annual inflation_rate

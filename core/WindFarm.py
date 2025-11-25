@@ -41,13 +41,19 @@ class WindFarm:
 
     def start(self):
         """Starts the wind farm simulation process."""
-    # There needs to be a if condition here to determine which process to start.
+        # get mode from config
+        mode = get_input_parameter(self.wind_farm_input, 'WindFarm', 'mode')
 
+        if mode == "external":
         # load external response (eg.from VP framework)
-        self.load_external()
+            self.load_external()
+        elif mode== "PyWake":
+            self.power_records = self.calculate_windfarm_response
+        elif mode == "fixed":
+            self.power_records = self.create_fixed_power_timeseries()
+        else:
+            raise ValueError(f"WindFarm Response mode '{mode}' not recognized.")
 
-        # call the response framework
-        #self.power_records = self.calculate_windfarm_response()
 
     def load_external(self):
         import ast
@@ -143,121 +149,72 @@ class WindFarm:
         # Return whichever result is populated
         return rf.power_timeseries if mode == "greedy_timeseries" else rf.power_distribution
 
-
-
-
-
-
-
-
-    def run_TS_hourly(self):
+    def create_fixed_power_timeseries(self):
         """
-        A generator function that triggers the wind farm response calculation every hour
-        within the specified operational time window.
-        """
-        while True:
-            if self.start_time <= self.env.now <= self.end_time:
-                self.get_WindFarmResponse_timestep()
-                #if turbine_surrogate
-                #self.get_TurbineResponse()
-            yield self.env.timeout(1)
-
-    def run_binWise(self):
-        """
-        A generator function that triggers the wind farm response calculation for every bin combination of the input distributions.
-        """
-        #if self.start_time == self.env.now:
-            # get the bin combinations of the input distributions
-
-            # get Wind farm response for the bin combinations
-            # for each bin get the wind farm response and write it to the turbine level
-            # should be the same as the get_WindFarmResponse_timestep function, but for all bins
-
-
-    def get_WindFarmResponse_timestep(self):
-        """
-        Returns the wind farm response for the current simulation step.
-        """
-        # get the control output for this timestep, this is a dummy implementation
-        #WF_Controller.compute_turbine_setpoints()
-        control_output = self.wf_controller.get_turbine_setpoints()
-        response = self.wf_surrogate_query.get_windFarm_response_timestep(control_output)
-        # write response to turbine level
-        for i, (turbine_name, turbine) in enumerate(self.turbines.items()):
-            turbine_response = {}
-            turbine_response[f"{'Power'}_{'mean'}"] = response.Power.sel(wt=i) #  This only works if turbines are initialized in the same order as defined in the surrogate model, could be improved
-            new_entry = pd.DataFrame({
-            'simulation_time': [self.env.now],
-            'response': [turbine_response],
-            'fatigue_damage': [None]  # Initialize with None, to be updated later
-            })
-            turbine.response_log = pd.concat([turbine.response_log, new_entry], ignore_index=True)
-
-            # write flow conditions to turbine level
-            inflow_conditions = {}
-            inflow_conditions[f"{'ws_ambient'}"] = response.WS_eff.sel(wt=i) # same
-            inflow_conditions[f"{'ti_ambient'}"] = response.TI_eff.sel(wt=i) # same
-            new_entry = pd.DataFrame({
-                'simulation_time': [self.env.now],
-                'flow_conditions': [inflow_conditions]
-            })
-            turbine.ambient_inflow = pd.concat(
-                [turbine.ambient_inflow, new_entry],
-                ignore_index=True
-            )
-        return None
-
-    def get_turbine_response(self):
-        for turbine in self.turbines.values():
-            turbine.get_turbine_response()
-        return None
-
-    # this is calling pywake for all WS and Wind direction
-    def get_WindFarmResponse_global(self):
-
-        # get the control ouptut 
-        control_output = self.get_ControlOutput()
-        
-
-        # get the reponse of the farm surrogate
-        response = self.wf_surrogate_query.get_windFarm_response(control_output)
-        return None
-
-    # the fatique analyis is done on turbine level from here
-    # turbine object is passed to the function
-    def get_FatigueAnalysis(self):    
-        for turbine in self.turbines.values():
-            self.fatigue_analysis.get_fatigue_analysis(turbine)
-        return None
-
-         
-
-    # this needs to be checked
-    def get_WindFarmResponse_Reference(self):
-        """
-        Calculates and logs the wind farm reference response based on Weibull distribution fitting.
+        Create a fixed power time series from WF_OperationsStart_h to WF_OperationsEnd_h
+        using the configured resolution.
 
         Returns
         -------
-        dict of pd.DataFrame
-            The wind farm reference response logs, each entry keyed by turbine name.
+        pd.DataFrame
+            Columns:
+                - 'timestamp'
+                - 'Total_Production'  (constant fixed power in MW)
         """
-        TIreq = 10  # Placeholder for turbulence intensity in %
-        Preq = 11   # Rated power in MW
-        interp_type = 'linear'  # Example interpolation type
+        cfg = self.config  # same as self.env.config
 
-        if self.wind_farm_data['WF']['WF_Response_Reference']['flag_fitWB']:
-            shape_param, loc, scale_param = self.env.metEnv.fit_weibull_distribution()
+        # Resolution directly from input, e.g. "10min", "1h", "1d"
+        freq = get_input_parameter(self.wind_farm_input, 'WindFarm', 'fixed', 'resolution')
 
-            wind_speed_bins = np.linspace(4, 24, 11)
-            weibull_pdf = weibull_min.pdf(wind_speed_bins, shape_param, loc, scale_param)
-            weibull_pdf = weibull_pdf / np.sum(weibull_pdf)
+        # Operation start / end in hours (relative to project start)
+        start_h = float(getattr(cfg, "WF_OperationsStart_h", 0.0) or 0.0)
+        end_h   = float(getattr(cfg, "WF_OperationsEnd_h", 0.0) or 0.0)
 
-            for turbine in self.turbines.values():
-                turbine.get_turbine_reference_response(
-                    self.fatigue_analysis, wind_speed_bins, weibull_pdf, TIreq, Preq, interp_type
-                )
-        return None
+        if end_h <= start_h:
+            raise ValueError(
+                f"WF_OperationsEnd_h ({end_h}) must be greater than "
+                f"WF_OperationsStart_h ({start_h})."
+            )
+
+        # Project start timestamp
+        start_ts = pd.to_datetime(cfg.Project_StartDate, format="%d.%m.%Y")
+
+        op_start_ts = start_ts + pd.to_timedelta(start_h, unit="h")
+        op_end_ts   = start_ts + pd.to_timedelta(end_h, unit="h")
+
+        # Build the timestamp index
+        timestamps = pd.date_range(
+            start=op_start_ts,
+            end=op_end_ts,
+            freq=freq,
+            inclusive="left",   # [start, end)
+        )
+
+        # Power response - fixed capacity factor
+        rated_power = float(
+            get_input_parameter(
+                self.wind_farm_input,
+                'WindFarm', 'fixed', 'rated_power'
+            )
+        )  # MW
+
+        capacity_factor = float(
+            get_input_parameter(
+                self.wind_farm_input,
+                'WindFarm', 'fixed', 'capacity_factor'
+            )
+        )  # 0–1
+
+        fixed_power = rated_power * capacity_factor  # MW
+
+        # Create DataFrame in same format as other options
+        power_df = pd.DataFrame({
+            "timestamp": timestamps,
+            "Total_Production": fixed_power,  # broadcast scalar to all rows
+        })
+
+        return power_df
+
 
 
 def load_windfarmData(config):

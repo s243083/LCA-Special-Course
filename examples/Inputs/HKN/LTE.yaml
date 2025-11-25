@@ -1,2 +1,2 @@
 LTE: 
-LTE: true
+  apply_lte: false

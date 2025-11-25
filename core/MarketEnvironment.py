@@ -9,15 +9,70 @@ class MarketEnv:
         self.env = env
         self.config = env.config
         self.market_inputs = load_marketInput(self.env.config)
-        self.resolution = get_input_parameter(self.market_inputs, 'MA', 'Market', 'timeseries', 'resolution')
 
 
         self.create_electricityprice()
         
-        
-
-
     def create_electricityprice(self):
+        market_type = get_input_parameter(self.market_inputs, 'MA', 'Market', 'mode')
+
+        if market_type == 'fromEnv':
+            self.create_electricityprice_fromEnv()
+        elif market_type == 'fixed':
+            self.create_electricityprice_fixed()
+        else:
+            raise ValueError(f"Market type '{market_type}' not recognized.")
+    
+    def create_electricityprice_fixed(self): 
+        """
+        Create a fixed electricity price time series from operations start to operations end.
+        The resulting DataFrame is stored in self.el_price_records and has the same format
+        as the one created in create_electricityprice_fromEnv, i.e. columns:
+            - 'timestamp'
+            - 'price'
+        """
+
+        cfg = self.env.config
+
+        # resolution directly from input, e.g. "10min", "1h", "1d"
+        freq = get_input_parameter(self.market_inputs, 'MA', 'Market', 'timeseries', 'fixed', 'resolution')
+        self.resolution = freq
+
+        # Operation start / end in hours (relative)
+        start_h = float(cfg.WF_OperationsStart_h)
+        end_h   = float(cfg.WF_OperationsEnd_h)
+
+        # Project start TS
+        start_ts = pd.to_datetime(cfg.Project_StartDate, format="%d.%m.%Y")
+
+        op_start_ts = start_ts + pd.to_timedelta(start_h, unit="h")
+        op_end_ts   = start_ts + pd.to_timedelta(end_h, unit="h")
+
+        # Build timestamps
+        timestamps = pd.date_range(
+            start=op_start_ts,
+            end=op_end_ts,
+            freq=freq,
+            inclusive="left"
+        )
+
+        # Fixed price
+        price = float(
+            get_input_parameter(
+                self.market_inputs,
+                'MA', 'Market', 'timeseries', 'fixed', 'price'
+            )
+        )
+
+        self.el_price_records = pd.DataFrame({
+            "timestamp": timestamps,
+            "price": price,
+        })
+
+
+    def create_electricityprice_fromEnv(self):
+
+        # this is a purpose built function to create electricity price time series from the met environment, it should be replaced by a more general function
         # Build base DataFrame
         base_df = pd.DataFrame({
             "timestamp": self.env.metEnv.environmental_data_ts["timestamp"],

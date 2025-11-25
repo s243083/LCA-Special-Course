@@ -26,7 +26,7 @@ class LifetimeExtension:
         self.lte_input = load_LTEData(self.config)
 
         # Pull LTE flag directly
-        self.lte_enabled = bool(get_input_parameter(self.lte_input, "LTE"))
+        self.lte_enabled = bool(get_input_parameter(self.lte_input, 'LTE', 'apply_lte'))
 
         # Allow overrides if scenario provides them
         apply_overrides(self, getattr(self.config, "Lifetime_extension_overrides", {}))

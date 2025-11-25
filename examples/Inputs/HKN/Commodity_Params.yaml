@@ -28,6 +28,10 @@ Commodity:
       mu_jump: 0
       lambda_jump: 0
       sigma_jump: 0
+      flag_OU: false
+      kappa: 0.5
+      theta: 5.5
+      sigma_ou: 0.25
     LCAParameters:
       co2eq: 4.0
 

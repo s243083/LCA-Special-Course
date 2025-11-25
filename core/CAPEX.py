@@ -153,15 +153,27 @@ class CAPEX:
                 lambda_jump = float(params.get("lambda_jump", 0) or 0)
                 sigma_jump = float(params.get("sigma_jump", 0) or 0)
 
+                # Ornstein–Uhlenbeck parameters
+                flag_ou = bool(params.get("flag_OU", False))
+                kappa = float(params.get("kappa", 0) or 0)
+                theta = float(params.get("theta", 0) or 0)
+                sigma_ou = float(params.get("sigma_ou", params.get("sigma", 0)) or 0)
+
                 # process_duration_fields should have created prediction_horizon_h
                 timing_hours = float(params.get("prediction_horizon_h", 1) or 1)
                 timing_years = timing_hours / 8760.0
 
                 unit_price = base
-                if flag_gbm:
+                if flag_ou:
+                    # OU on log-price
+                    unit_price = self.ou_logprice(base, kappa, theta, sigma_ou, timing_years)
+                elif flag_gbm:
+                    # Pure GBM
                     unit_price = self.geometric_brownian_motion(base, mu, sigma, timing_years)
                 elif flag_jump_diff:
+                    # Jump-diffusion
                     unit_price = self.jump_diffusion(base, mu, sigma, timing_years, lambda_jump, sigma_jump)
+
 
                 prices[str(name)] = float(unit_price)
 
@@ -484,6 +496,63 @@ class CAPEX:
             jump_size = self.rng.normal(0, sigma_jump)
             S_t *= np.exp(jump_size)
         return S_t
+    
+    def ou_logprice(self, S0, kappa, theta, sigma, T):
+        """
+        One-step Ornstein–Uhlenbeck (OU) evolution on log-price.
+
+        OU on X_t = ln S_t:
+            dX_t = kappa * (theta - X_t) dt + sigma dW_t
+
+        Exact solution over horizon T:
+            X_T ~ N(m(T), v(T)) with:
+                m(T) = theta + (X0 - theta) * exp(-kappa * T)
+                v(T) = (sigma^2 / (2*kappa)) * (1 - exp(-2 * kappa * T))
+
+        Parameters
+        ----------
+        S0 : float
+            Initial price level at t=0 (e.g. your 'material_cost').
+        kappa : float
+            Mean-reversion speed (per year).
+        theta : float
+            Long-run mean of log-price (i.e. of ln S).
+        sigma : float
+            Volatility of the OU process (per sqrt(year)).
+        T : float
+            Time horizon in years.
+
+        Returns
+        -------
+        float
+            Simulated price S_T at horizon T.
+        """
+        if T <= 0:
+            # No time passes: return S0
+            return float(S0)
+
+        if kappa <= 0:
+            # Degenerates towards a random walk on X; fall back to GBM-like behaviour
+            # or raise if you want to be strict.
+            # Here we treat it as "no mean reversion" and use GBM on log-price.
+            X0 = np.log(S0)
+            Z = self.rng.normal(0.0, 1.0)
+            XT = X0 + (theta - 0.5 * sigma**2) * T + sigma * np.sqrt(T) * Z
+            return float(np.exp(XT))
+
+        X0 = np.log(S0)
+
+        # Mean and variance of X_T
+        exp_term = np.exp(-kappa * T)
+        m_T = theta + (X0 - theta) * exp_term
+        var_T = (sigma**2 / (2.0 * kappa)) * (1.0 - np.exp(-2.0 * kappa * T))
+
+        # Sample from Normal(m_T, var_T)
+        Z = self.rng.normal(0.0, 1.0)
+        X_T = m_T + np.sqrt(max(var_T, 0.0)) * Z
+
+        return float(np.exp(X_T))
+
 
 def load_capex_data(config):
     """

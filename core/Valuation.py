@@ -83,6 +83,11 @@ class Valuation:
 
         # 4) KPIs
         self.valuation()
+        
+        return self.cashflow_discounted_records
+
+
+    def plot_valuation_results(self):
 
         # 1) Executive overview dashboard
         self.overview_dashboard(scenario_name="Base")
@@ -99,9 +104,7 @@ class Valuation:
         # 3) DSCR calendar heatmap
         self.dscr_heatmap()
 
-
-
-        return self.cashflow_discounted_records
+        return None
 
 
     # ------------------------------ Aggregation (WIDE) ------------------------------

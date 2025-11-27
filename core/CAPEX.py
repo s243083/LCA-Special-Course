@@ -29,9 +29,12 @@ class CAPEX:
     """
 
     def __init__(self, env):
-        self.rng = np.random.default_rng(42)
+        self.rng = np.random.default_rng()
         self.env = env  # Access to configuration and (optionally) logging, randoms, etc.
         self.config = env.config
+
+        # Apply overrides early (before reading CAPEX file)
+        apply_overrides(self.config, getattr(self.config, "CAPEX_overrides", {}))
 
         # Load input data
         self.capex_data, self.material_data = load_capex_data(self.env.config)
@@ -74,6 +77,7 @@ class CAPEX:
         # { material_name: unit_price_float }
         self.material_unit_prices = {}
 
+        # Apply overrides again, but now on *the model object*
         apply_overrides(self, getattr(self.config, "CAPEX_overrides", {}))
 
 
@@ -124,60 +128,134 @@ class CAPEX:
     # ---------------------------
     def precompute_material_prices(self):
         """
-        Build {material_name: unit_price} from self.material_data where
-        Material files use:
-        Commodity:
-            Steel: { CostParameters: {...} }
-            Copper: { CostParameters: {...} }
-        If a material appears in multiple files, the first occurrence wins.
-        GBM / Jump-Diffusion flags are honored over a single prediction horizon.
+        Build {material_name: unit_price} from self.material_data.
+
+        Supports:
+          - GBM (flag_GBM)
+          - Jump-Diffusion (flag_JumpDif)
+          - OU on log-price (flag_OU)
+        and allows correlated shocks across materials when a correlation
+        matrix is provided in the configuration.
+
+        Expected optional config (example):
+
+            self.env.config.MaterialCorrelation = {
+                "materials": ["Steel", "Copper", "Aluminium"],
+                "matrix": [
+                    [1.0, 0.8, 0.6],
+                    [0.8, 1.0, 0.5],
+                    [0.6, 0.5, 1.0],
+                ],
+            }
+
+        Any materials not listed in "materials" are treated as
+        uncorrelated with others (off-diagonal entries remain 0).
         """
         prices: dict[str, float] = {}
 
+        # ------------------------------------------------------------------
+        # 1) Flatten all commodities into a list of (name, params)
+        # ------------------------------------------------------------------
+        commodity_entries: list[tuple[str, dict]] = []
+
         for _, material_file_data in self.material_data.items():
-            # Commodity is now a dict keyed by name
             commodities = material_file_data.get("Commodity", {})
             if not isinstance(commodities, dict):
-                continue  # new schema only; ignore anything else
+                continue
 
             for name, node in commodities.items():
-                if not name or name in prices:
-                    continue  # skip empty keys or already-seen (first-wins)
+                if not name:
+                    continue
+                # "first wins" behaviour: if name already seen, skip
+                if name in prices or any(name == n for n, _ in commodity_entries):
+                    continue
 
                 params = (node.get("CostParameters") or {})
-                base = float(params.get("material_cost", 0) or 0)
-                flag_gbm = bool(params.get("flag_GBM", False))
-                mu = float(params.get("mu", 0) or 0)
-                sigma = float(params.get("sigma", 0) or 0)
-                flag_jump_diff = bool(params.get("flag_JumpDif", False))
-                lambda_jump = float(params.get("lambda_jump", 0) or 0)
-                sigma_jump = float(params.get("sigma_jump", 0) or 0)
+                commodity_entries.append((str(name), params))
 
-                # Ornstein–Uhlenbeck parameters
-                flag_ou = bool(params.get("flag_OU", False))
-                kappa = float(params.get("kappa", 0) or 0)
-                theta = float(params.get("theta", 0) or 0)
-                sigma_ou = float(params.get("sigma_ou", params.get("sigma", 0)) or 0)
+        if not commodity_entries:
+            self.material_unit_prices = {}
+            return
 
-                # process_duration_fields should have created prediction_horizon_h
-                timing_hours = float(params.get("prediction_horizon_h", 1) or 1)
-                timing_years = timing_hours / 8760.0
+        n = len(commodity_entries)
 
-                unit_price = base
-                if flag_ou:
-                    # OU on log-price
-                    unit_price = self.ou_logprice(base, kappa, theta, sigma_ou, timing_years)
-                elif flag_gbm:
-                    # Pure GBM
-                    unit_price = self.geometric_brownian_motion(base, mu, sigma, timing_years)
-                elif flag_jump_diff:
-                    # Jump-diffusion
-                    unit_price = self.jump_diffusion(base, mu, sigma, timing_years, lambda_jump, sigma_jump)
+        # ------------------------------------------------------------------
+        # 2) Build full correlation matrix for these commodities
+        #    Default: independent shocks (identity matrix)
+        # ------------------------------------------------------------------
+        corr_full = np.eye(n, dtype=float)
 
+        corr_cfg = material_file_data.get("MaterialCorrelation", {})
+        
+        if corr_cfg is not None:
+            corr_materials = list(corr_cfg.get("materials", []))
+            corr_matrix_raw = np.array(corr_cfg.get("matrix", []), dtype=float)
 
-                prices[str(name)] = float(unit_price)
+            # basic checks
+            if (
+                corr_matrix_raw.ndim == 2
+                and corr_matrix_raw.shape[0] == corr_matrix_raw.shape[1]
+                and corr_matrix_raw.shape[0] == len(corr_materials)
+            ):
+                idx_corr = {m: i for i, m in enumerate(corr_materials)}
+
+                # map correlation entries into full matrix
+                for i, (name_i, _) in enumerate(commodity_entries):
+                    if name_i not in idx_corr:
+                        continue
+                    i_corr = idx_corr[name_i]
+                    for j, (name_j, _) in enumerate(commodity_entries):
+                        if name_j not in idx_corr:
+                            continue
+                        j_corr = idx_corr[name_j]
+                        corr_full[i, j] = corr_matrix_raw[i_corr, j_corr]
+
+        # make sure diagonal is exactly 1
+        np.fill_diagonal(corr_full, 1.0)
+
+        # ------------------------------------------------------------------
+        # 3) Draw one vector of correlated N(0,1) shocks
+        # ------------------------------------------------------------------
+        Z = self.sample_correlated_normals(corr_full)  # shape (n,)
+
+        # ------------------------------------------------------------------
+        # 4) Compute unit prices using these shocks
+        # ------------------------------------------------------------------
+        for i, (name, params) in enumerate(commodity_entries):
+            base = float(params.get("material_cost", 0) or 0)
+
+            flag_gbm = bool(params.get("flag_GBM", False))
+            flag_jump_diff = bool(params.get("flag_JumpDif", False))
+            flag_ou = bool(params.get("flag_OU", False))
+
+            mu = float(params.get("mu", 0) or 0)
+            sigma = float(params.get("sigma", 0) or 0)
+
+            lambda_jump = float(params.get("lambda_jump", 0) or 0)
+            sigma_jump = float(params.get("sigma_jump", 0) or 0)
+
+            kappa = float(params.get("kappa", 0) or 0)
+            theta = float(params.get("theta", 0) or 0)
+            # allow dedicated sigma_ou, fallback to sigma
+            sigma_ou = float(params.get("sigma_ou", params.get("sigma", 0)) or 0)
+
+            timing_hours = float(params.get("prediction_horizon_h", 1) or 1)
+            timing_years = timing_hours / 8760.0
+
+            z_i = float(Z[i])  # correlated standard normal shock for this material
+
+            unit_price = base
+            if flag_ou:
+                unit_price = self.ou_logprice(base, kappa, theta, sigma_ou, timing_years, z=z_i)
+            elif flag_gbm:
+                unit_price = self.geometric_brownian_motion(base, mu, sigma, timing_years, z=z_i)
+            elif flag_jump_diff:
+                unit_price = self.jump_diffusion(base, mu, sigma, timing_years, lambda_jump, sigma_jump, z=z_i)
+
+            prices[name] = float(unit_price)
 
         self.material_unit_prices = prices
+
 
 
     # ---------------------------
@@ -261,6 +339,7 @@ class CAPEX:
             subcategory_name = subcategory.get("name", "")
             subsubcategory_name = subcategory_name  # for the subcategory-level row
             total = float(subcategory.get("fixed_cost", 0) or 0)
+            beta_markup = float(subcategory.get("beta_markup", 0) or 0)
 
             # Flags
             flag_material_cost_sub = bool(subcategory.get("flag_material_cost", False))
@@ -354,6 +433,7 @@ class CAPEX:
                     total += float(scaling_costs[turbine_id - 1])
 
             # ---- Append subcategory-level row ----
+            total *= (1 + beta_markup)
             rows.append({
                 **base_row,
                 "item_name": f"{subcategory_name}_cost_item",
@@ -412,6 +492,7 @@ class CAPEX:
                             total += float(val)
 
                 # Append subsubcategory-level row
+                total *= (1 + beta_markup)
                 rows.append({
                     **base_row,
                     "item_name": f"{subsubcategory_name}_cost_item",
@@ -479,25 +560,65 @@ class CAPEX:
 
         return None
     
+    def sample_correlated_normals(self, corr_matrix: np.ndarray) -> np.ndarray:
+        """
+        Draw a vector Z ~ N(0, corr_matrix) using Cholesky decomposition.
+
+        corr_matrix: (M x M) symmetric positive definite correlation matrix.
+        Returns:
+            np.ndarray of shape (M,)
+        """
+        M = corr_matrix.shape[0]
+        # Cholesky factorisation: corr = L L^T
+        L = np.linalg.cholesky(corr_matrix)
+        z_indep = self.rng.normal(0.0, 1.0, size=M)
+        return L @ z_indep
+
+
     
-    def geometric_brownian_motion(self, S0, mu, sigma, T):
-        """Calculate a random realization of Geometric Brownian Motion."""
-        W = self.rng.normal(0, np.sqrt(T))  # Brownian motion component
+    def geometric_brownian_motion(self, S0, mu, sigma, T, z=None):
+        """
+        Calculate a random realization of Geometric Brownian Motion.
+
+        If z is provided, it is treated as a standard normal shock (N(0,1))
+        and scaled by sqrt(T). Otherwise, a new normal is drawn internally.
+        """
+        if T <= 0:
+            return float(S0)
+
+        if z is None:
+            # draw internally (independent)
+            W = self.rng.normal(0.0, np.sqrt(T))
+        else:
+            # external standard normal shock → Brownian increment over [0,T]
+            W = np.sqrt(T) * float(z)
+
         return S0 * np.exp((mu - 0.5 * sigma**2) * T + sigma * W)
 
-    def jump_diffusion(self, S0, mu, sigma, T, lambda_jump, sigma_jump):
-        """Calculate a random realization of Jump Diffusion process."""
-        # Basic GBM component
-        S_t = self.geometric_brownian_motion(S0, mu, sigma, T)
-        # Number of jumps in the time interval
-        num_jumps = self.rng.poisson(lambda_jump * T)
+    def jump_diffusion(self, S0, mu, sigma, T, lambda_jump, sigma_jump, z=None):
+        """
+        Calculate a random realization of Jump Diffusion process.
+
+        The diffusion part can use a correlated normal shock `z` if provided.
+        Jumps are kept independent across commodities (for now).
+        """
+        # Diffusion (GBM) component
+        S_t = self.geometric_brownian_motion(S0, mu, sigma, T, z=z)
+
+        # Number of jumps in the time interval (independent across materials)
+        if T > 0 and lambda_jump > 0:
+            num_jumps = self.rng.poisson(lambda_jump * T)
+        else:
+            num_jumps = 0
+
         # Apply jump diffusion adjustments
         for _ in range(num_jumps):
-            jump_size = self.rng.normal(0, sigma_jump)
+            jump_size = self.rng.normal(0.0, sigma_jump)
             S_t *= np.exp(jump_size)
-        return S_t
-    
-    def ou_logprice(self, S0, kappa, theta, sigma, T):
+
+        return float(S_t)
+
+    def ou_logprice(self, S0, kappa, theta, sigma, T, z=None):
         """
         One-step Ornstein–Uhlenbeck (OU) evolution on log-price.
 
@@ -509,49 +630,41 @@ class CAPEX:
                 m(T) = theta + (X0 - theta) * exp(-kappa * T)
                 v(T) = (sigma^2 / (2*kappa)) * (1 - exp(-2 * kappa * T))
 
-        Parameters
-        ----------
-        S0 : float
-            Initial price level at t=0 (e.g. your 'material_cost').
-        kappa : float
-            Mean-reversion speed (per year).
-        theta : float
-            Long-run mean of log-price (i.e. of ln S).
-        sigma : float
-            Volatility of the OU process (per sqrt(year)).
-        T : float
-            Time horizon in years.
-
-        Returns
-        -------
-        float
-            Simulated price S_T at horizon T.
+        If z is provided, it is treated as N(0,1) and used as the OU shock.
+        Otherwise, a new normal is drawn internally.
         """
         if T <= 0:
-            # No time passes: return S0
             return float(S0)
 
-        if kappa <= 0:
-            # Degenerates towards a random walk on X; fall back to GBM-like behaviour
-            # or raise if you want to be strict.
-            # Here we treat it as "no mean reversion" and use GBM on log-price.
-            X0 = np.log(S0)
-            Z = self.rng.normal(0.0, 1.0)
-            XT = X0 + (theta - 0.5 * sigma**2) * T + sigma * np.sqrt(T) * Z
-            return float(np.exp(XT))
-
         X0 = np.log(S0)
+
+        if kappa <= 0:
+            # Fallback: treat as GBM on log-price with external z if given
+            if z is None:
+                Z = self.rng.normal(0.0, 1.0)
+            else:
+                Z = float(z)
+            X_T = X0 + (theta - 0.5 * sigma**2) * T + sigma * np.sqrt(T) * Z
+            return float(np.exp(X_T))
 
         # Mean and variance of X_T
         exp_term = np.exp(-kappa * T)
         m_T = theta + (X0 - theta) * exp_term
         var_T = (sigma**2 / (2.0 * kappa)) * (1.0 - np.exp(-2.0 * kappa * T))
 
+        if var_T < 0:
+            var_T = 0.0
+
         # Sample from Normal(m_T, var_T)
-        Z = self.rng.normal(0.0, 1.0)
-        X_T = m_T + np.sqrt(max(var_T, 0.0)) * Z
+        if z is None:
+            Z = self.rng.normal(0.0, 1.0)
+        else:
+            Z = float(z)
+
+        X_T = m_T + np.sqrt(var_T) * Z
 
         return float(np.exp(X_T))
+
 
 
 def load_capex_data(config):

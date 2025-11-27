@@ -1,0 +1,500 @@
+Phase:
+  - name: "Production & Acquisition"
+    categories:
+      - name: "Turbine"
+        per_turbine: true
+        project_time:
+          value: 5
+          unit: months
+        subcategories:
+
+          # ---------------- Rotor ----------------
+          - name: "3_blades"
+            fixed_cost: 0
+            beta_markup: 0
+            flag_material_cost: true
+            use_blade_mass_estimator: true
+            # Mass basis: 3 × 82.301 t = 246.903 t (report Table 1).
+            # Material split is approximate to cover cost lookups; CFs capture manufacturing complexity.
+            material:
+              - name: "glass_uniax"
+                CF: 1.5        # unidirectional → moderate handling/curing complexity
+              - name: "glass_biax"
+                CF: 1.5        # biaxial fabric → heavier, more stitching, higher labor
+              - name: "glass_triax"
+                CF: 1.5     # triaxial → thick multiaxial reinforcement, complex layup
+              - name: "carbon_uniax"
+                CF: 1.5        # carbon fiber UD → precision layup, expensive QC
+              - name: "gelcoat"
+                CF: 1.5        # polymer coating → low complexity but requires good finish/QC
+              - name: "medium_density_foam"
+                CF: 1.5        # foam core → shaping + bonding, moderate effort
+            scaling_models:
+              flag_DTU_scaling_model: false
+              material: "Glass_fiber"
+            subsubcategories:
+              - name: "blade_surface_coatings"
+                fixed_cost: 0
+                flag_material_cost: true
+                material:
+                  - name: "Gelcoat_resin"
+                    mass: 2.5
+                    CF: 2.0
+
+          - name: "Hub_system"
+            fixed_cost: 0
+            flag_material_cost: true
+            # Hub shell ~40 t steel; spinner 3 t composite; pitch system ~78 t; total hub system ~120 t.
+            material:
+              - name: "Steel"
+                mass: 40
+                CF: 1.5
+              - name: "Uniax_GlassFiber"
+                mass: 3
+                CF: 2.0
+            subsubcategories:
+              - name: "pitch_system"
+                fixed_cost: 0
+                flag_material_cost: true
+                material:
+                  - name: "Steel"
+                    mass: 78
+                    CF: 1.8
+              - name: "pitch_bearings"
+                fixed_cost: 0
+                flag_material_cost: false
+                scaling_models:
+                  flag_DTU_scaling_model: true
+                  material: "Steel"
+
+          # ---------------- Drivetrain / Nacelle internals ----------------
+          - name: "Main_shaft_and_bearings"
+            fixed_cost: 0
+            flag_material_cost: true
+
+            subsubcategories:
+              - name: "CARB_upwind_bearing"
+                fixed_cost: 0
+                flag_material_cost: true
+                material:
+                  - name: "Steel"
+                    mass: 42.6
+                    CF: 2.2
+              - name: "SRB_downwind_bearing"
+                fixed_cost: 0
+                flag_material_cost: true
+                material:
+                  - name: "Steel"
+                    mass: 12.4
+                    CF: 2.0
+              - name: "main_shaft"
+                fixed_cost: 0
+                flag_material_cost: true
+                material:
+                  - name: "Steel"
+                    mass: 4.1
+                    CF: 1.8
+
+          - name: "Generator"
+            fixed_cost: 0
+            flag_material_cost: true
+            # Active materials & structural steel (total generator mass ≈ 505 t).
+            material:
+              - name: "NdFeB"
+                mass: 25.2
+                CF: 1.1
+              - name: "Copper"
+                mass: 17.1
+                CF: 1.5
+              - name: "Electrical_steel"
+                mass: 105.6
+                CF: 1.2
+              - name: "Steel"       # structural: stator 163.88 t + rotor 193.21 t
+                mass: 357.09
+                CF: 1.5
+
+          - name: "Turret"
+            fixed_cost: 0
+            flag_material_cost: true
+            material:
+              - name: "Steel"
+                mass: 6.0
+                CF: 1.8
+
+          - name: "Bedplate"
+            fixed_cost: 0
+            flag_material_cost: true
+            material:
+              - name: "Steel"
+                mass: 75.1
+                CF: 2.0
+
+          - name: "Yaw_system"
+            fixed_cost: 0
+            flag_material_cost: true
+            material:
+              - name: "Steel"
+                mass: 37.5      # includes friction plate + motors
+                CF: 1.8
+
+          - name: "Nacelle_cover_and_platforms"
+            fixed_cost: 0
+            flag_material_cost: true
+            material:
+              - name: "Composite_panel"
+                mass: 17.8      # cover
+                CF: 1.6
+              - name: "Steel"
+                mass: 41.4      # platforms/frames in nacelle assembly
+                CF: 1.6
+
+          - name: "Brake"
+            fixed_cost: 0
+            flag_material_cost: true
+            material:
+              - name: "Steel"
+                mass: 39.2
+                CF: 2.0
+
+          - name: "Converter"
+            fixed_cost: 1500000
+            flag_material_cost: false
+            material:
+              - name: "Power_electronics_modules"
+                mass: 17.4
+                CF: 3.0
+
+          - name: "Transformer"
+            fixed_cost: 900000
+            flag_material_cost: false
+            material:
+              - name: "Transformer_unit"
+                mass: 44.0
+                CF: 2.5
+
+          - name: "HVAC_and_auxiliaries"
+            fixed_cost: 0
+            flag_material_cost: true
+            material:
+              - name: "HVAC_pack"
+                mass: 12.8
+                CF: 2.2
+              - name: "Cabling_internal"
+                mass: 4.0      # intra-nacelle HV/LV cabling allowance
+                CF: 2.5
+              - name: "Lube_and_hydraulics"
+                mass: 2.5
+                CF: 2.0
+
+          # ---------------- Yaw ring & tower-top interface extras ----------------
+          - name: "Tower_top_interface"
+            fixed_cost: 0
+            flag_material_cost: true
+            material:
+              - name: "Steel"
+                mass: 8.0       # flanges, bolts, adapter plates allowance
+                CF: 2.0
+
+          - name: "Substructure"
+            per_turbine: true
+            project_time:
+              value: 5
+              unit: months
+            subsubcategories:
+              - name: "Tower"
+                fixed_cost: 0
+                flag_material_cost: true
+                material:
+                  - name: "Steel"
+                    mass: 1574
+                    CF: 1.5
+
+# -------------BoP -------------------------------
+  - name: "Project & Balance of Plant"
+    categories:
+      - name: "Substructure"
+        per_turbine: true
+        project_time:
+          value: 5
+          unit: months
+        subcategories:
+          - name: "Transition_piece"
+            fixed_cost: 0
+            flag_material_cost: true
+            material:
+              - name: "Steel"
+                mass: 100
+                CF: 1.5
+          - name: "Monopile"
+            fixed_cost: 0
+            flag_material_cost: true
+            material:
+              - name: "Steel"
+                mass: 2097
+                CF: 1.5
+      # ---------------- ELECTRICAL SYSTEM ----------------
+      - name: "Array_cabling"
+        per_turbine: false
+        project_time:
+          value: 12
+          unit: months
+        subcategories:
+          - name: "Array_cable_supply_66kV"
+            fixed_cost: 144000000     # 160 km × 0.9 M€/km
+            flag_material_cost: false
+          - name: "Array_cable_installation_66kV"
+            fixed_cost: 64000000      # 160 km × 0.4 M€/km
+            flag_material_cost: false
+          - name: "Array_cable_accessories"
+            fixed_cost: 8000000       # joints, T-joints, terminations, testing
+            flag_material_cost: false
+
+      - name: "Export_system"
+        per_turbine: false
+        project_time:
+          value: 14
+          unit: months
+        subcategories:
+          - name: "Export_cable_supply_offshore_220kV"
+            fixed_cost: 275000000     # 110 km × 2.5 M€/km
+            flag_material_cost: false
+          - name: "Export_cable_supply_onshore_220kV"
+            fixed_cost: 15000000      # 10 km × 1.5 M€/km
+            flag_material_cost: false
+          - name: "Export_cable_install_offshore_220kV"
+            fixed_cost: 165000000     # 110 km × 1.5 M€/km
+            flag_material_cost: false
+          - name: "Export_cable_install_onshore_220kV"
+            fixed_cost: 5000000       # 10 km × 0.5 M€/km
+            flag_material_cost: false
+          - name: "Export_cable_accessories"
+            fixed_cost: 10000000      # joints, hang-offs, terminations, tests
+            flag_material_cost: false
+          - name: "Landfall_HDD_and_trenches"
+            fixed_cost: 15000000
+            flag_material_cost: false
+
+      - name: "Substations"
+        per_turbine: false
+        project_time:
+          value: 16
+          unit: months
+        subcategories:
+          - name: "Offshore_substation_TOPSIDE_and_foundation"
+            fixed_cost: 250000000     # topside + jacket/TP + install
+            flag_material_cost: false
+          - name: "Onshore_substation_and_grid_connection"
+            fixed_cost: 80000000
+            flag_material_cost: false
+
+      # ---------------- INSTALLATION & LOGISTICS ----------------
+      - name: "Marine_installation_and_logistics"
+        per_turbine: false
+        project_time:
+          value: 10
+          unit: months
+        subcategories:
+
+          # --- Cable & Electrical Installation ---
+          - name: "Cable_lay_vessel_campaign"
+            fixed_cost: 24000000        # ~120 d × 200 k€/d (incl. burial tools share)
+            flag_material_cost: false
+
+          - name: "Heavy_lift_for_substation_install"
+            fixed_cost: 8000000         # ~20 d × 400 k€/d
+            flag_material_cost: false
+
+          # --- Support Vessels ---
+          - name: "Support_vessels_and_guard_ships"
+            fixed_cost: 3000000
+            flag_material_cost: false
+
+          # --- Port & Logistics ---
+          - name: "Port_staging_and_storage"
+            fixed_cost: 20000000
+            flag_material_cost: false
+
+          - name: "AIS_nav_aids_metocean_and_marking"
+            fixed_cost: 2000000
+            flag_material_cost: false
+
+          # ======================================================
+          #           TURBINE INSTALLATION (MAJOR COST)
+          # ======================================================
+
+          - name: "WTG_installation_campaign"
+            fixed_cost: 72000000        # ~180 vessel-days × 400 k€/d
+            flag_material_cost: false
+
+          - name: "Towing_and_tug_support"
+            fixed_cost: 4000000         # tugs for barge moves, positioning, port operations
+            flag_material_cost: false
+
+          - name: "Offshore_commissioning_and_QC_teams"
+            fixed_cost: 3000000         # commissioning crews, QA/QC inspectors, temporary power
+            flag_material_cost: false
+
+      # ---------------- OWNER / DEV COSTS ----------------
+      - name: "Development_and_management"
+        per_turbine: false
+        project_time:
+            value: 24
+            unit: months
+        subcategories:
+          - name: "Development_and_consenting"
+            fixed_cost: 25000000
+            flag_material_cost: false
+          - name: "Owner_engineer_and_project_management"
+            fixed_cost: 15000000
+            flag_material_cost: false
+          - name: "Surveys_and_site_assessment"
+            fixed_cost: 10000000      # geotech, geophys, UXO risk mitigation (excl. clear)
+            flag_material_cost: false
+          - name: "SCADA_and_communications"
+            fixed_cost: 12000000
+            flag_material_cost: false
+          - name: "Spare_parts_and_special_tools"
+            fixed_cost: 8000000
+            flag_material_cost: false
+          - name: "Marine_warranty_surveyor"
+            fixed_cost: 3000000
+            flag_material_cost: false
+
+      - name: "Commissioning_and_testing"
+        per_turbine: false
+        project_time:
+          value: 6
+          unit: months
+        subcategories:
+          - name: "Pre_energization_testing"
+            fixed_cost: 4000000
+            flag_material_cost: false
+          - name: "Grid_code_compliance_and_energization"
+            fixed_cost: 6000000
+            flag_material_cost: false
+
+      # ---------------- RISK & CONTINGENCY ----------------
+      - name: "Insurance_and_contingency"
+        per_turbine: false
+        project_time:
+          value: 18
+          unit: months
+        subcategories:
+          - name: "Construction_all_risk_insurance"
+            fixed_cost: 20000000      # allowance
+            flag_material_cost: false
+          - name: "Contingency_7pct"
+            fixed_cost: 82000000      # 7% of ~1.171 B€ pre-contingency
+            flag_material_cost: false
+
+
+# -------------Decommissioning -------------------------------
+  - name: "Decommissioning"
+    categories:
+
+      # ——— Generation assets ———
+      - name: "Turbine_removal"
+        per_turbine: false
+        project_time:
+          value: 285
+          unit: months
+        subcategories:
+          - name: "WTG_disassembly_and_lifts"
+            fixed_cost: 43982400     # heavy-lift/jack-up spread; 34 WTGs
+            flag_material_cost: false
+          - name: "Port_handling_and_transport"
+            fixed_cost: 9424800
+            flag_material_cost: false
+          - name: "Waste_processing_and_blade_management"
+            fixed_cost: 9424800      # cutting, recycling/co-processing, landfill taxes where applicable
+            flag_material_cost: false
+        notes: "Covers nacelle, blades, hub, tower removals using WTIV/JUV. Includes weather allowance implicit in rates."
+
+      - name: "Foundation_and_seabed_removal"
+        per_turbine: false
+        project_time:
+          value: 285
+          unit: months
+        subcategories:
+          - name: "Monopile_cut_and_recovery"
+            fixed_cost: 61036800
+            flag_material_cost: false
+          - name: "Transition_piece_removal"
+            fixed_cost: 3590400
+            flag_material_cost: false
+          - name: "Scour_protection_and_seabed_remediation"
+            fixed_cost: 7180800
+            flag_material_cost: false
+        notes: "Assumes cut below seabed where required; includes grapnel/ROV work and rock removal/make-good."
+
+      # ——— Electrical system ———
+      - name: "Array_cabling_decom_66kV"
+        per_turbine: false
+        project_time:
+          value: 285
+          unit: months
+        subcategories:
+          - name: "Array_cable_recovery_and_disposal"
+            fixed_cost: 28210286      # proportional to 160 km
+            flag_material_cost: false
+        notes: "Includes trenching/deburial, recovery, joints handling, testing/clearance."
+
+      - name: "Export_system_decom_220kV"
+        per_turbine: false
+        project_time:
+          value: 285
+          unit: months
+        subcategories:
+          - name: "Export_cable_recovery_offshore"
+            fixed_cost: 21157714      # proportional to 110 km offshore + 10 km onshore
+            flag_material_cost: false
+        notes: "Assumes removal of offshore and landfall/HDD sections and reinstatement of onshore route as permitted."
+
+      - name: "Substations_decom"
+        per_turbine: false
+        project_time:
+          value: 285
+          unit: months
+        subcategories:
+          - name: "Offshore_substation_topside_and_foundation"
+            fixed_cost: 13464000
+            flag_material_cost: false
+          - name: "Onshore_substation_and_grid_assets"
+            fixed_cost: 4488000
+            flag_material_cost: false
+        notes: "Heavy-lift campaign for OSS; dismantling, oil handling, hazardous materials compliance."
+
+      # ——— Project & soft costs ———
+      - name: "Permitting_engineering_and_project_management"
+        per_turbine: false
+        project_time:
+          value:  285
+          unit: months
+        subcategories:
+          - name: "Decom_program_permitting_stakeholder_and_engineering"
+            fixed_cost: 11220000
+            flag_material_cost: false
+        notes: "Covers detailed method statements, regulatory submissions, HSE, engineering and contract management."
+
+      - name: "Site_clearance_and_post-survey"
+        per_turbine: false
+        project_time:
+          value: 285
+          unit: months
+        subcategories:
+          - name: "Debris_clearance_and_final_MBES/UXO_surveys"
+            fixed_cost: 6732000
+            flag_material_cost: false
+        notes: "Seabed clearance to ALARP and final verification surveys."
+
+      # ——— Contingency (policy-driven) ———
+      - name: "Contingency_15pct"
+        per_turbine: false
+        project_time:
+          value: 285
+          unit: months
+        subcategories:
+          - name: "Contingency_allowance"
+            fixed_cost: 33660000
+            flag_material_cost: false
+        notes: "Applied to subtotal in line with common regulatory practice."

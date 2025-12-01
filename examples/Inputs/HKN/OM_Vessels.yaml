@@ -13,3 +13,31 @@ Vessels:
     mobilization_cost: 0
     mobilization_days: 0
     port_distance: 30
+
+  HLV:
+    equipment_rate: 206550
+    capability: LCN
+    speed: 20.4  # 11 knots
+    strategy: scheduled
+    max_windspeed_transport: 10
+    max_windspeed_repair: 10
+    max_waveheight_transport: 2
+    max_waveheight_repair: 2
+    onsite: true
+    mobilization_cost: 0
+    mobilization_days: 0
+    port_distance: 100
+
+  FSV:
+    equipment_rate: 13082
+    capability: SCN
+    speed: 22.2  # 12 knots
+    strategy: scheduled
+    max_windspeed_transport: 99
+    max_windspeed_repair: 99
+    max_waveheight_transport: 1.5
+    max_waveheight_repair: 1.5
+    onsite: true
+    mobilization_cost: 0
+    mobilization_days: 0  
+    port_distance: 50

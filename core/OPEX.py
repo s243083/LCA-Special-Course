@@ -81,7 +81,8 @@ class MaintenanceSpec:
     frequency_per_year: Optional[float] = None # PM only; if set, tau_h = 8760/freq
     tau_h: Optional[float] = None       # PM interval hours (derived from frequency if provided)
     # Durations & costs
-    MTTR_h: float = 0.0                 # duration for the task (CM or PM)
+    MTTR_h: float = 0.0
+    MTTW_L_h: float = 0.0                 # duration for the task (CM or PM)
     spares_eur: float = 0.0
     labour_rate_eur_h: float = 80.0
     labour_h: float = 0.0               # default to MTTR_h (1-tech equivalent) unless you model crew size
@@ -92,9 +93,22 @@ class MaintenanceSpec:
 @dataclass
 class AccessProfile:
     task_type: Literal["CM", "PM"]
-    mu_A_per_h: float  # access rate (1/MTTW)
-    mu_R_per_h: float  # repair productivity (1/MTTR_effective)
-    service_time_h: float  # total service time incl. transits
+
+    # --- Logistics waiting (MTTL) ---
+    # mu_L_per_h: rate of clearing logistics (1 / mean_logistic_wait_h)
+    mu_L_per_h: float
+    mean_logistic_wait_h: float
+
+    # --- Weather waiting (MTTW) ---
+    # mu_A_per_h: rate of getting a suitable weather window (1 / mean_weather_wait_h)
+    mu_A_per_h: float
+    mean_weather_wait_h: float
+
+    # --- Repair / service (incl. transits) ---
+    mu_R_per_h: float
+    service_time_h: float
+
+    # Vessel "type" / capability used for this task
     chosen_vessels: List[str] = field(default_factory=list)
 
 @dataclass
@@ -248,8 +262,36 @@ class OPEX:
 
                 shape = float(f.get("shape", 1.0))
                 scale_years = float(f.get("scale", 1.0))
-                mttr_h = float(f.get("MTTR", 8.0))
-                materials_eur = float(f.get("materials", 0.0))
+
+                # --- MTTR lookup with warning logic ---
+                if "MTTR" in f:
+                    mttr_h = float(f["MTTR"])
+                elif "time" in f:
+                    mttr_h = float(f["time"])
+                else:
+                    mttr_h = 8.0
+                    print(
+                        f"[OPEX WARNING] Component '{comp_name}', failure mode '{mode_id}': "
+                        f"No 'MTTR' or 'time' field provided. Defaulting to MTTR=8.0 h."
+                    )
+
+                if 'materials' in f:
+                    materials_eur = float(f["materials"])
+                else:
+                    materials_eur = 0.0
+                    print(
+                        f"[OPEX WARNING] Component '{comp_name}', failure mode '{mode_id}': "
+                        f"No 'materials' field provided. Defaulting to 0.0 EUR."
+                    )
+
+                if 'MTTW_L' in f:
+                    mttwL_h = float(f['MTTW_L'])
+                else:
+                    mttwL_h = None
+                    print(f"[OPEX WARNING] Component '{comp_name}', failure mode '{mode_id}': "
+                        f"No 'MTTW_L' field provided. Defaulting to infinity.")
+
+
                 vessel = f.get("service_equipment")
                 desc = f.get("description")
 
@@ -274,6 +316,7 @@ class OPEX:
                         frequency_per_year=None,
                         tau_h=None,
                         MTTR_h=mttr_h,
+                        MTTW_L_h=mttwL_h,
                         spares_eur=materials_eur,
                         labour_rate_eur_h=labour_rate,
                         labour_h=mttr_h,
@@ -282,19 +325,69 @@ class OPEX:
                     )
                 )
 
+
             # ---------- Maintenance -> PM entries ----------
             maint_list = comp_data.get("maintenance", []) or []
             for i, m in enumerate(maint_list):
                 if not isinstance(m, dict):
                     continue
-                freq_per_year = float(m.get("frequency", 0.0) or 0.0)
-                time_h = float(m.get("time", 0.0) or 0.0)
-                materials_pm = float(m.get("materials", 0.0) or 0.0)
-                vessel_pm = m.get("service_equipment")
+
+                # --- frequency lookup with warning logic ---
+                if "frequency" in m:
+                    freq_per_year = float(m["frequency"]) / 365
+                else:
+                    freq_per_year = 0.0
+                    print(
+                        f"[OPEX WARNING] Component '{comp_name}', PM entry {i}: "
+                        f"No 'frequency' field provided. Defaulting to 0.0 (PM disabled)."
+                    )
+
+                # --- time lookup with warning logic ---
+                if "time" in m:
+                    time_h = float(m["time"])
+                else:
+                    time_h = 0.0
+                    print(
+                        f"[OPEX WARNING] Component '{comp_name}', PM entry {i}: "
+                        f"No 'time' field provided. Defaulting to 0.0 h."
+                    )
+
+                # --- materials lookup with warning logic ---
+                if "materials" in m:
+                    materials_pm = float(m["materials"])
+                else:
+                    materials_pm = 0.0
+                    print(
+                        f"[OPEX WARNING] Component '{comp_name}', PM entry {i}: "
+                        f"No 'materials' field provided. Defaulting to 0.0 EUR."
+                    )
+
+                # --- vessel lookup with warning logic ---
+                if "service_equipment" in m:
+                    vessel_pm = m["service_equipment"]
+                else:
+                    vessel_pm = "CTV"
+                    print(
+                        f"[OPEX WARNING] Component '{comp_name}', PM entry {i}: "
+                        f"No 'service_equipment' field provided. Defaulting to 'CTV'."
+                    )
+
+                if 'mttw_L' in m:
+                    mttwL_h = float(m['mttw_L'])
+                else:
+                    mttwL_h = None
+                    print(
+                        f"[OPEX WARNING] Component '{comp_name}', PM entry {i}: "
+                        f"No 'MTTW_L' field provided. Defaulting to infinity."
+                    )
+
                 desc_pm = m.get("description")
 
+                # --- interval tau ---
                 tau_h = (8760.0 / freq_per_year) if freq_per_year > 0 else None
+
                 preferred_vessels_pm = [vessel_pm] if vessel_pm else ["CTV"]
+
 
                 specs.append(
                     MaintenanceSpec(
@@ -307,6 +400,7 @@ class OPEX:
                         frequency_per_year=freq_per_year if freq_per_year > 0 else None,
                         tau_h=tau_h,
                         MTTR_h=time_h,
+                        MTTW_L_h=mttwL_h,
                         spares_eur=materials_pm,
                         labour_rate_eur_h=labour_rate,
                         labour_h=time_h,
@@ -408,48 +502,111 @@ class OPEX:
         self,
         maintenance_specs: List[MaintenanceSpec],
         vessels: Dict[str, VesselSpec],
-        p_access_hourly: float = 0.7,   # hardcoded hourly probability of being accessible
+        p_access_hourly: float,   # hardcoded hourly probability of being accessible
     ) -> Dict[Tuple[str, str], AccessProfile]:
         """
         Build access/repair/transit rates per MaintenanceSpec (each failure mode or PM entry).
-        Bernoulli windowing: if an L-hour continuous window is required, the success
-        probability at any hour is p_access_hourly ** L, so MTTW ≈ 1 / (p_access_hourly ** L),
-        and mu_A_per_h = p_access_hourly ** L.
 
-        For option 2 (explicit transit states), we return:
-        - mu_T_out_per_h = 1 / t_transit_out
-        - mu_R_per_h     = 1 / t_onsite
-        - mu_T_back_per_h= 1 / t_transit_back
-        and keep service_time_h = t_transit_out + t_onsite + t_transit_back.
+        Now we distinguish explicitly:
+          - Logistics waiting (mean_logistic_wait_h -> mu_L_per_h)
+          - Weather waiting (mean_weather_wait_h  -> mu_A_per_h)
+          - Repair/service (service_time_h        -> mu_R_per_h)
 
-        Keying: (component, mode_id) to keep failure modes independent.
+        Simple heuristics:
+          - mean_logistic_wait_h is derived from vessel.mobilization_days if > 0,
+            otherwise assumed 0 (no explicit logistics delay).
+          - Weather waiting uses a Bernoulli-window approximation:
+                p_window = p_access_hourly ** L_hrs
+                mu_A_per_h = p_window
+            where L_hrs is the required continuous window length (transit + onsite + transit).
         """
         profiles: Dict[Tuple[str, str], AccessProfile] = {}
-        for s in maintenance_specs:
-            # safe vessel resolution
-            v_name = (s.preferred_vessels[0] if s.preferred_vessels else None)
-            if not v_name or v_name not in vessels:
-                v_name = "CTV" if "CTV" in vessels else next(iter(vessels))
-            v = vessels[v_name]
 
+        for s in maintenance_specs:
+            # --- resolve requested vessel CAPABILITY ------------------------------
+            if s.preferred_vessels and len(s.preferred_vessels) > 0:
+                requested_cap = s.preferred_vessels[0]  # interpret as capability label
+            else:
+                requested_cap = "CTV"  # sensible default capability
+
+            # find a vessel with matching capability
+            matching_vessels = [
+                v for v in vessels.values()
+                if v.capability.lower() == requested_cap.lower()
+            ]
+
+            if not matching_vessels:
+                available_caps = sorted({v.capability for v in vessels.values()})
+                raise ValueError(
+                    f"[OPEX] No vessel available with capability '{requested_cap}' "
+                    f"for component '{s.component}', mode '{s.mode_id}'. "
+                    f"Available capabilities: {available_caps}"
+                )
+
+            # choose first vessel with that capability (can be refined later)
+            v = matching_vessels[0]
+
+            # --- transit and service times ---------------------------------------
             speed_kmh = 1.852 * v.speed_kn
-            t_transit = (v.base_distance_km / speed_kmh) if (speed_kmh > 0 and v.base_distance_km > 0) else 0.0
+            if speed_kmh > 0 and v.base_distance_km > 0:
+                t_transit = v.base_distance_km / speed_kmh
+            else:
+                t_transit = 0.0
+
             t_transit_out = t_transit
             t_transit_back = t_transit
             t_onsite = max(0.0, s.MTTR_h)
 
+            # total continuous window length needed (hours)
             L = t_transit_out + t_onsite + t_transit_back
             L_hrs = int(math.ceil(max(0.0, L)))
-            mu_A_per_h = max(1e-12, p_access_hourly ** L_hrs)
+            
+            
+            # --- Logistics waiting (MTTL) ----------------------------------------
+            # Use per-mode MTTW_L_h from MaintenanceSpec if given.
+            # Semantics:
+            #   - finite, > 0:   real logistics waiting in hours
+            #   - None / inf / ≤0: no explicit logistics delay modelled (instantaneous)
+            mttwL_h = getattr(s, "MTTW_L_h", None)
+
+            # If missing or inf → model instantaneous logistics clearing
+            if mttwL_h is None or not math.isfinite(mttwL_h) or mttwL_h <= 0.0:
+                mean_logistic_wait_h = 0.0
+                mu_L_per_h = 1e12   # practically instantaneous
+            else:
+                mean_logistic_wait_h = float(mttwL_h)
+                mu_L_per_h = 1.0 / mean_logistic_wait_h
+
+
+            # --- Weather waiting (MTTW) ------------------------------------------
+            # Bernoulli weather window approximation:
+            #   p_window = p_access_hourly ** L_hrs
+            #   mu_A_per_h = p_window
+            # For p_access_hourly in (0,1), this gives small p_window for long jobs.
+
+            #p_window = max(1e-12, p_access_hourly ** L_hrs)
+
+            mu_A_per_h = p_access_hourly
+            mean_weather_wait_h = (1.0 / mu_A_per_h) if mu_A_per_h > 0.0 else float("inf")
+
+            # --- Repair / service rate -------------------------------------------
+            service_time_h = t_transit_out + t_onsite + t_transit_back
+            mu_R_per_h = (1.0 / service_time_h) if service_time_h > 0 else 0.0
 
             profiles[(s.component, str(s.mode_id))] = AccessProfile(
                 task_type=s.task_type,
+                mu_L_per_h=mu_L_per_h,
+                mean_logistic_wait_h=mean_logistic_wait_h,
                 mu_A_per_h=mu_A_per_h,
-                mu_R_per_h=(1.0 / t_onsite) if t_onsite > 0 else 0.0,
-                service_time_h=(t_transit_out + t_onsite + t_transit_back),
-                chosen_vessels=[v_name],
+                mean_weather_wait_h=mean_weather_wait_h,
+                mu_R_per_h=mu_R_per_h,
+                service_time_h=service_time_h,
+                # store capability label, not vessel name
+                chosen_vessels=[requested_cap],
             )
+
         return profiles
+
 
 
     def _turbine_ids(self, windFarm) -> List[str]:
@@ -561,35 +718,51 @@ class OPEX:
 
 
     # --------------------------- Mode 2: Analytical CTMC ---------------------------
-    def _calc_opex_analytic_ctmc(self) -> Dict[str, Any]:
+    def _calc_opex_analytic_ctmc(self) -> tuple[pd.DataFrame, dict]:
+        """
+        Analytical CTMC approach with one unified CTMC per component.
+
+        - For each component, build a CTMC with:
+            state 0 = UP
+            state i = down in mode i (failure or PM)
+        - Transition rates:
+            0 -> i : lambda_i  (failure / PM rate)
+            i -> 0 : mu_i      (repair+access rate)
+        - Component availability = steady-state probability pi[0].
+        """
+        self.p_access_hourly = get_input_parameter(self.parameters,'analytic_ctmc', 'p_access_hourly')
+        
         maint_specs = self._load_maintenance_specs()
         vessels = self._load_vessels()
-        access = self._compute_access_profiles(maint_specs, vessels, p_access_hourly=0.7)
+        access = self._compute_access_profiles(maint_specs, vessels, p_access_hourly=self.p_access_hourly)
 
         windFarm = getattr(self.env, "windFarm", None)
         t_ids = self._turbine_ids(windFarm) if windFarm is not None else ["T01"]
 
         idx, op_start_ts, op_end_ts, T_h = self._project_time_index()
+        n_turbines = max(1, len(t_ids))
 
-        downtime_h: Dict[str, float] = {}
-        comp_mode_A: Dict[str, List[float]] = {}
+        
 
-        # ---- new dict to accumulate component-level costs
+        # ---- containers -----------------------------------------------------------
         component_costs: Dict[str, Dict[str, float]] = {}
-
         transport_total = labour_total = spares_total = 0.0
         transport_cm = labour_cm = spares_cm = 0.0
         transport_pm = labour_pm = spares_pm = 0.0
 
-        n_turbines = max(1, len(t_ids))
-
+        # --------------------------------------------------------------------------
+        # 1) COSTS & EXPECTED EVENT COUNTS (per mode, as before)
+        # --------------------------------------------------------------------------
         for s in maint_specs:
-            ap = access[(s.component, str(s.mode_id))]
-            t_service = ap.service_time_h
-            mu_A = ap.mu_A_per_h
-            mu_R = (1.0 / t_service) if t_service > 0 else 0.0
+            key = (s.component, str(s.mode_id))
+            ap = access.get(key)
+            if ap is None:
+                # shouldn't happen, but be defensive
+                continue
 
-            # ---- rate for this mode
+            t_service = ap.service_time_h
+
+            # event rate per turbine
             if s.task_type == "CM":
                 lam = s.lambda_per_h
                 N_per_turbine = lam * T_h
@@ -597,76 +770,215 @@ class OPEX:
                 lam = (1.0 / s.tau_h) if s.tau_h else 0.0
                 N_per_turbine = (T_h / s.tau_h) if s.tau_h else 0.0
 
-            # ---- 3-state CTMC availability
-            if mu_A > 0 and mu_R > 0:
-                A_mode = (mu_A * mu_R) / (mu_A * mu_R + lam * (mu_R + mu_A)) if lam > 0 else 1.0
+            # costs per event
+            requested_cap = None
+            if ap.chosen_vessels:
+                requested_cap = ap.chosen_vessels[0]    # interpreted as capability label
             else:
-                A_mode = 0.0 if lam > 0 else 1.0
+                requested_cap = "CTV" # default capability
+                # print warning
+                print(f"[OPEX] Warning: No vessel requested for {s.component} mode {s.mode_id}; defaulting to 'CTV'.")
 
-            comp_mode_A.setdefault(s.component, []).append(A_mode)
-            total_downtime_comp = (1.0 - A_mode) * T_h * n_turbines
-            downtime_h[s.component] = downtime_h.get(s.component, 0.0) + total_downtime_comp
 
-            # ---- costs
-            v = vessels[ap.chosen_vessels[0]]
+            # Find a vessel with matching capability
+            matching_vessels = [
+                v for v in vessels.values()
+                if v.capability.lower() == requested_cap.lower()
+            ]
+
+            if not matching_vessels:
+                available_caps = sorted({v.capability for v in vessels.values()})
+                raise ValueError(
+                    f"[OPEX] No vessel available with capability '{requested_cap}'. "
+                    f"Available capabilities: {available_caps}"
+                )
+
+            # select the first matching vessel
+            v = matching_vessels[0]
+
             cost_transport = v.day_rate_eur * (t_service / 24.0)
-            cost_labour    = s.labour_rate_eur_h * s.labour_h
-            cost_spares    = s.spares_eur
+            cost_labour = s.labour_rate_eur_h * s.labour_h
+            cost_spares = s.spares_eur
 
             N_farm = N_per_turbine * n_turbines
             this_event_transport = N_farm * cost_transport
-            this_event_labour    = N_farm * cost_labour
-            this_event_spares    = N_farm * cost_spares
-            this_event_total     = this_event_transport + this_event_labour + this_event_spares
+            this_event_labour = N_farm * cost_labour
+            this_event_spares = N_farm * cost_spares
+            this_event_total = (
+                this_event_transport + this_event_labour + this_event_spares
+            )
 
-            # accumulate global totals
+            # global totals
             transport_total += this_event_transport
-            labour_total    += this_event_labour
-            spares_total    += this_event_spares
+            labour_total += this_event_labour
+            spares_total += this_event_spares
 
             if s.task_type == "CM":
                 transport_cm += this_event_transport
-                labour_cm    += this_event_labour
-                spares_cm    += this_event_spares
+                labour_cm += this_event_labour
+                spares_cm += this_event_spares
             else:
                 transport_pm += this_event_transport
-                labour_pm    += this_event_labour
-                spares_pm    += this_event_spares
+                labour_pm += this_event_labour
+                spares_pm += this_event_spares
 
-            # ---- accumulate per-component costs
-            cc = component_costs.setdefault(s.component, {
-                "transport_eur": 0.0,
-                "labour_eur": 0.0,
-                "spares_eur": 0.0,
-                "CM_eur": 0.0,
-                "PM_eur": 0.0,
-                "total_eur": 0.0,
-            })
+            # per-component accumulation
+            cc = component_costs.setdefault(
+                s.component,
+                {
+                    "transport_eur": 0.0,
+                    "labour_eur": 0.0,
+                    "spares_eur": 0.0,
+                    "CM_eur": 0.0,
+                    "PM_eur": 0.0,
+                    "total_eur": 0.0,
+                },
+            )
             cc["transport_eur"] += this_event_transport
-            cc["labour_eur"]    += this_event_labour
-            cc["spares_eur"]    += this_event_spares
-            cc["total_eur"]     += this_event_total
+            cc["labour_eur"] += this_event_labour
+            cc["spares_eur"] += this_event_spares
+            cc["total_eur"] += this_event_total
             if s.task_type == "CM":
                 cc["CM_eur"] += this_event_total
             else:
                 cc["PM_eur"] += this_event_total
 
-        # ---- Component availability (product of mode availabilities)
+        # --------------------------------------------------------------------------
+        # 2) AVAILABILITY VIA UNIFIED CTMC PER COMPONENT (WITH WAITING & REPAIR STATES)
+        # --------------------------------------------------------------------------
+        # group specs by component
+        comp_to_specs: Dict[str, List[MaintenanceSpec]] = {}
+        for s in maint_specs:
+            comp_to_specs.setdefault(s.component, []).append(s)
+
         component_A: Dict[str, float] = {}
-        for comp, A_list in comp_mode_A.items():
-            A_comp = 1.0
-            for A_m in A_list:
-                A_comp *= A_m
+        downtime_h: Dict[str, float] = {}
+
+        for comp, specs_list in comp_to_specs.items():
+            n_modes = len(specs_list)
+            if n_modes == 0:
+                component_A[comp] = 1.0
+                downtime_h[comp] = 0.0
+                continue
+
+            # Explicit CTMC structure (with separate logistics & weather waiting):
+            #
+            #   state 0        = UP
+            #   state 3*k+1    = WL_k  (waiting for logistics for mode k)
+            #   state 3*k+2    = WW_k  (logistics ready, waiting for weather)
+            #   state 3*k+3    = R_k   (under repair / service)
+            #
+            # Transitions per mode i:
+            #   0      --lambda_i--> WL_i
+            #   WL_i   --mu_L(i)-->  WW_i
+            #   WW_i   --mu_A(i)-->  R_i
+            #   R_i    --mu_R(i)-->  0
+            #
+            n_states = 1 + 3 * n_modes
+            Q = np.zeros((n_states, n_states), dtype=float)
+
+            lambdas: List[float] = []
+            mu_Ls: List[float] = []
+            mu_As: List[float] = []
+            mu_Rs: List[float] = []
+
+            for local_idx, s in enumerate(specs_list):
+                # indices for WL, WW and R states of this mode
+                iWL = 3 * local_idx + 1  # logistic waiting
+                iWW = 3 * local_idx + 2  # weather waiting
+                iR  = 3 * local_idx + 3  # repair
+
+                key = (s.component, str(s.mode_id))
+                ap = access.get(key)
+
+                # default: no dynamics if profile missing
+                lam = 0.0
+                mu_L = 0.0
+                mu_A = 0.0
+                mu_R = 0.0
+
+                if ap is not None:
+                    # failure / PM rate from UP to WL
+                    if s.task_type == "CM":
+                        lam = s.lambda_per_h
+                    else:
+                        lam = (1.0 / s.tau_h) if s.tau_h else 0.0
+
+                    # logistics rate from WL to WW
+                    mu_L = ap.mu_L_per_h if ap.mu_L_per_h > 0 else 0.0
+
+                    # access rate from WW to R (weather window)
+                    mu_A = ap.mu_A_per_h if ap.mu_A_per_h > 0 else 0.0
+
+                    # repair rate from R to UP
+                    mu_R = (1.0 / ap.service_time_h) if ap.service_time_h > 0 else 0.0
+
+                lambdas.append(lam)
+                mu_Ls.append(mu_L)
+                mu_As.append(mu_A)
+                mu_Rs.append(mu_R)
+
+                # 0 -> iWL (UP to logistic waiting)
+                Q[0, iWL] += lam
+                Q[0, 0]   -= lam
+
+                # iWL -> iWW (logistics to weather waiting)
+                Q[iWL, iWW] += mu_L
+                Q[iWL, iWL] -= mu_L
+
+                # iWW -> iR (weather waiting to repair)
+                Q[iWW, iR] += mu_A
+                Q[iWW, iWW] -= mu_A
+
+                # iR -> 0 (repair to UP)
+                Q[iR, 0] += mu_R
+                Q[iR, iR] -= mu_R
+
+            total_lambda = sum(lambdas)
+
+            # handle degenerate case: no failures and no progress
+            if (
+                total_lambda == 0.0
+                and all(mu == 0.0 for mu in mu_Ls)
+                and all(mu == 0.0 for mu in mu_As)
+                and all(mu == 0.0 for mu in mu_Rs)
+            ):
+                A_comp = 1.0
+            else:
+                # solve steady state: pi Q = 0, sum(pi) = 1
+                A_mat = Q.T.copy()
+                b_vec = np.zeros(n_states)
+                # replace last equation by normalization
+                A_mat[-1, :] = 1.0
+                b_vec[-1] = 1.0
+                try:
+                    pi = np.linalg.solve(A_mat, b_vec)
+                    # numerical guard
+                    pi = np.maximum(pi, 0.0)
+                    s_sum = pi.sum()
+                    if s_sum > 0:
+                        pi /= s_sum
+                    # availability = probability of being in UP state (0)
+                    A_comp = float(pi[0])
+                except np.linalg.LinAlgError:
+                    # fallback if something goes wrong
+                    A_comp = 1.0
+
             component_A[comp] = A_comp
-        for comp in downtime_h.keys():
-            component_A.setdefault(comp, 1.0)
+            downtime_h[comp] = (1.0 - A_comp) * T_h * n_turbines
 
-        # ---- Turbine / farm availability
-        A_turb = np.prod(list(component_A.values())) if component_A else 1.0
+
+
+        # --------------------------------------------------------------------------
+        # 3) TURBINE / FARM AVAILABILITY (still series over components)
+        # --------------------------------------------------------------------------
+        A_turb = float(np.prod(list(component_A.values()))) if component_A else 1.0
         turbine_A = {tid: A_turb for tid in t_ids}
-        farm_A = float(A_turb)
+        farm_A = A_turb
 
-        # ---- OpEx totals
+        # --------------------------------------------------------------------------
+        # 4) OPEX TOTALS + TIME SERIES
+        # --------------------------------------------------------------------------
         fixed_om = float(getattr(self.config, "Fixed_OM_Annual", 0.0)) * (T_h / 8760.0)
         cm_cost = transport_cm + labour_cm + spares_cm
         pm_cost = transport_pm + labour_pm + spares_pm
@@ -675,22 +987,25 @@ class OPEX:
         spares = spares_total
         total = transport + labour + spares + fixed_om
 
-        # ---- Calendarize: build DataFrame and integrate component-level costs
-        idx, _, _, _ = self._project_time_index()
+        # monthly schedule (even payment)
         opex_df = self._even_payment_schedule(total, idx)
 
-        # Add per-component cost columns (evenly distributed across months)
-        for comp, costs in component_costs.items():
-            comp_total = costs.get("total_eur", 0.0)
-            per_month = comp_total / len(opex_df) if len(opex_df) > 0 else 0.0
-            opex_df[f"{comp}_cost"] = per_month
+        # add per-component cost columns (evenly distributed)
+        if len(opex_df) > 0:
+            for comp, costs in component_costs.items():
+                comp_total = costs.get("total_eur", 0.0)
+                per_month = comp_total / len(opex_df)
+                opex_df[f"{comp}_cost"] = per_month
 
-        # Optionally also include fixed OM per month
-        opex_df["fixed_OM"] = fixed_om / len(opex_df) if len(opex_df) > 0 else 0.0
+            opex_df["fixed_OM"] = fixed_om / len(opex_df)
+        else:
+            opex_df["fixed_OM"] = 0.0
 
-        return {
+        # --------------------------------------------------------------------------
+        # 5) EXTRAS PAYLOAD (consistent with _calc_opex_as_fraction_of_capex)
+        # --------------------------------------------------------------------------
+        extras = {
             "mode": "analytic_ctmc",
-            "OPEX_records": opex_df,
             "availability_summary": AvailabilitySummary(
                 component_A=component_A,
                 turbine_A=turbine_A,
@@ -709,6 +1024,8 @@ class OPEX:
             ),
             "component_cost_breakdown": component_costs,
         }
+
+        return opex_df, extras
 
 
 

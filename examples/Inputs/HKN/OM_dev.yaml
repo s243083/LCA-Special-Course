@@ -1,66 +1,42 @@
 Turbine: 
-    electrical_system:
-      name: electrical_system
+  generator:
+      name: generator
       maintenance:
-      - description: n/a
-        time: 0
-        materials: 0
+      - description: annual turbine inspection
+        time: 24
+        materials: 1500
         service_equipment: CTV
-        frequency: 0
+        frequency: 365
+        # n_technicians: 3
       failures:
-        1:
-          scale: 1.859
-          shape: 1
-          MTTW: 1
-          MTTR: 14
-          materials: 1000
-          service_equipment: CTV
-          operation_reduction: 0.0
-          level: 1
-          description: power converter minor repair
-          # n_technicians: 2
         2:
-          scale: 2.793
+          scale: 1.832
           shape: 1
-          MTTW: 1
-          MTTR: 14
+          time: 13
           materials: 1000
           service_equipment: CTV
           operation_reduction: 0.0
           level: 2
-          description: power electrical system minor repair
+          description: direct drive generator minor repair
           # n_technicians: 2
-
-
-    hydraulic_system:
-      name: hydraulic_system
-      maintenance:
-      - description: n/a
-        time: 0
-        materials: 0
-        service_equipment: CTV
-        frequency: 0
-      failures:
-        1:
-          scale: 1.214
+        4:
+          scale: 33.333
           shape: 1
-          MTTW: 1
-          MTTR: 14
-          materials: 500
-          service_equipment: CTV
-          operation_reduction: 0
-          level: 1
-          description: minor pitch system repair
-          # n_technicians: 2
-        2:
-          scale: 100
+          time: 49
+          materials: 14340
+          service_equipment: LCN
+          operation_reduction: 0.0
+          level: 4
+          description: direct drive generator major repair
+          # n_technicians: 3
+        6:
+          scale: 111.1111
           shape: 1
-          MTTW: 1
-          MTTR: 14
-          materials: 1000
-          service_equipment: CTV
+          time: 244
+          materials: 236500
+          service_equipment: LCN
           operation_reduction: 0
-          level: 2
-          description: minor ballast pump repair
-          # n_technicians: 2
-   
+          replacement: true
+          level: 6
+          description: direct drive generator major replacement
+          # n_technicians: 8

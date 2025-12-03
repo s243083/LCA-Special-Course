@@ -1,0 +1,405 @@
+Scenario:
+  name: EconomicDownturn
+  capex_markup_wind_specific: 0.025  # midpoint of 0–5%
+
+MaterialCorrelation:
+  materials: [Steel, Copper, Iron, NdFeB, Glass_fiber, Uniax_GlassFiber, Carbon_fiber, Foam_core, Gelcoat_resin, Electrical_steel]
+  matrix:
+    # same as baseline
+    - [  1.0,  0.85, 0.90, 0.80, 0.75, 0.75, 0.78, 0.70, 0.72, 0.88 ]
+    - [  0.85, 1.0,  0.80, 0.82, 0.75, 0.75, 0.78, 0.70, 0.72, 0.80 ]
+    - [  0.90, 0.80, 1.0,  0.78, 0.72, 0.72, 0.75, 0.68, 0.70, 0.85 ]
+    - [  0.80, 0.82, 0.78, 1.0,  0.75, 0.75, 0.80, 0.70, 0.72, 0.78 ]
+    - [  0.75, 0.75, 0.72, 0.75, 1.0,  0.95, 0.80, 0.78, 0.80, 0.75 ]
+    - [  0.75, 0.75, 0.72, 0.75, 0.95, 1.0,  0.82, 0.78, 0.80, 0.75 ]
+    - [  0.78, 0.78, 0.75, 0.80, 0.80, 0.82, 1.0,  0.75, 0.78, 0.78 ]
+    - [  0.70, 0.70, 0.68, 0.70, 0.78, 0.78, 0.75, 1.0,  0.76, 0.70 ]
+    - [  0.72, 0.72, 0.70, 0.72, 0.80, 0.80, 0.78, 0.76, 1.0,  0.72 ]
+    - [  0.88, 0.80, 0.85, 0.78, 0.75, 0.75, 0.78, 0.70, 0.72, 1.0  ]
+
+Commodity:
+  Steel:
+    CostParameters: 
+      prediction_horizon:
+        value: 12
+        unit: months
+      material_cost: 1500
+      flag_GBM: true
+      flag_JumpDif: false
+      flag_OU: false
+
+      mu: 0.04      # unchanged
+      sigma: 0.234  # 1.3 * 0.18
+
+      mu_jump: 0.0
+      lambda_jump: 0.015   # 1.5 * 0.01
+      sigma_jump: 0.10
+    LCAParameters:
+      co2eq: 2.0
+
+  Copper:
+    CostParameters:
+      prediction_horizon:
+        value: 12
+        unit: months 
+      material_cost: 8000
+      flag_GBM: true
+      flag_JumpDif: false
+      flag_OU: false
+
+      mu: 0.05
+      sigma: 0.325  # 1.3 * 0.25
+
+      mu_jump: 0.0
+      lambda_jump: 0.030   # 1.5 * 0.02
+      sigma_jump: 0.15
+    LCAParameters:
+      co2eq: 4.0
+
+  Iron:
+    CostParameters:
+      prediction_horizon:
+        value: 12
+        unit: months 
+      material_cost: 500
+      flag_GBM: true
+      flag_JumpDif: false
+      flag_OU: false
+
+      mu: 0.03
+      sigma: 0.195  # 1.3 * 0.15
+
+      mu_jump: 0.0
+      lambda_jump: 0.015   # 1.5 * 0.01
+      sigma_jump: 0.08
+    LCAParameters:
+      co2eq: 1.8
+
+  NdFeB:
+    CostParameters:
+      prediction_horizon:
+        value: 12
+        unit: months 
+      material_cost: 90000
+      flag_GBM: false
+      flag_JumpDif: true
+      flag_OU: false
+
+      mu: 0.08
+      sigma: 0.520  # 1.3 * 0.40
+
+      mu_jump: 0.70
+      lambda_jump: 0.120   # 1.5 * 0.08
+      sigma_jump: 0.25
+    LCAParameters:
+      co2eq: 70.0
+
+  Glass_fiber:
+    CostParameters: 
+      prediction_horizon:
+        value: 12
+        unit: months
+      material_cost: 3000
+      flag_GBM: true
+      flag_JumpDif: false
+      flag_OU: false
+
+      mu: 0.03
+      sigma: 0.156  # 1.3 * 0.12
+
+      mu_jump: 0.0
+      lambda_jump: 0.015   # 1.5 * 0.01
+      sigma_jump: 0.08
+    LCAParameters:
+      co2eq: 2.5
+
+  Uniax_GlassFiber:
+    CostParameters: 
+      prediction_horizon:
+        value: 12
+        unit: months
+      material_cost: 3500
+      flag_GBM: true
+      flag_JumpDif: false
+      flag_OU: false
+
+      mu: 0.03
+      sigma: 0.156
+
+      mu_jump: 0.0
+      lambda_jump: 0.015
+      sigma_jump: 0.08
+    LCAParameters:
+      co2eq: 2.8
+
+  Carbon_fiber:
+    CostParameters:
+      prediction_horizon:
+        value: 12
+        unit: months
+      material_cost: 24000
+      flag_GBM: false
+      flag_JumpDif: true
+      flag_OU: false
+
+      mu: 0.05
+      sigma: 0.390  # 1.3 * 0.30
+
+      mu_jump: 0.0
+      lambda_jump: 0.075   # 1.5 * 0.05
+      sigma_jump: 0.20
+    LCAParameters:
+      co2eq: 29.0
+
+  Foam_core:
+    CostParameters:
+      prediction_horizon:
+        value: 12
+        unit: months
+      material_cost: 3500
+      flag_GBM: true
+      flag_JumpDif: false
+      flag_OU: false
+
+      mu: 0.02
+      sigma: 0.130  # 1.3 * 0.10
+
+      mu_jump: 0.0
+      lambda_jump: 0.015   # 1.5 * 0.01
+      sigma_jump: 0.08
+    LCAParameters:
+      co2eq: 3.5
+
+  Gelcoat_resin:
+    CostParameters:
+      prediction_horizon:
+        value: 12
+        unit: months
+      material_cost: 4500
+      flag_GBM: true
+      flag_JumpDif: false
+      flag_OU: false
+
+      mu: 0.03
+      sigma: 0.195  # 1.3 * 0.15
+
+      mu_jump: 0.0
+      lambda_jump: 0.015   # 1.5 * 0.01
+      sigma_jump: 0.10
+    LCAParameters:
+      co2eq: 6.0
+
+  Electrical_steel:
+    CostParameters:
+      prediction_horizon:
+        value: 12
+        unit: months
+      material_cost: 2000
+      flag_GBM: true
+      flag_JumpDif: false
+      flag_OU: false
+
+      mu: 0.04
+      sigma: 0.300  # 1.5 * 0.20
+
+      mu_jump: 0.0
+      lambda_jump: 0.030   # 1.5 * 0.02
+      sigma_jump: 0.12
+    LCAParameters:
+      co2eq: 2.2
+
+
+  Composite_panel:
+    CostParameters:
+      prediction_horizon:
+        value: 12
+        unit: months
+      material_cost: 7000    # €/t (nacelle cover laminates incl. processing)
+      flag_GBM: false
+      mu: 0.03
+      sigma: 0.10
+      flag_JumpDif: false
+      mu_jump: 0
+      lambda_jump: 0
+      sigma_jump: 0
+    LCAParameters:
+      co2eq: 3.5
+
+  Power_electronics_modules:
+    CostParameters:
+      prediction_horizon:
+        value: 12
+        unit: months
+      material_cost: 50000  # €/t (SiC/IGBT stacks, DC link, control)
+      flag_GBM: false
+      mu: 0.06
+      sigma: 0.30
+      flag_JumpDif: false
+      mu_jump: 0.25
+      lambda_jump: 0.10
+      sigma_jump: 0.20
+    LCAParameters:
+      co2eq: 10.0
+
+  Transformer_unit:
+    CostParameters:
+      prediction_horizon:
+        value: 12
+        unit: months
+      material_cost: 15000   # €/t (integrated nacelle transformer)
+      flag_GBM: false
+      mu: 0.03
+      sigma: 0.12
+      flag_JumpDif: false
+      mu_jump: 0
+      lambda_jump: 0
+      sigma_jump: 0
+    LCAParameters:
+      co2eq: 3.0
+
+  HVAC_pack:
+    CostParameters:
+      prediction_horizon:
+        value: 12
+        unit: months
+      material_cost: 20000   # €/t
+      flag_GBM: false
+      mu: 0.03
+      sigma: 0.10
+      flag_JumpDif: false
+      mu_jump: 0
+      lambda_jump: 0
+      sigma_jump: 0
+    LCAParameters:
+      co2eq: 4.0
+
+  Cabling_internal:
+    CostParameters:
+      prediction_horizon:
+        value: 12
+        unit: months
+      material_cost: 12000   # €/t (Cu conductors + insulation)
+      flag_GBM: false
+      mu: 0.04
+      sigma: 0.18
+      flag_JumpDif: false
+      mu_jump: 0
+      lambda_jump: 0
+      sigma_jump: 0
+    LCAParameters:
+      co2eq: 5.0
+
+  Lube_and_hydraulics:
+    CostParameters:
+      prediction_horizon:
+        value: 12
+        unit: months
+      material_cost: 2500    # €/t (oils, fluids, filters packaged)
+      flag_GBM: false
+      mu: 0.02
+      sigma: 0.08
+      flag_JumpDif: false
+      mu_jump: 0
+      lambda_jump: 0
+      sigma_jump: 0
+    LCAParameters:
+      co2eq: 3.2
+
+
+# Blade Material Commodities
+  carbon_uniax:
+    CostParameters:
+      prediction_horizon:
+        value: 12
+        unit: months
+      material_cost: 28000      # €/t — high-grade unidirectional carbon fiber fabric
+      flag_GBM: false
+      mu: 0.02
+      sigma: 0.08
+      flag_JumpDif: false
+      mu_jump: 0
+      lambda_jump: 0
+      sigma_jump: 0
+    LCAParameters:
+      co2eq: 29.0               # tCO2e/t (carbon fiber has high embodied energy)
+
+  gelcoat:
+    CostParameters:
+      prediction_horizon:
+        value: 12
+        unit: months
+      material_cost: 3000       # €/t — specialty polyester/vinylester gelcoat
+      flag_GBM: false
+      mu: 0.02
+      sigma: 0.08
+      flag_JumpDif: false
+      mu_jump: 0
+      lambda_jump: 0
+      sigma_jump: 0
+    LCAParameters:
+      co2eq: 4.0                # tCO2e/t (resin-rich polymer coating)
+
+  glass_biax:
+    CostParameters:
+      prediction_horizon:
+        value: 12
+        unit: months
+      material_cost: 5500       # €/t — biaxial E-glass fabrics
+      flag_GBM: false
+      mu: 0.02
+      sigma: 0.08
+      flag_JumpDif: false
+      mu_jump: 0
+      lambda_jump: 0
+      sigma_jump: 0
+    LCAParameters:
+      co2eq: 1.7                # tCO2e/t (consistent with E-glass reinforcement)
+
+  glass_triax:
+    CostParameters:
+      prediction_horizon:
+        value: 12
+        unit: months
+      material_cost: 6500       # €/t — triaxial stitched E-glass fabrics
+      flag_GBM: false
+      mu: 0.02
+      sigma: 0.08
+      flag_JumpDif: false
+      mu_jump: 0
+      lambda_jump: 0
+      sigma_jump: 0
+    LCAParameters:
+      co2eq: 1.8                # tCO2e/t (heavier reinforcement, slightly higher energy)
+
+  glass_uniax:
+    CostParameters:
+      prediction_horizon:
+        value: 12
+        unit: months
+      material_cost: 5000       # €/t — unidirectional E-glass fabric
+      flag_GBM: false
+      mu: 0.02
+      sigma: 0.08
+      flag_JumpDif: false
+      mu_jump: 0
+      lambda_jump: 0
+      sigma_jump: 0
+    LCAParameters:
+      co2eq: 1.6                # tCO2e/t
+
+  medium_density_foam:
+    CostParameters:
+      prediction_horizon:
+        value: 12
+        unit: months
+      material_cost: 3500       # €/t — PVC/PET foam used in core materials
+      flag_GBM: false
+      mu: 0.02
+      sigma: 0.08
+      flag_JumpDif: false
+      mu_jump: 0
+      lambda_jump: 0
+      sigma_jump: 0
+    LCAParameters:
+      co2eq: 2.5                # tCO2e/t (polymer foam, moderate embodied energy)
+

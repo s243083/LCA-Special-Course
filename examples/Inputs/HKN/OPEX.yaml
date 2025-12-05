@@ -9,6 +9,11 @@ OM_Process:
 
   analytic_ctmc:
       p_access_hourly: 0.1 # for now this is directly treated a a transition rate from WAITING to REPAIR
+      uncertainty:
+        flag_apply: false
+        lamda_sigma: 0.3 # lognormal standard deviation for failure rates
+        mttr_sigma: 0.2  # lognormal standard deviation for MTTR
+        mttwL_sigma: 0.2 # lognormal standard deviation for MTTW        
 
   time_march_ctmc:
       dummy_param: true

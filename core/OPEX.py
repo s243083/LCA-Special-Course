@@ -164,6 +164,10 @@ class OPEX:
             format="%d.%m.%Y"
         )
 
+        # Apply any overrides from config        
+        apply_overrides(self, getattr(self.config, "OPEX_overrides", {}))
+
+
         self.OPEX_records = {}
 
 
@@ -411,6 +415,50 @@ class OPEX:
 
         return specs
 
+    def _apply_uncertainty_to_maintenance_specs(
+        self,
+        specs: List[MaintenanceSpec],
+        rng: np.random.Generator,
+    ) -> None:
+        """
+        Overwrite process parameters in-place with stochastic multipliers.
+        Baseline values are read from YAML via _load_maintenance_specs;
+        this function perturbs them for one Monte Carlo realisation.
+
+        Currently:
+        - lambda_per_h (CM only)
+        - MTTR_h (all modes)
+        - labour_h (kept consistent with MTTR_h)
+        - MTTW_L_h (if finite)
+        """
+        cfg = get_input_parameter(self.parameters, 'analytic_ctmc','uncertainty')
+        lam_sigma_default =  float(cfg.get("lamda_sigma", 0.0))
+        mttr_sigma_default = float(cfg.get("mttr_sigma", 0.0))
+        mttwL_sigma_default = float(cfg.get("mttwL_sigma", 0.0))
+
+        for s in specs:
+            # --- failure rate uncertainty (CM only) ---
+            if s.task_type == "CM" and lam_sigma_default > 0.0 and s.lambda_per_h > 0.0:
+                lam_factor = rng.lognormal(mean=0.0, sigma=lam_sigma_default)
+                s.lambda_per_h *= lam_factor
+
+            # --- MTTR uncertainty (all modes) ---
+            if mttr_sigma_default > 0.0 and s.MTTR_h > 0.0:
+                mttr_factor = rng.lognormal(mean=0.0, sigma=mttr_sigma_default)
+                s.MTTR_h *= mttr_factor
+                # keep labour_h consistent with MTTR
+                if s.labour_h > 0.0:
+                    s.labour_h *= mttr_factor
+
+            # --- logistics waiting time uncertainty (if modelled) ---
+            if (
+                mttwL_sigma_default > 0.0
+                and s.MTTW_L_h is not None
+                and math.isfinite(s.MTTW_L_h)
+                and s.MTTW_L_h > 0.0
+            ):
+                mttwL_factor = rng.lognormal(mean=0.0, sigma=mttwL_sigma_default)
+                s.MTTW_L_h *= mttwL_factor
 
 
     def _load_vessels(self, *args, **kwargs) -> Dict[str, VesselSpec]:
@@ -733,6 +781,14 @@ class OPEX:
         self.p_access_hourly = get_input_parameter(self.parameters,'analytic_ctmc', 'p_access_hourly')
         
         maint_specs = self._load_maintenance_specs()
+
+        # Apply uncertainty if enabled
+        self.process_uncertainty = get_input_parameter(self.parameters, 'analytic_ctmc','uncertainty','flag_apply')
+
+        if self.process_uncertainty:
+            self._apply_uncertainty_to_maintenance_specs(maint_specs, rng=np.random.default_rng())
+
+    
         vessels = self._load_vessels()
         access = self._compute_access_profiles(maint_specs, vessels, p_access_hourly=self.p_access_hourly)
 

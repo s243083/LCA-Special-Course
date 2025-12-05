@@ -4,8 +4,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from core.File_Handling import load_yaml, process_duration_fields
 
-#import sys
-#sys.path.append(r"M:\Projects\Cost Model\HiperSim\valuewind\DTU_Cost_Model")
+
+# TOPFARM Cost Model import
+# FROM Mads M. Pedersen, Mikkel Friis-Møller, Pierre-Elouan Réthoré, Ernestas Simutis, Riccardo Riva, Julian Quick, Nikolay Krasimirov Dimitrov, Jenni Rinker, & Katherine Dykes. (2025). DTUWindEnergy/TopFarm2: Release of v2.6.1 (v2.6.1). Zenodo. https://doi.org/10.5281/zenodo.17540961
 from core.DTU_Cost_Model.dtu_wind_cm_main import economic_evaluation
 from core.utils import apply_overrides
 
@@ -287,7 +288,7 @@ class CAPEX:
         """
 
         # call external Cost model here
-        n_turbines = 34
+        n_turbines = self.env.WindFarm.n_turbines
 
         rated_rpm = np.full(n_turbines, 12.0)
         rotor_diameter = np.full(n_turbines, 120.0)

@@ -5,7 +5,6 @@ from pathlib import Path
 from core.File_Handling import load_yaml, process_duration_fields
 from scipy.stats import weibull_min
 import numpy as np
-from core.WF_Controller import WF_Controller
 from core.utils import apply_overrides , get_input_parameter, repeat_timeseries, gap_fill_timeseries, remove_gaps_rebuild_timestamps, repeat_timeseries_to_duration
 
 class WindFarm:
@@ -24,7 +23,7 @@ class WindFarm:
         self.wind_farm_input = get_input_parameter(self.wind_farm_input, 'WF')
         self.config = env.config
 
-        self.wf_controller = WF_Controller(self.env)
+        self.n_turbines = get_input_parameter(self.wind_farm_input, 'WindFarm', 'n_turbines')
 
         # Set start and end times from wind_farm_data for the 'WF' identifier
         self.start_time = self.env.config.WF_OperationsStart_h
@@ -32,8 +31,6 @@ class WindFarm:
         
         self.power_records = pd.DataFrame()  # Initialize power records DataFrame
         self.wf_metrics_records = pd.DataFrame()  # Initialize metrics records DataFrame
-
-        self.external_response_path = get_input_parameter(self.wind_farm_input,'WF_external_response_path')
         
 
         # Apply Scenario overrides if provided
@@ -60,6 +57,8 @@ class WindFarm:
         import pandas as pd
 
         # reference response
+        
+        self.external_response_path = get_input_parameter(self.wind_farm_input,'external_response', 'WF_external_response_path')
         path = self.external_response_path
 
         reference_df = pd.read_parquet(

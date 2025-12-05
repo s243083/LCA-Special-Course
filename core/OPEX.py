@@ -788,17 +788,11 @@ class OPEX:
         if self.process_uncertainty:
             self._apply_uncertainty_to_maintenance_specs(maint_specs, rng=np.random.default_rng())
 
-    
         vessels = self._load_vessels()
         access = self._compute_access_profiles(maint_specs, vessels, p_access_hourly=self.p_access_hourly)
 
-        windFarm = getattr(self.env, "windFarm", None)
-        t_ids = self._turbine_ids(windFarm) if windFarm is not None else ["T01"]
-
         idx, op_start_ts, op_end_ts, T_h = self._project_time_index()
-        n_turbines = max(1, len(t_ids))
-
-        
+        n_turbines = self.env.windFarm.n_turbines
 
         # ---- containers -----------------------------------------------------------
         component_costs: Dict[str, Dict[str, float]] = {}

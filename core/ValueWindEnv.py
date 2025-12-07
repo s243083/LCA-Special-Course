@@ -35,7 +35,7 @@ class ValueWindEnv(simpy.Environment):
     def run_simulation(self, until=None):
         # Start the CAPEX process in the environment
         self.capex.start()
-        #self.capex.plot_cost_pies(turbine_id=1)
+        self.capex.plot_capex_dashboard(turbine_id=1)
 
         
         # Start the wind farm process in the environment
@@ -43,6 +43,7 @@ class ValueWindEnv(simpy.Environment):
 
         # Calculate OPEX
         self.opex.calc_OPEX()
+        self.opex.plot_opex_dashboard()
         
 
 
@@ -57,7 +58,7 @@ class ValueWindEnv(simpy.Environment):
 
         # calculate Valuation
         self.valuation.project_valuation()
-        #self.valuation.plot_valuation_results()
+        self.valuation.plot_valuation_results()
         
 
         # Call Reuslts Collector

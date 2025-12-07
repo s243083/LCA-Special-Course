@@ -24,6 +24,7 @@ class WindFarm:
         self.config = env.config
 
         self.n_turbines = get_input_parameter(self.wind_farm_input, 'WindFarm', 'n_turbines')
+        self.turbine_rated_power = get_input_parameter(self.wind_farm_input, 'WindFarm', 'turbine_rated_power')  # MW
 
         # Set start and end times from wind_farm_data for the 'WF' identifier
         self.start_time = self.env.config.WF_OperationsStart_h

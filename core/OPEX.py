@@ -92,6 +92,7 @@ class MaintenanceSpec:
     labour_rate_eur_h: float = 80.0
     labour_h: float = 0.0               # default to MTTR_h (1-tech equivalent) unless you model crew size
     preferred_vessels: List[str] = field(default_factory=list)
+    n_technicians: int = 1              # number of technicians required for the task
     description: Optional[str] = None
 
 
@@ -262,7 +263,7 @@ class OPEX:
         try:
             labour_rate = float(get_input_parameter(self.parameters, "OM_Costs", "labour_rate_eur_h"))
         except Exception:
-            labour_rate = 80.0
+            labour_rate = 140.0
 
         specs: List[MaintenanceSpec] = []
 
@@ -322,6 +323,9 @@ class OPEX:
 
                 preferred_vessels = [vessel] if vessel else ["CTV"]
 
+                # n_technicians field (optional) to scale labour hours
+                n_technicians = int(f.get("n_technicians", 1))
+
                 specs.append(
                     MaintenanceSpec(
                         component=comp_name,
@@ -338,6 +342,7 @@ class OPEX:
                         labour_rate_eur_h=labour_rate,
                         labour_h=mttr_h,
                         preferred_vessels=preferred_vessels,
+                        n_technicians=n_technicians,
                         description=desc,
                     )
                 )
@@ -412,6 +417,9 @@ class OPEX:
 
                 preferred_vessels_pm = [vessel_pm] if vessel_pm else ["CTV"]
 
+                # n_technicians field (optional) to scale labour hours
+                n_technicians = int(m.get("n_technicians", 1))
+
 
                 specs.append(
                     MaintenanceSpec(
@@ -429,6 +437,7 @@ class OPEX:
                         labour_rate_eur_h=labour_rate,
                         labour_h=time_h,
                         preferred_vessels=preferred_vessels_pm,
+                        n_technicians=n_technicians,
                         description=desc_pm,
                     )
                 )
@@ -859,7 +868,7 @@ class OPEX:
             v = matching_vessels[0]
 
             cost_transport = v.day_rate_eur * (t_service / 24.0)
-            cost_labour = s.labour_rate_eur_h * s.labour_h
+            cost_labour = s.labour_rate_eur_h * s.labour_h * s.n_technicians
             cost_spares = s.spares_eur
 
             N_farm = N_per_turbine * n_turbines
@@ -1056,7 +1065,11 @@ class OPEX:
         # --------------------------------------------------------------------------
         # 4) OPEX TOTALS + TIME SERIES
         # --------------------------------------------------------------------------
-        fixed_om = float(getattr(self.config, "Fixed_OM_Annual", 0.0)) * (T_h / 8760.0)
+        OM_overhead = get_input_parameter(self.parameters, 'OM_overhead') * 1000.0  # €/kW-year 
+        turbine_rated_power = float(getattr(self.env.windFarm, "turbine_rated_power", 0.0))
+        n_turbines = self.env.windFarm.n_turbines
+
+        fixed_om = OM_overhead * turbine_rated_power * n_turbines * (T_h / 8760.0)
 
         if fixed_om != 0.0:
             mode_cost_rows.append(
@@ -1479,9 +1492,18 @@ class OPEX:
                 raise ValueError(
                     "All modes have zero cost and zero interventions after drop_zeros=True."
                 )
+            
+        availability_summary = extras.get("availability_summary", None)
+        if availability_summary is not None:
+            try:
+                farm_A = float(getattr(availability_summary, "farm_A", np.nan))
+            except Exception:
+                farm_A = np.nan
+        else:
+            farm_A = np.nan
 
         # ------------------------------------------------------------------
-        # 1) KPIs: Total OPEX and OPEX per kWh
+        # 1) KPIs: Total OPEX, OPEX per MWh, OPEX per MW-year
         # ------------------------------------------------------------------
         # Total OPEX: prefer extras["total_opex_eur"], else sum from df
         total_opex_eur = extras.get("total_opex_eur", None)
@@ -1491,58 +1513,113 @@ class OPEX:
 
         kpi_total_opex_M = total_opex_eur / 1e6
 
-        # --- OPEX per kWh (if power_records available) ---
-        def _compute_total_energy_kwh(env) -> float | None:
+        # --- OPEX per MWh (OPEX per production) ---
+        def _compute_total_energy_mwh(env) -> float | None:
+            """
+            Returns total production over the simulated period in MWh.
+
+            Assumptions:
+            - power_records contains power [MW] per timestamp (per turbine
+              or already aggregated).
+            - We integrate power over time: sum( P_MW * dt_h ) -> MWh.
+            """
             wf = getattr(env, "windFarm", None)
             if wf is None:
                 return None
+
             power_df = getattr(wf, "power_records", None)
-            if not isinstance(power_df, pd.DataFrame):
-                return None
-            if power_df.empty or "timestamp" not in power_df.columns:
+            if not isinstance(power_df, pd.DataFrame) or power_df.empty:
                 return None
 
-            df_p = power_df.copy()
-            df_p["timestamp"] = pd.to_datetime(df_p["timestamp"])
-            df_p = df_p.sort_values("timestamp")
+            pr = power_df.copy()
 
-            # Compute time step in hours; allow irregular time steps
-            df_p["dt_h"] = df_p["timestamp"].diff().dt.total_seconds() / 3600.0
-            if df_p["dt_h"].iloc[1:].notna().any():
-                # Use median of non-NA steps as default
-                dt_default = float(df_p["dt_h"].iloc[1:].median())
+            # Normalise to ["timestamp", "Total_Production"]
+            if "timestamp" in pr.columns and len(pr.columns) == 2:
+                # already timestamp + one power column
+                pr.columns = ["timestamp", "Total_Production"]
             else:
-                dt_default = 1.0  # fallback 1h
-            df_p["dt_h"] = df_p["dt_h"].fillna(dt_default)
+                # assume "timestamp" + multiple power columns (per turbine); sum them
+                if "timestamp" not in pr.columns:
+                    return None
+                power_cols = [c for c in pr.columns if c != "timestamp"]
+                if not power_cols:
+                    return None
 
-            power_cols = [c for c in df_p.columns if c not in ("timestamp", "dt_h")]
-            if not power_cols:
+                pr = pr[["timestamp"] + power_cols].copy()
+                pr["Total_Production"] = (
+                    pr[power_cols]
+                    .apply(pd.to_numeric, errors="coerce")
+                    .fillna(0.0)
+                    .sum(axis=1)
+                )
+
+            pr["timestamp"] = pd.to_datetime(pr["timestamp"], errors="coerce")
+            pr["Total_Production"] = pd.to_numeric(
+                pr["Total_Production"], errors="coerce"
+            )
+            pr = pr.dropna(subset=["timestamp", "Total_Production"]).sort_values(
+                "timestamp"
+            )
+            if pr.empty:
                 return None
 
-            df_p[power_cols] = df_p[power_cols].apply(
-                pd.to_numeric, errors="coerce"
-            ).fillna(0.0)
-            df_p["farm_power_kw"] = df_p[power_cols].sum(axis=1)
+            # dt in hours between samples
+            pr["dt_h"] = pr["timestamp"].diff().dt.total_seconds() / 3600.0
+            # Use median dt as default for the first row / any NA
+            if pr["dt_h"].iloc[1:].notna().any():
+                dt_default = float(pr["dt_h"].iloc[1:].median())
+            else:
+                dt_default = 1.0  # fallback
+            pr["dt_h"] = pr["dt_h"].fillna(dt_default)
 
-            total_energy_kwh = float((df_p["farm_power_kw"] * df_p["dt_h"]).sum())
-            if total_energy_kwh <= 0.0:
+            # Integrate power [MW] over time [h] → energy [MWh]
+            total_energy_mwh = float((pr["Total_Production"] * pr["dt_h"]).sum())
+            if total_energy_mwh <= 0.0:
                 return None
-            return total_energy_kwh
 
-        total_energy_kwh = _compute_total_energy_kwh(self.env)
-        if total_energy_kwh is not None and total_energy_kwh > 0.0:
-            kpi_opex_per_kwh = total_opex_eur / total_energy_kwh
+            return total_energy_mwh
+
+        total_energy_mwh = _compute_total_energy_mwh(self.env)
+        if total_energy_mwh is not None and total_energy_mwh > 0.0:
+            kpi_opex_per_mwh = total_opex_eur / total_energy_mwh
         else:
-            kpi_opex_per_kwh = np.nan
+            kpi_opex_per_mwh = np.nan
+
+        # --- OPEX per MW-year (optional, if you keep this KPI) ---
+        capacity_kw = 0.0
+        wf = getattr(self.env, "windFarm", None)
+        if wf is not None:
+            try:
+                turbine_rated_power_mw = float(getattr(wf, "turbine_rated_power", 0.0))
+            except Exception:
+                turbine_rated_power_mw = 0.0
+            try:
+                n_turbines = int(getattr(wf, "n_turbines", 0))
+            except Exception:
+                n_turbines = 0
+            capacity_mw = turbine_rated_power_mw * n_turbines
+
+
+        ops_horizon = extras.get("ops_horizon", {}) or {}
+        try:
+            T_h = float(ops_horizon.get("T_h", 0.0))
+        except Exception:
+            T_h = 0.0
+        years = T_h / 8760.0 if T_h > 0.0 else 0.0
+
+        if capacity_mw > 0.0 and years > 0.0:
+            kpi_opex_per_mw_year = total_opex_eur / (capacity_mw * years)
+        else:
+            kpi_opex_per_mw_year = np.nan
 
         # ------------------------------------------------------------------
         # 2) Build KPI figure
         # ------------------------------------------------------------------
         fig_kpi = make_subplots(
             rows=1,
-            cols=2,
-            specs=[[{"type": "indicator"}, {"type": "indicator"}]],
-            horizontal_spacing=0.10,
+            cols=4,
+            specs=[[{"type": "indicator"}, {"type": "indicator"}, {"type": "indicator"}, {"type": "indicator"}]],
+            horizontal_spacing=0.08,
         )
 
         # KPI 1: Total OPEX
@@ -1557,32 +1634,55 @@ class OPEX:
             col=1,
         )
 
-        # KPI 2: OPEX per kWh
-        if np.isfinite(kpi_opex_per_kwh):
-            value_opex_per_kwh = float(kpi_opex_per_kwh)
+        # KPI 2: OPEX per MWh
+        if np.isfinite(kpi_opex_per_mwh):
+            value_opex_per_mwh = float(kpi_opex_per_mwh)
         else:
-            value_opex_per_kwh = 0.0  # display 0 but you could change the title to note "N/A"
+            value_opex_per_mwh = 0.0  # fallback display
 
         fig_kpi.add_trace(
             go.Indicator(
                 mode="number",
-                value=value_opex_per_kwh,
-                title={"text": "OPEX per kWh"},
-                number={"valueformat": ".5f", "suffix": " €/kWh"},
+                value=value_opex_per_mwh,
+                title={"text": "OPEX per MWh"},
+                number={"valueformat": ".2f", "suffix": " €/MWh"},
             ),
             row=1,
             col=2,
         )
 
-        fig_kpi.update_layout(
-            title=dict(
-                text="OPEX Overview — KPIs (analytic CTMC)",
-                font=dict(size=26),
-                x=0.01,
+        # KPI 3: OPEX per MW-year
+        if np.isfinite(kpi_opex_per_mw_year):
+            value_opex_per_mw_year = float(kpi_opex_per_mw_year)
+        else:
+            value_opex_per_mw_year = 0.0
+
+        fig_kpi.add_trace(
+            go.Indicator(
+                mode="number",
+                value=value_opex_per_mw_year /1000, # convert to k€/MW-year
+                title={"text": "OPEX per MW-year"},
+                number={"valueformat": ",.0f", "suffix": " k€/MW-yr"},
             ),
-            template="plotly_white",
-            margin=dict(l=40, r=40, t=60, b=20),
-            height=250,
+            row=1,
+            col=3,
+        )
+
+        # KPI 4: Farm availability
+        if np.isfinite(farm_A):
+            value_farm_A_pct = 100.0 * farm_A  # convert 0..1 → %
+        else:
+            value_farm_A_pct = 0.0  # fallback display
+
+        fig_kpi.add_trace(
+            go.Indicator(
+                mode="number",
+                value=value_farm_A_pct,
+                title={"text": "Farm availability"},
+                number={"valueformat": ".1f", "suffix": " %"},
+            ),
+            row=1,
+            col=4,
         )
 
         # ------------------------------------------------------------------

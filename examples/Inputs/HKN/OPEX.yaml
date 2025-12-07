@@ -1,7 +1,8 @@
 OM_Process:
-  OM_input_file: "OM.yaml"
+  OM_input_file: "OM_22MW.yaml"
   OM_Vessel_input_file: "OM_Vessels.yaml"
   Simulation_Mode: "analytic_ctmc" # options: [capex_fraction, analytic_ctmc, time_march_ctmc]
+  OM_overhead: 25 # [k€/MW/year] fixed annual overhead cost per MW installed: Insurerance, administration, Onshore operations, Onshore staff, grid connection fees etc. 
 
   capex_fraction:
       capex_fraction: 0.30

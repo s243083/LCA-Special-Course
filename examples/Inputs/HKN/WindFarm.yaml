@@ -1,5 +1,6 @@
 WindFarm:
     n_turbines: 34
+    turbine_rated_power: 22  # MW
     mode: "fixed"  # [external_response, PyWake, fixed]
     external_response:
         WF_external_response_path: Inputs/External_Response/HKN_TS_DA_HKN_Revenue_shutdown_500_TI_boost

@@ -1,0 +1,485 @@
+#        MTTW_L: 24 # logistics waiting time in hours
+# ============================================================================
+# 22 MW REFERENCE TURBINE – O&M SCALING FROM 15 MW BASELINE (COSTS @2025)
+#
+# Baseline: 15 MW O&M library (failure modes + PM) for an offshore turbine.
+# This file is a *derived* version for a 22 MW reference turbine using
+# simple power-based scaling rules and a cost inflation from 2015 to 2025.
+#
+# Power rating:
+#   P_old = 15 MW
+#   P_new = 22 MW
+#   size_factor = P_new / P_old ≈ 1.47
+#
+# General scaling pattern (technical)
+# -----------------------------------
+# For each failure mode and PM entry, three quantities are scaled w.r.t. size:
+#
+#   - Weibull scale parameter (MTBF in years):
+#         scale_new = scale_old / size_factor^α
+#
+#   - Repair / service time (hours):
+#         time_new  = time_old  * size_factor^γ
+#
+#   - Base materials cost in 2015 euros:
+#         materials_22MW_2015 = materials_15MW_2015 * size_factor^β
+#
+# The shape parameter k (here = 1, exponential) is kept unchanged.
+# Frequencies for annual PM (365 days) are kept unchanged; only their
+# time and materials are scaled.
+#
+# Cost inflation (2015 → 2025)
+# ----------------------------
+# All *materials* values in this file are further inflated from 2015 EUR
+# to 2025 EUR using a 5% annual rate over 10 years:
+#
+#   inflation_factor = 1.05^10 ≈ 1.6289
+#
+#   materials_2025 = round(materials_22MW_2015 * inflation_factor)
+#
+# All `materials:` figures below are given in 2025 EUR.
+#
+# Exponents by component (α for scale, β for materials, γ for time)
+# -----------------------------------------------------------------
+# 1) Rotor blades (rotor_blades)
+#    - Failure scale:    α = 0.7  (bigger blades → higher loads → higher failure rate)
+#    - Materials:        β_minor = 1.2, β_major/replacement = 1.4
+#    - Time:             γ_minor = 0.3, γ_major/replacement = 0.5
+#
+# 2) Drive train (drive_train – main shaft, etc.)
+#    - Failure scale:    α = 0.5
+#    - Materials:        β_minor = 1.0, β_major/replacement = 1.2
+#    - Time:             γ_minor = 0.25, γ_major/replacement = 0.4
+#
+# 3) Generator + power converter (generator, power_converter)
+#    - Failure scale:    α = 0.3
+#    - Materials:        β_minor = 0.8, β_major/replacement = 1.1
+#    - Time:             γ_minor = 0.2, γ_major/replacement = 0.35
+#
+# 4) Electrical system in turbine (electrical_system)
+#    - Failure scale:    α = 0.3
+#    - Materials:        β_minor = 0.8, β_major/replacement = 1.1
+#    - Time:             γ_minor = 0.2, γ_major/replacement = 0.35
+#
+# 5) Hydraulic pitch system + yaw system (hydraulic_pitch_system, yaw_system)
+#    - Failure scale:    α = 0.1  (weak dependence on rating; more count-driven)
+#    - Materials:        β_minor = 0.6, β_major/replacement = 0.9
+#    - Time:             γ_minor = 0.1, γ_major/replacement = 0.25
+#
+# 6) Transformer (OSS-level) (transformer)
+#    - Failure scale:    α = 0.1  (mild scaling with project size)
+#    - Materials:        β_minor = 0.7, β_major = 1.0
+#    - Time:             γ_minor = 0.15, γ_major = 0.3
+#
+# 7) Preventive maintenance / inspections
+#    - Turbine annual service, generator annual inspection, supporting structure
+#      inspection, transformer annual inspection:
+#           time_new      ≈ time_old      * size_factor^0.25–0.3
+#           materials_new ≈ materials_old * size_factor^0.4 (≈ modest increase),
+#      then inflated to 2025 EUR as above.
+#
+# Notes
+# -----
+# - Vessel types (CTV vs LCN) and frequencies are unchanged; only the
+#   per-event time and materials are scaled.
+# - The structure (components, failure modes, descriptions) stays identical
+#   to the 15 MW baseline to keep compatibility with your existing code.
+# ============================================================================
+
+Turbine: 
+  Turbine:
+    name: Turbine
+    maintenance:
+      description: annual turbine service, based on Dinwoodie (2015)
+      # baseline (15 MW, 2015): time: 60, materials: 5000
+      time: 67.3         # scaled with γ ≈ 0.3
+      materials: 9493    # 22 MW-scaled then inflated to 2025 EUR
+      service_equipment: CTV
+      n_technicians: 2
+      frequency: 365
+
+  power_converter:
+    name: power converter
+    maintenance:
+      description: n/a
+      time: 0
+      materials: 0
+      service_equipment: CTV
+      n_technicians: 2
+      frequency: 0
+    failures:
+      1:
+        # minor repair
+        # baseline (15 MW, 2015): scale: 1.859, time: 14, materials: 1000
+        scale: 1.657
+        shape: 1
+        time: 15.1
+        materials: 2214
+        service_equipment: CTV
+        n_technicians: 2
+        operation_reduction: 0.0
+        level: 1
+        description: power converter minor repair
+      2:
+        # major repair
+        # baseline (15 MW, 2015): scale: 2.959, time: 28, materials: 7000
+        scale: 2.638
+        shape: 1
+        time: 32.0
+        materials: 17375
+        service_equipment: LCN
+        n_technicians: 3
+        operation_reduction: 0.0
+        level: 2
+        description: power converter major repair
+      3:   
+        # replacement
+        # baseline (15 MW, 2015): scale: 12.99, time: 170, materials: 55000
+        scale: 11.58
+        shape: 1
+        time: 194.4
+        materials: 136527
+        service_equipment: LCN
+        n_technicians: 4
+        operation_reduction: 0
+        replacement: true
+        level: 3
+        description: power converter replacement
+
+  electrical_system:
+    name: electrical system
+    maintenance:
+      description: n/a
+      time: 0
+      materials: 0
+      service_equipment: CTV
+      n_technicians: 2
+      frequency: 0
+    failures:
+      1:
+        # minor repair
+        # baseline (15 MW, 2015): scale: 2.793, time: 10, materials: 1000
+        scale: 2.49
+        shape: 1
+        time: 10.8
+        materials: 2214
+        service_equipment: CTV
+        n_technicians: 2
+        operation_reduction: 0.0
+        level: 1
+        description: power electrical system minor repair
+      2: 
+        # major repair
+        # baseline (15 MW, 2015): scale: 62.5, time: 28, materials: 5000
+        scale: 55.716
+        shape: 1
+        time: 32.0
+        materials: 12412
+        service_equipment: LCN
+        n_technicians: 3
+        operation_reduction: 0.0
+        level: 2
+        description: power electrical system major repair
+      3:
+        # major replacement
+        # baseline (15 MW, 2015): scale: 500, time: 54, materials: 50000
+        scale: 445.729
+        shape: 1
+        time: 61.7
+        materials: 124115
+        service_equipment: LCN
+        n_technicians: 4
+        operation_reduction: 0
+        replacement: true
+        level: 3
+        description: power electrical system major replacement
+
+  hydraulic_pitch_system:
+    name: hydraulic pitch system
+    maintenance:
+      description: n/a
+      time: 0
+      materials: 0
+      service_equipment: CTV
+      n_technicians: 2
+      frequency: 0
+    failures:
+      1:
+        # minor pitch repair
+        # baseline (15 MW, 2015): scale: 1.214, time: 18, materials: 500
+        scale: 1.168
+        shape: 1
+        time: 18.7
+        materials: 1025
+        service_equipment: CTV
+        n_technicians: 2
+        operation_reduction: 0
+        level: 1
+        description: minor pitch system repair
+      2: 
+        # major pitch repair
+        # baseline (15 MW, 2015): scale: 5.587, time: 38, materials: 1900
+        scale: 5.377
+        shape: 1
+        time: 41.8
+        materials: 4369
+        service_equipment: CTV
+        n_technicians: 3
+        operation_reduction: 0.0
+        level: 2
+        description: major pitch system repair
+      3: 
+        # pitch system replacement
+        # baseline (15 MW, 2015): scale: 1000, time: 75, materials: 14000
+        scale: 962.425
+        shape: 1
+        time: 82.5
+        materials: 32190
+        service_equipment: LCN
+        n_technicians: 4
+        operation_reduction: 0
+        replacement: true
+        level: 3
+        description: major pitch system replacement
+
+  yaw_system:
+    name: yaw_system
+    maintenance:
+      description: n/a
+      time: 0
+      materials: 0
+      service_equipment: CTV
+      n_technicians: 2
+      frequency: 0
+    failures:
+      1:
+        # minor yaw repair
+        # baseline (15 MW, 2015): scale: 6.173, time: 10, materials: 500
+        scale: 5.941
+        shape: 1
+        time: 10.4
+        materials: 1025
+        service_equipment: CTV
+        
+        operation_reduction: 0
+        level: 1
+        description: yaw system minor repair
+      2:
+        # major yaw repair
+        # baseline (15 MW, 2015): scale: 166.7, time: 40, materials: 3000
+        scale: 160.436
+        shape: 1
+        time: 44.0
+        materials: 6898
+        service_equipment: LCN
+        n_technicians: 3
+        operation_reduction: 0.0
+        level: 2
+        description: yaw system major repair
+      3:
+        # yaw system replacement
+        # baseline (15 MW, 2015): scale: 1000, time: 147, materials: 12500
+        scale: 962.425
+        shape: 1
+        time: 161.8
+        materials: 28740
+        service_equipment: LCN
+        n_technicians: 4
+        operation_reduction: 0
+        replacement: true
+        level: 3
+        description: yaw system major replacement
+
+  rotor_blades:
+    name: rotor_blades
+    maintenance:
+      description: n/a
+      time: 0
+      materials: 0
+      service_equipment: CTV
+      n_technicians: 2
+      frequency: 0
+    failures:
+      1:
+        # minor blade repair
+        # baseline (15 MW, 2015): scale: 2.193, time: 18, materials: 6000
+        scale: 1.677
+        shape: 1
+        time: 20.2
+        materials: 15476
+        service_equipment: CTV
+        n_technicians: 2
+        operation_reduction: 0
+        level: 1
+        description: blades minor repair
+      2: 
+        # major blade repair
+        # baseline (15 MW, 2015): scale: 100, time: 42, materials: 51732
+        scale: 76.484
+        shape: 1
+        time: 50.9
+        materials: 144051
+        service_equipment: LCN
+        n_technicians: 3
+        operation_reduction: 0.0
+        level: 2
+        description: blades major repair
+      3:
+        # blade replacement
+        # baseline (15 MW, 2015): scale: 1000, time: 864, materials: 534000
+        scale: 764.835
+        shape: 1
+        time: 1046.4
+        materials: 1486956
+        service_equipment: LCN
+        n_technicians: 4
+        operation_reduction: 0
+        replacement: true
+        level: 3
+        description: blades major replacement
+
+  generator:
+    name: generator
+    maintenance:
+      description: annual turbine inspection
+      # baseline (15 MW, 2015): time: 24, materials: 1500
+      time: 26.9
+      materials: 2847
+      service_equipment: CTV
+      n_technicians: 2
+      frequency: 365
+      # n_technicians: 3
+    failures:
+      1:  
+        # minor generator repair
+        # baseline (15 MW, 2015): scale: 1.832, time: 13, materials: 1000
+        scale: 1.633
+        shape: 1
+        time: 14.0
+        materials: 2214
+        service_equipment: CTV
+        n_technicians: 2
+        operation_reduction: 0.0
+        level: 1
+        description: direct drive generator minor repair
+      2:
+        # major generator repair
+        # baseline (15 MW, 2015): scale: 33.333, time: 49, materials: 14340
+        scale: 29.715
+        shape: 1
+        time: 56.0
+        materials: 35596
+        service_equipment: LCN
+        n_technicians: 3
+        operation_reduction: 0.0
+        level: 2
+        description: direct drive generator major repair
+      3: 
+        # generator replacement
+        # baseline (15 MW, 2015): scale: 111.1111, time: 244, materials: 236500
+        scale: 99.051
+        shape: 1
+        time: 279.0
+        materials: 587068
+        service_equipment: LCN
+        n_technicians: 4
+        operation_reduction: 0
+        replacement: true
+        level: 3
+        description: direct drive generator major replacement
+
+  supporting_structure:
+    name: supporting_structure
+    maintenance:
+      description: structural annual inspection
+      # baseline (15 MW, 2015): time: 24, materials: 600
+      time: 26.9
+      materials: 1139
+      service_equipment: CTV
+      n_technicians: 2
+      frequency: 365
+
+  drive_train:
+    name: drive_train
+    maintenance:
+      description: n/a
+      time: 0
+      materials: 0
+      service_equipment: CTV
+      n_technicians: 2
+      frequency: 0
+    failures:
+      1:
+        # minor main shaft repair
+        # baseline (15 MW, 2015): scale: 4.329, time: 10, materials: 1000
+        scale: 3.575
+        shape: 1
+        time: 11.0
+        materials: 2390
+        service_equipment: CTV
+        n_technicians: 2
+        operation_reduction: 0
+        level: 1
+        description: main shaft minor repair
+      2:
+        # major main shaft repair
+        # baseline (15 MW, 2015): scale: 38.462, time: 36, materials: 14000
+        scale: 31.759
+        shape: 1
+        time: 42.0
+        materials: 36109
+        service_equipment: LCN
+        n_technicians: 3
+        operation_reduction: 0
+        level: 2
+        description: main shaft major repair
+      3: 
+        # main shaft replacement
+        # baseline (15 MW, 2015): scale: 111.111, time: 144, materials: 232000
+        scale: 91.747
+        shape: 1
+        time: 167.8
+        materials: 598383
+        service_equipment: LCN
+        n_technicians: 4
+        operation_reduction: 0
+        replacement: true
+        level: 3
+        description: main shaft replacement
+
+  transformer:
+    name: transformer
+    maintenance:
+      description: oss annual inspection
+      # baseline (15 MW, 2015): time: 24, materials: 500
+      time: 26.4
+      materials: 914
+      service_equipment: CTV
+      n_technicians: 2
+      frequency: 365
+      level: 1
+    failures:
+      1: 
+        # minor OSS repair
+        # baseline (15 MW, 2015): scale: 5, time: 12, materials: 2000
+        scale: 4.812
+        shape: 1
+        time: 12.7
+        materials: 4260
+        service_equipment: CTV
+        n_technicians: 2
+        operation_reduction: 0
+        level: 1
+        description: oss minor repair
+      2:
+        # major OSS repair
+        # baseline (15 MW, 2015): scale: 100, time: 60, materials: 100000
+        scale: 96.242
+        shape: 1
+        time: 67.3
+        materials: 238905
+        service_equipment: CTV
+        n_technicians: 3
+        operation_reduction: 0
+        level: 2
+        description: oss major repair

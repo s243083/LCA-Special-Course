@@ -176,6 +176,6 @@ def load_metEnvData(config):
     if hasattr(config, 'MetEnv_inputFiles'):
         for identifier, file_name in config.MetEnv_inputFiles.items():
             metEnvData[identifier] = load_yaml(config.valuewind_inputFolder, file_name)
-        print("Loaded MetEnv data structure:", metEnvData)
+        #print("Loaded MetEnv data structure:", metEnvData)
     
     return metEnvData

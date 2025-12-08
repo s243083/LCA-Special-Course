@@ -158,7 +158,7 @@ class Simulation:
     simulation_config: SimulationConfig
     env: ValueWindEnv = field(init=False)
     logger: logging.Logger = field(
-        default_factory=lambda: logging.getLogger("winpact.sim")
+        factory=lambda: logging.getLogger("winpact.sim")
     )
 
     def __attrs_post_init__(self) -> None:
@@ -354,7 +354,7 @@ class SingleExperiment(Experiment):
     name: Optional[str] = None
     result_directory: Optional[Union[str, Path]] = None
     debug: bool = True
-    logger: logging.Logger = field(default_factory=lambda: logging.getLogger("winpact.single"))
+    logger: logging.Logger = field(factory=lambda: logging.getLogger("winpact.single"))
 
     def run(self) -> pd.DataFrame:
         base_cfg = _load_base_config_yaml(self.library_path, self.base_config_path)
@@ -384,7 +384,7 @@ class SweepExperiment(Experiment):
     result_directory: Optional[Union[str, Path]] = None
     debug: bool = True
     on_result: Optional[Callable[[Mapping[str, Any]], None]] = None
-    logger: logging.Logger = field(default_factory=lambda: logging.getLogger("winpact.sweep"))
+    logger: logging.Logger = field(factory=lambda: logging.getLogger("winpact.sweep"))
 
     def run(self) -> pd.DataFrame:
         base_cfg = _load_base_config_yaml(self.library_path, self.base_config_path)

@@ -12,52 +12,61 @@ from typing import Any, Mapping, Sequence, Union
 import logging
 
 
+import logging
+from pathlib import Path
+
 def init_experiment_logging(
     result_directory: str | Path,
+    name: str,
     *,
-    name: str = "experiment",
     console: bool = False,
     level: int = logging.INFO,
 ) -> logging.Logger:
     """
-    Initialize a unified experiment-wide logger.
+    Initialise a logger that writes to:
 
-    - Creates the results folder if needed
-    - Writes all logs into <result_directory>/<name>.log
-    - Optionally suppresses console logging
+        <result_directory>/<name>/<name>.log
+
+    Returns a logger (not the root logger).
     """
 
+    # Build directory
     result_directory = Path(result_directory)
-    result_directory.mkdir(parents=True, exist_ok=True)
+    log_dir = result_directory / name
+    log_dir.mkdir(parents=True, exist_ok=True)
 
-    log_path = result_directory / f"{name}.log"
+    # Final log file path
+    log_file = log_dir / f"{name}.log"
 
-    logger = logging.getLogger("winpact")
+    # Create logger
+    logger = logging.getLogger(f"winpact.{name}")
     logger.setLevel(level)
 
-    # Avoid duplicate handlers if called more than once
-    if not logger.handlers:
-        # File handler
-        fh = logging.FileHandler(log_path, encoding="utf-8")
-        fh.setLevel(level)
-        fh.setFormatter(logging.Formatter(
-            "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S",
-        ))
-        logger.addHandler(fh)
+    # Remove old handlers (important when running in notebooks)
+    logger.handlers.clear()
 
-        # Optional console handler
-        if console:
-            ch = logging.StreamHandler()
-            ch.setLevel(level)
-            ch.setFormatter(logging.Formatter(
-                "[%(levelname)s] %(name)s: %(message)s"
-            ))
-            logger.addHandler(ch)
+    # File handler
+    fh = logging.FileHandler(log_file, encoding="utf-8")
+    fh.setLevel(level)
 
-        logger.propagate = False
+    formatter = logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    )
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
 
+    # Console handler (optional)
+    if console:
+        sh = logging.StreamHandler()
+        sh.setLevel(level)
+        sh.setFormatter(formatter)
+        logger.addHandler(sh)
+
+    logger.propagate = False  # prevent double logging
+
+    logger.info(f"Logger initialised. Writing to {log_file}")
     return logger
+
 
 
 def _deep_update(dst: dict, src: dict) -> None:

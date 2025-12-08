@@ -24,6 +24,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 import math
+import logging
 
 from core.File_Handling import load_yaml, process_duration_fields
 from core.utils import apply_overrides , get_input_parameter
@@ -157,6 +158,7 @@ class OPEX:
     def __init__(self, env):
         self.config = env.config
         self.env = env  # Access to simulation environment
+        self.logger = getattr(env, "logger", logging.getLogger("winpact.opex"))
         self.parameters = load_OMData(env.config)
         self.parameters =  get_input_parameter(self.parameters, 'OM','OM_Process')
 
@@ -251,12 +253,16 @@ class OPEX:
         try:
             om_data = load_yaml(self.config.valuewind_inputFolder, self.OM_input_file)
         except Exception as e:
-            print(f"[OPEX] Could not load OM input file '{self.OM_input_file}': {e}")
+            self.logger.error(
+                "Could not load OM input file '%s': %s",
+                self.OM_input_file,
+                e,
+            )
             return []
 
         turbine_block = (om_data or {}).get("Turbine", {})
         if not isinstance(turbine_block, dict) or not turbine_block:
-            print("[OPEX] OM input has no 'Turbine' block or it is empty.")
+            self.logger.warning("OM input has no 'Turbine' block or it is empty.")
             return []
 
         # Labour rate from parameters (fallback 80 €/h)
@@ -288,28 +294,33 @@ class OPEX:
                     mttr_h = float(f["time"])
                 else:
                     mttr_h = 8.0
-                    print(
-                        f"[OPEX WARNING] Component '{comp_name}', failure mode '{mode_id}': "
-                        f"No 'MTTR' or 'time' field provided. Defaulting to MTTR=8.0 h."
+                    self.logger.warning(
+                        "Component '%s', failure mode '%s': "
+                        "No 'MTTR' or 'time' field provided. Defaulting to MTTR=8.0 h.",
+                        comp_name,
+                        mode_id,
                     )
-
                 if 'materials' in f:
                     materials_eur = float(f["materials"])
                 else:
                     materials_eur = 0.0
-                    print(
-                        f"[OPEX WARNING] Component '{comp_name}', failure mode '{mode_id}': "
-                        f"No 'materials' field provided. Defaulting to 0.0 EUR."
+                    self.logger.warning(
+                        "Component '%s', failure mode '%s': "
+                        "No 'materials' field provided. Defaulting to 0.0 EUR.",
+                        comp_name,
+                        mode_id,
                     )
 
                 if 'MTTW_L' in f:
                     mttwL_h = float(f['MTTW_L'])
                 else:
                     mttwL_h = None
-                    print(f"[OPEX WARNING] Component '{comp_name}', failure mode '{mode_id}': "
-                        f"No 'MTTW_L' field provided. Defaulting to infinity.")
-
-
+                    self.logger.warning(
+                        "Component '%s', failure mode '%s': "
+                        "No 'MTTW_L' field provided. Defaulting to infinity.",
+                        comp_name,
+                        mode_id,
+                    )
                 vessel = f.get("service_equipment")
                 desc = f.get("description")
 

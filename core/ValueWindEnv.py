@@ -1,4 +1,3 @@
-import simpy
 import logging
 from core.CAPEX import CAPEX
 from core.FINEX import FINEX
@@ -14,9 +13,8 @@ from core.LTE import LifetimeExtension
 from core.SimulationConfig import SimulationConfig
 
 
-class ValueWindEnv(simpy.Environment):
+class ValueWindEnv():
     def __init__(self, config, simulation_config: SimulationConfig, logger: logging.Logger | None = None):
-        super().__init__()
         self.config = config
         self.simulation_config = simulation_config
         self.logger = logger or logging.getLogger("winpact.env")

@@ -13,9 +13,11 @@ class Revenue:
         self.market_inputs = load_marketInput(self.env.config)
         self.market_inputs = get_input_parameter(self.market_inputs, 'MA', 'Revenue')
 
-        self.scheme_type = get_input_parameter(self.market_inputs, 'marketscheme')    
+        self.scheme_type = get_input_parameter(self.market_inputs, 'marketscheme')
+        self.strike_price = get_input_parameter(self.market_inputs, self.scheme_type, 'strike_price') 
         
         apply_overrides(self, getattr(self.config, "Revenue_overrides", {}))
+        
 
         self.revenue_records = []  
 
@@ -29,7 +31,7 @@ class Revenue:
         # access electrcity price
         price_input= self.env.MarketEnv.el_price_records
         
-        strike_price = get_input_parameter(self.market_inputs, self.scheme_type, 'strike_price')
+        strike_price = self.strike_price
         one_sided = get_input_parameter(self.market_inputs, self.scheme_type, 'one_sided')
         cfd_mode = get_input_parameter(self.market_inputs, self.scheme_type, 'cfd_mode')
         reference_freq = get_input_parameter(self.market_inputs, self.scheme_type, 'reference_freq')

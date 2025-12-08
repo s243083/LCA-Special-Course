@@ -10,11 +10,12 @@ class MarketEnv:
         self.config = env.config
         self.market_inputs = load_marketInput(self.env.config)
 
-
+        self.market_type = get_input_parameter(self.market_inputs, 'MA', 'Market', 'mode')  
+        
         self.create_electricityprice()
         
     def create_electricityprice(self):
-        market_type = get_input_parameter(self.market_inputs, 'MA', 'Market', 'mode')
+        market_type = self.market_type
 
         if market_type == 'fromEnv':
             self.create_electricityprice_fromEnv()

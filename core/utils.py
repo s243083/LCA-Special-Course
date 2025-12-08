@@ -9,6 +9,56 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping, Sequence, Union
 
+import logging
+
+
+def init_experiment_logging(
+    result_directory: str | Path,
+    *,
+    name: str = "experiment",
+    console: bool = False,
+    level: int = logging.INFO,
+) -> logging.Logger:
+    """
+    Initialize a unified experiment-wide logger.
+
+    - Creates the results folder if needed
+    - Writes all logs into <result_directory>/<name>.log
+    - Optionally suppresses console logging
+    """
+
+    result_directory = Path(result_directory)
+    result_directory.mkdir(parents=True, exist_ok=True)
+
+    log_path = result_directory / f"{name}.log"
+
+    logger = logging.getLogger("winpact")
+    logger.setLevel(level)
+
+    # Avoid duplicate handlers if called more than once
+    if not logger.handlers:
+        # File handler
+        fh = logging.FileHandler(log_path, encoding="utf-8")
+        fh.setLevel(level)
+        fh.setFormatter(logging.Formatter(
+            "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        ))
+        logger.addHandler(fh)
+
+        # Optional console handler
+        if console:
+            ch = logging.StreamHandler()
+            ch.setLevel(level)
+            ch.setFormatter(logging.Formatter(
+                "[%(levelname)s] %(name)s: %(message)s"
+            ))
+            logger.addHandler(ch)
+
+        logger.propagate = False
+
+    return logger
+
 
 def _deep_update(dst: dict, src: dict) -> None:
     """Recursively update dict dst with dict src."""

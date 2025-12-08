@@ -1,4 +1,5 @@
 import simpy
+import logging
 from core.CAPEX import CAPEX
 from core.FINEX import FINEX
 from core.OPEX import OPEX
@@ -14,10 +15,11 @@ from core.SimulationConfig import SimulationConfig
 
 
 class ValueWindEnv(simpy.Environment):
-    def __init__(self, config, simulation_config: SimulationConfig):
+    def __init__(self, config, simulation_config: SimulationConfig, logger: logging.Logger | None = None):
         super().__init__()
         self.config = config
         self.simulation_config = simulation_config
+        self.logger = logger or logging.getLogger("winpact.env")
 
         self.metEnv = MetEnvironment(self)
         self.windFarm = WindFarm(self)

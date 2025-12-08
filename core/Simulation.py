@@ -9,6 +9,7 @@ import itertools
 import time
 import traceback
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Union
+import logging
 
 import pandas as pd
 from attrs import define, field
@@ -19,6 +20,8 @@ from core.utils import save_sceanarios
 from core.Data_classes import FromDictMixin
 from core.ValueWindEnv import ValueWindEnv
 from core.SimulationConfig import SimulationConfig
+from core.utils import init_experiment_logging
+
 
 
 # ---------------------------------------------------------------------------
@@ -154,6 +157,9 @@ class Simulation:
     config: Configuration
     simulation_config: SimulationConfig
     env: ValueWindEnv = field(init=False)
+    logger: logging.Logger = field(
+        default_factory=lambda: logging.getLogger("winpact.sim")
+    )
 
     def __attrs_post_init__(self) -> None:
         self._setup_simulation()
@@ -164,6 +170,7 @@ class Simulation:
         library_path: Union[str, Path],
         config: Union[str, Path, dict, Configuration],
         simulation_config: Union[SimulationConfig, Mapping[str, Any]],
+        logger: Optional[logging.Logger] = None, 
     ) -> Simulation:
         """Build a Simulation from a config and a SimulationConfig.
 
@@ -192,11 +199,19 @@ class Simulation:
         else:
             sim_cfg = simulation_config
 
-        return cls(library_path=library_path, config=config, simulation_config=sim_cfg)
+        if logger is None:
+            logger = logging.getLogger("winpact.sim")
+
+        return cls(
+            library_path=library_path,
+            config=config,
+            simulation_config=sim_cfg,
+            logger=logger,
+        )
 
     def _setup_simulation(self) -> None:
         # Pass simulation_config into the environment
-        self.env = ValueWindEnv(self.config, simulation_config=self.simulation_config)
+        self.env = ValueWindEnv(self.config, simulation_config=self.simulation_config, logger=self.logger)
 
     def run(self, until: Union[int, float, None] = None) -> None:
         """Run the underlying ValueWindEnv using the stored SimulationConfig."""
@@ -263,6 +278,7 @@ def _run_single_scenario(
     name: Optional[str],
     result_directory: Optional[Union[str, Path]],
     debug: bool,
+    logger: logging.Logger,
 ) -> Dict[str, Any]:
     """Core routine to run one scenario and return a status row.
 
@@ -284,7 +300,7 @@ def _run_single_scenario(
     )
 
     try:
-        sim = Simulation.from_config(library_path, cfg_full, simulation_config=simulation_config)
+        sim = Simulation.from_config(library_path, cfg_full, simulation_config=simulation_config, logger=logger)
 
         # Seed injection, if your environment supports it
         if hasattr(sim.env, "seed"):
@@ -338,6 +354,7 @@ class SingleExperiment(Experiment):
     name: Optional[str] = None
     result_directory: Optional[Union[str, Path]] = None
     debug: bool = True
+    logger: logging.Logger = field(default_factory=lambda: logging.getLogger("winpact.single"))
 
     def run(self) -> pd.DataFrame:
         base_cfg = _load_base_config_yaml(self.library_path, self.base_config_path)
@@ -349,6 +366,8 @@ class SingleExperiment(Experiment):
             name=self.name,
             result_directory=self.result_directory,
             debug=self.debug,
+            logger=self.logger,
+
         )
         return pd.DataFrame([row])
 
@@ -365,6 +384,7 @@ class SweepExperiment(Experiment):
     result_directory: Optional[Union[str, Path]] = None
     debug: bool = True
     on_result: Optional[Callable[[Mapping[str, Any]], None]] = None
+    logger: logging.Logger = field(default_factory=lambda: logging.getLogger("winpact.sweep"))
 
     def run(self) -> pd.DataFrame:
         base_cfg = _load_base_config_yaml(self.library_path, self.base_config_path)
@@ -380,6 +400,7 @@ class SweepExperiment(Experiment):
                 name=self.name,
                 result_directory=self.result_directory,
                 debug=self.debug,
+                logger=self.logger,
             )
             rows.append(row)
             if self.on_result:
@@ -593,6 +614,16 @@ def build_experiment(
     base_config_path = Path(base_config_path)
     sim_cfg = _normalise_sim_cfg(simulation_config)
 
+    # Initialize experiment-wide logging
+    # Initialize logging once for this experiment
+    logger = init_experiment_logging(
+        result_directory=result_directory or "results",
+        name=name or "experiment",
+        console=False,   # suppress terminal output
+        level=logging.INFO,
+    )
+
+
     # --- Case 1: genuine single configuration (no parameter_space) ---
     if parameter_space is None:
         scenarios = _build_single_config_scenarios(
@@ -612,6 +643,7 @@ def build_experiment(
                 name=name,
                 result_directory=result_directory,
                 debug=debug,
+                logger=logger,
             )
 
         # replicates > 1 -> treat as a small sweep
@@ -623,6 +655,7 @@ def build_experiment(
             name=name,
             result_directory=result_directory,
             debug=debug,
+            logger=logger,
         )
 
     # --- Case 2: parameter sweep (possibly with replicates) ---
@@ -674,4 +707,5 @@ def build_experiment(
         name=name,
         result_directory=result_directory,
         debug=debug,
+        logger=logger,
     )

@@ -10,12 +10,16 @@ from core.Revenue_Model import Revenue
 from core.ResponseFramework_dev.Response_Framework import ResponseFramework
 from core.ResultsCollector import ResultsCollector
 from core.LTE import LifetimeExtension
+from core.SimulationConfig import SimulationConfig
+
 
 class ValueWindEnv(simpy.Environment):
-    def __init__(self, config):
+    def __init__(self, config, simulation_config: SimulationConfig):
         super().__init__()
         self.config = config
-        self.metEnv= MetEnvironment(self)
+        self.simulation_config = simulation_config
+
+        self.metEnv = MetEnvironment(self)
         self.windFarm = WindFarm(self)
         self.capex = CAPEX(self)
         self.finex = FINEX(self, self.capex)
@@ -29,45 +33,47 @@ class ValueWindEnv(simpy.Environment):
 
 
 
-
-
-
     def run_simulation(self, until=None):
-        # Start the CAPEX process in the environment
-        self.capex.start()
-        self.capex.plot_capex_dashboard(turbine_id=1)
+        cfg = self.simulation_config  # shorthand
 
-        
-        # Start the wind farm process in the environment
-        self.windFarm.start()
+        # CAPEX
+        if cfg.run_capex:
+            self.capex.start()
+            if cfg.capex_dashboard:
+                self.capex.plot_capex_dashboard(turbine_id=1)
 
-        # Calculate OPEX
-        self.opex.calc_OPEX()
-        self.opex.plot_opex_dashboard()
-        
+        # Wind Farm
+        if cfg.run_windfarm:
+            self.windFarm.start()
 
+        # OPEX
+        if cfg.run_opex:
+            self.opex.calc_OPEX()
+            if cfg.opex_dashboard:
+                self.opex.plot_opex_dashboard()
 
-        # Apply Lifetime Extension if enabled
-        # self.lifetimeExtension.apply()
+        # Lifetime Extension
+        if cfg.run_lifetime_extension:
+            self.lifetimeExtension.apply()
 
+        # Revenues
+        if cfg.run_revenue:
+            self.RevenueModel.calc_revenues()
 
+        # Valuation
+        if cfg.run_valuation:
+            self.valuation.project_valuation()
+            if cfg.valuation_dashboard:
+                self.valuation.plot_valuation_results()
 
-        # calculate Revenues
-        self.RevenueModel.calc_revenues()
-
-
-        # calculate Valuation
-        self.valuation.project_valuation()
-        self.valuation.plot_valuation_results()
-        
-
-        # Call Reuslts Collector
-        self.results_collector.collect_df(
-            attr_map={
-                "valuation_metrics": "valuation.valuemetrics",
-                "capex": "capex.cost_records",
-            }
-        )
+        # Results Collector
+        if cfg.collect_results:
+            self.results_collector.collect_df(
+                attr_map={
+                    "valuation_metrics": "valuation.valuemetrics",
+                    "capex": "capex.cost_records",
+                }
+            )
 
 
         

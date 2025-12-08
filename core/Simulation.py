@@ -12,6 +12,8 @@ from core.utils import save_sceanarios
 from core.File_Handling import calculate_duration_in_hours  # if used elsewhere
 from core.Data_classes import FromDictMixin
 from core.ValueWindEnv import ValueWindEnv
+from core.SimulationConfig import SimulationConfig
+
 
 # ------------------------- Scenario Builder ------------------------- #
 # Uses your existing utilities & classes:
@@ -73,14 +75,26 @@ class Simulation:
     """The primary API to interact with the simulation methodologies."""
     library_path: Path
     config: 'Configuration'
+    simulation_config: SimulationConfig
     env: ValueWindEnv = field(init=False)
 
     def __attrs_post_init__(self) -> None:
         self._setup_simulation()
 
     @classmethod
-    def from_config(cls, library_path: Union[str, Path], config: Union[str, Path, dict, 'Configuration']):
+    def from_config(
+        cls,
+        library_path: Union[str, Path],
+        config: Union[str, Path, dict, 'Configuration'],
+        simulation_config: Union[SimulationConfig, Mapping[str, Any]],
+    ):
+        """
+        Build a Simulation from a config and a REQUIRED SimulationConfig
+        (or a dict of flags).
+        """
         library_path = Path(library_path)
+
+        # Load and process YAML / dict into Configuration
         if isinstance(config, (str, Path)):
             config_path = library_path / config
             config = load_yaml(config_path.parent, config_path.name)
@@ -89,13 +103,25 @@ class Simulation:
             config = Configuration.from_dict(config)
         if not isinstance(config, Configuration):
             raise TypeError("``config`` must be a dictionary or ``Configuration`` object!")
-        return cls(library_path=library_path, config=config)
+
+        # Build SimulationConfig from dict or pass through
+        if isinstance(simulation_config, Mapping):
+            sim_cfg = SimulationConfig.from_dict(simulation_config)
+        else:
+            sim_cfg = simulation_config
+
+        return cls(library_path=library_path, config=config, simulation_config=sim_cfg)
 
     def _setup_simulation(self):
-        self.env = ValueWindEnv(self.config)
+        # Pass simulation_config into the environment
+        self.env = ValueWindEnv(self.config, simulation_config=self.simulation_config)
 
     def run(self, until: Union[int, float, None] = None):
+        """
+        Run the simulation using the SimulationConfig attached to this Simulation.
+        """
         self.env.run_simulation(until=until)
+
 
 @define(auto_attribs=True)
 class Configuration(FromDictMixin):
@@ -264,6 +290,7 @@ def run_scenarios(
     base_config_path: Union[str, Path],
     scenarios: Iterable[Mapping[str, Any]],
     *,
+    simulation_config: Union[SimulationConfig, Mapping[str, Any]],
     name: Optional[str] = None,
     result_directory: Optional[Union[str, Path]] = None,
     debug: bool = True,
@@ -271,8 +298,16 @@ def run_scenarios(
 ) -> pd.DataFrame:
     """
     Sequentially run scenarios and return a status DataFrame.
+
+    All scenarios are executed with the same SimulationConfig (or dict of flags).
     """
     base_cfg = _load_base_config_yaml(library_path, base_config_path)
+
+    # Normalize simulation_config once
+    if isinstance(simulation_config, Mapping):
+        sim_cfg = SimulationConfig.from_dict(simulation_config)
+    else:
+        sim_cfg = simulation_config
 
     rows: list[dict[str, Any]] = []
 
@@ -299,9 +334,12 @@ def run_scenarios(
         status, err, tb_txt, duration_s = "success", None, None, None
 
         try:
-            sim = Simulation.from_config(library_path, cfg)
+            # Build Simulation with shared SimulationConfig
+            sim = Simulation.from_config(library_path, cfg, simulation_config=sim_cfg)
+
             if hasattr(sim.env, "seed"):
                 sim.env.seed = seed
+
             sim.run()
 
         except Exception as e:
@@ -338,21 +376,28 @@ def run_scenarios(
 
     return pd.DataFrame(rows)
 
-# ------------------------- One-call sweep -----------------------------------#
 
+# ------------------------- One-call sweep -----------------------------------#
 def sweep(
     library_path: Union[str, Path],
     base_config_path: Union[str, Path],
     parameter_space: Mapping[str, Sequence[Any]],
+    simulation_config: Union[SimulationConfig, Mapping[str, Any]],
     base_seed: int = 0,
     replicates: int = 1,
     max_runs: Optional[int] = None,
-    resume: bool = True,  # kept for API compatibility; not used here
+    resume: bool = True,  # kept for API shape; not used
     *,
     name: Optional[str] = None,
     result_directory: Optional[Union[str, Path]] = None,
-    zip_groups: Optional[Mapping[str, Sequence[str]]] = None,   # NEW: expose zip groups at entrypoint
+    zip_groups: Optional[Mapping[str, Sequence[str]]] = None,
 ) -> pd.DataFrame:
+    """
+    One-call sweep over a parameter space.
+
+    Requires a SimulationConfig (or dict of flags) that will be used
+    for all scenarios.
+    """
     scenarios = generate_scenarios(
         library_path=library_path,
         base_config_path=base_config_path,
@@ -360,7 +405,7 @@ def sweep(
         base_seed=base_seed,
         replicates=replicates,
         max_runs=max_runs,
-        zip_groups=zip_groups,   # pass through
+        zip_groups=zip_groups,
     )
 
     # Save scenarios JSON BEFORE running the simulations
@@ -371,6 +416,7 @@ def sweep(
         library_path=library_path,
         base_config_path=base_config_path,
         scenarios=scenarios,
+        simulation_config=simulation_config,
         name=name,
         result_directory=result_directory,
     )

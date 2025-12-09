@@ -2,18 +2,14 @@ import pandas as pd
 import numpy as np
 from typing import Optional
 from core.ResponseFramework_dev.farm_setup import compute_effective_inflow
-import os
-
 
 def simulate_block(
     wind_data: pd.DataFrame,
     farm: dict,
-    resolution: str = "10min",          # kept for signature compatibility (not used here)
+    wsp_min: float | None = 3.0,
+    wsp_max: float | None = 25.0,
     use_sector_average: bool = False,
-    wsp_min: Optional[float] = 3.0,     # if provided, used to set operating=0 outside range
-    wsp_max: Optional[float] = 25.0,
-    price_series=None,                  # ignored (kept to avoid breaking callers)
-):
+) -> pd.DataFrame:
     """
     Minimal power-only simulation using constant control.
 
@@ -62,59 +58,30 @@ def simulate_block(
     operating = np.tile(op_ts, (n_turbs, 1))                     # shape (n_turbs, n_times)
 
     # --- Flow model call (PyWake) ---
-    calc = False
-    if calc:
-        sim_res, sa, inflow_df, power_core_df = compute_effective_inflow(
-            wsp=wsp,
-            TI=TI,
-            wdir=wdir,
-            x=farm["x"],
-            y=farm["y"],
-            yaw=yaw,
-            tilt=tilt,
-            operating=operating,
-            flow_model=farm["flow_model"],
-            flow_type=farm.get("flow_type", "pywake"),
-            use_sector_average=use_sector_average,
-            dtype=np.float64,
-        )
 
-        # --- Output: power only ---
-        power_df = power_core_df.copy()
-        power_df.insert(0, "timestamp", timestamps)
-        power_cols = [c for c in power_df.columns if c.startswith("Power_id")]
-        power_df["FarmPower"] = power_df[power_cols].sum(axis=1)
-        power_df.drop(columns=power_cols, inplace=True)
+    sim_res, sa, inflow_df, power_core_df = compute_effective_inflow(
+        wsp=wsp,
+        TI=TI,
+        wdir=wdir,
+        x=farm["x"],
+        y=farm["y"],
+        yaw=yaw,
+        tilt=tilt,
+        operating=operating,
+        flow_model=farm["flow_model"],
+        flow_type=farm.get("flow_type", "pywake"),
+        use_sector_average=use_sector_average,
+        dtype=np.float64,
+    )
 
-        save_path = r"M:\Projects\Cost Model\HiperSim\valuewind\ResponseFramework\power_df.parquet"
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        power_df.to_parquet(save_path, index=False)
-    else:
-        # load csv
-        load_path = r"M:\Projects\Cost Model\HiperSim\valuewind\ResponseFramework\power_df.parquet"
-        power_df = pd.read_parquet(load_path)
+    # --- Output: power only ---
+    power_df = power_core_df.copy()
+    power_df.insert(0, "timestamp", timestamps)
+    power_cols = [c for c in power_df.columns if c.startswith("Power_id")]
+    power_df["FarmPower"] = power_df[power_cols].sum(axis=1)
+    power_df.drop(columns=power_cols, inplace=True)
 
-    ### quick fix data repetition
-
-    n_repeat = 10  
-
-    
-    # figure out the time step (assume regular spacing)
-    step = power_df["timestamp"].diff().mode()[0]
-
-    # build repeated dataframe
-    repeated_df = pd.concat([power_df] * n_repeat, ignore_index=True)
-
-    # extend timestamps
-    base_len = len(power_df)
-    repeated_df["timestamp"] = [
-        ts + i * base_len * step
-        for i in range(n_repeat)
-        for ts in power_df["timestamp"]
-    ]
-
-
-    return repeated_df
+    return power_df
 
 
 def simulate_distribution(

@@ -1,11 +1,25 @@
 WindFarm:
     n_turbines: 34
     turbine_rated_power: 22  # MW
-    mode: "fixed"  # [external_response, PyWake, fixed]
+    mode: "PyWake"  # [external_response, PyWake, fixed]
     external_response:
         WF_external_response_path: Inputs/External_Response/HKN_TS_DA_HKN_Revenue_shutdown_500_TI_boost
     PyWake:
-        dummy: true
+        baseline_mode: "timeseries"        # ["timeseries", "distribution"]
+        use_pywake_farm: true              # true = HKN layout, false = single IEA22 turbine
+        distribution_file: "ResponseFramework/distributions/HKNB_Weib_WSWD_dist_2deg.csv"  # used only if baseline_mode == "distribution"
+        layout_file: "examples/Inputs/HKN/HKN_turbine_layout.csv"
+
+        turbine_model: "IEA22"             # see PyWake models
+        # more pywake paramaters can be added later, currently hardcoded (eg. deficit model)
+
+        use_sector_average: false          # inflow type in compute_effective_inflow
+        wsp_cut_in: 3.0                    # m/s
+        wsp_cut_off: 25.0                  # m/s
+        
+        flag_save_power_file: false      # if true, saves the computed power timeseries to a parquet file
+        flag_useprecomputed_power_file: false  # if true, uses a precomputed power timeseries from a parquet file
+        precomputed_power_file: "path/to/power_df.parquet"
     fixed:
         rated_power: 748  # MW
         capacity_factor: 0.53

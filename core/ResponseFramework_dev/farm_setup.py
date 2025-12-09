@@ -1,6 +1,5 @@
-# Author: [Vasilis Pettas]
+# Author: [Vasilis Pettas, Moritz Gräfe]
 
-import os
 import numpy as np
 import pandas as pd
 
@@ -19,54 +18,66 @@ from py_wake.rotor_avg_models import CGIRotorAvg
 from py_wake.wind_turbines.power_ct_functions import PowerCtFunctionList, PowerCtTabular
 from core.ResponseFramework.data.turbine.iea_22s import IEA22s
 
-def initialize_HKN_pywake_farm():
+def initialize_pywake_farm(
+    *,
+    use_pywake_farm: bool,
+    layout_file: str | None,
+    turbine_model: str = "IEA22",
+):
     """
-    Initializes the wind farm layout, turbine model, and PyWake flow model
-    for the HKN subset case.
+    Generic PyWake farm initializer controlled by config.
 
-    Returns
-    -------
-    dict
-        {
-            "layout_df": pd.DataFrame with turbine layout and IDs,
-            "flow_model": PyWake WindFarmModel object,
-            "flow_type": "pywake",
-            "turbine": WindTurbines object,
-            "rotor_model": rotor averaging model config (dict),
-            "setup_summary": dictionary with flow setup metadata for settings.json
-        }
+    - If use_pywake_farm is True:
+        - load layout from layout_file
+    - If False:
+        - single turbine at (0,0)
+    - turbine_model: currently supports "IEA22" mapped to IEA22s()
     """
-    # === Load layout ===
-    farm_folder = 'ResponseFramework/data'
-    farm_file = 'HKN_layout_subset_with_scaled.csv'
-    layout_df = pd.read_csv(os.path.join(farm_folder, farm_file))
-    layout_df["id"] = np.arange(len(layout_df))  # Ensure unique turbine IDs
-    x = layout_df["x_scaled"].values
-    y = layout_df["y_scaled"].values
+    # 1) Turbine model selection (can be extended later)
+    if turbine_model == "IEA22":
+        wt_base = IEA22s()
+    else:
+        raise NotImplementedError(f"Turbine model '{turbine_model}' not implemented yet.")
 
-    # === Define turbine model with two modes ===
-    # Mode 0: full shutdown (0 power, 0 Ct)
-    # Mode 1: default IEA22s curve
-    wt_base = IEA22s()
     wt = IEA22s()
     wt.powerCtFunction = PowerCtFunctionList(
-        key="operating",  # used later as mode switch per turbine
+        key="operating",
         powerCtFunction_lst=[
-            PowerCtTabular(
-                ws=[0, 100],
-                power=[0, 0],
-                ct=[0, 0],
-                power_unit="w"
-            ),
-            wt_base.powerCtFunction
+            PowerCtTabular(ws=[0, 100], power=[0, 0], ct=[0, 0], power_unit="w"),
+            wt_base.powerCtFunction,
         ],
-        default_value=1
+        default_value=1,
     )
 
-    # === Rotor averaging model ===
-    rotor_model = CGIRotorAvg(n=21)  # Could be parametrized later
+    # 2) Layout
+    if use_pywake_farm:
+        if layout_file is None:
+            raise ValueError("layout_file must be provided when use_pywake_farm=True")
 
-    # === Wake deficit model ===
+        layout_df = pd.read_csv(layout_file)
+
+        # Flexible column support: x_scaled/y_scaled or x/y
+        if {"x_scaled", "y_scaled"}.issubset(layout_df.columns):
+            x = layout_df["x_scaled"].to_numpy()
+            y = layout_df["y_scaled"].to_numpy()
+        elif {"x", "y"}.issubset(layout_df.columns):
+            x = layout_df["x"].to_numpy()
+            y = layout_df["y"].to_numpy()
+        else:
+            raise ValueError("Layout file must contain either (x, y) or (x_scaled, y_scaled) columns.")
+
+        layout_df = layout_df.copy()
+        if "id" not in layout_df.columns:
+            layout_df["id"] = np.arange(len(layout_df))
+
+    else:
+        # Single turbine at (0,0)
+        x = np.array([0.0])
+        y = np.array([0.0])
+        layout_df = pd.DataFrame({"id": [0], "x": [0.0], "y": [0.0]})
+
+    # 3) Rotor / wake / turbulence / site: as in your current setup
+    rotor_model = CGIRotorAvg(n=21)
     deficit_model = ZongGaussianDeficit(
         a=[0.38, 4e-3],
         deltawD=1.0 / np.sqrt(2),
@@ -78,25 +89,20 @@ def initialize_HKN_pywake_farm():
         use_effective_ws=True,
         use_effective_ti=True,
     )
-
-    # === Turbulence model ===
     turbulence_model = CrespoHernandez(
         ct2a=ct2a_mom1d,
         c=[0.73, 0.83, 0.03, -0.32],
-        addedTurbulenceSuperpositionModel=SqrMaxSum()
+        addedTurbulenceSuperpositionModel=SqrMaxSum(),
     )
-
-    # === Site model ===
     site = UniformSite(shear=PowerShear(h_ref=wt.hub_height(), alpha=0.2))
 
-    # === Assemble PyWake model ===
     wfm = PropagateDownwindNoSelfInduction(
         site=site,
         windTurbines=wt,
         wake_deficitModel=deficit_model,
         superpositionModel=WeightedSum(),
         deflectionModel=JimenezWakeDeflection(),
-        turbulenceModel=turbulence_model
+        turbulenceModel=turbulence_model,
     )
 
     return {
@@ -108,109 +114,13 @@ def initialize_HKN_pywake_farm():
         "turbine": wt,
         "rotor_model": {"type": "CGI", "n_points": 21},
         "setup_summary": {
-            "farm_definition_file": farm_file,
-            "farm_name": "HKN_subset",
+            "farm_definition_file": layout_file,
+            "farm_name": "custom_pywake_farm" if use_pywake_farm else "single_turbine",
             "flow_model": "PyWake.ZongGaussian + CrespoHernandez",
-            "turbine_model": "IEA22",
+            "turbine_model": turbine_model,
             "rotor_avg": "CGI(21)",
-            "site_model": "UniformSite(alpha=0.2)"
-        }
-    }
-
-def initialize_single_turbine_farm_IEA22():
-    """
-    Initializes the wind farm layout, turbine model, and PyWake flow model
-    for the HKN subset case.
-
-    Returns
-    -------
-    dict
-        {
-            "layout_df": pd.DataFrame with turbine layout and IDs,
-            "flow_model": PyWake WindFarmModel object,
-            "flow_type": "pywake",
-            "turbine": WindTurbines object,
-            "rotor_model": rotor averaging model config (dict),
-            "setup_summary": dictionary with flow setup metadata for settings.json
-        }
-    """
-
-    x, y = 0.0, 0.0
-    layout_df= pd.DataFrame({"id": [0], "x": [x], "y": [y]})
-    x= np.array([x])
-    y= np.array([y])
-
-    # === Define turbine model with two modes ===
-    # Mode 0: full shutdown (0 power, 0 Ct)
-    # Mode 1: default IEA22s curve
-    wt_base = IEA22s()
-    wt = IEA22s()
-    wt.powerCtFunction = PowerCtFunctionList(
-        key="operating",  # used later as mode switch per turbine
-        powerCtFunction_lst=[
-            PowerCtTabular(
-                ws=[0, 100],
-                power=[0, 0],
-                ct=[0, 0],
-                power_unit="w"
-            ),
-            wt_base.powerCtFunction
-        ],
-        default_value=1
-    )
-
-    # === Rotor averaging model ===
-    rotor_model = CGIRotorAvg(n=21)  # Could be parametrized later
-
-    # === Wake deficit model ===
-    deficit_model = ZongGaussianDeficit(
-        a=[0.38, 4e-3],
-        deltawD=1.0 / np.sqrt(2),
-        eps_coeff=0.35,
-        lam=7.5,
-        B=3,
-        rotorAvgModel=rotor_model,
-        groundModel=None,
-        use_effective_ws=True,
-        use_effective_ti=True,
-    )
-
-    # === Turbulence model ===
-    turbulence_model = CrespoHernandez(
-        ct2a=ct2a_mom1d,
-        c=[0.73, 0.83, 0.03, -0.32],
-        addedTurbulenceSuperpositionModel=SqrMaxSum()
-    )
-
-    # === Site model ===
-    site = UniformSite(shear=PowerShear(h_ref=wt.hub_height(), alpha=0.2))
-
-    # === Assemble PyWake model ===
-    wfm = PropagateDownwindNoSelfInduction(
-        site=site,
-        windTurbines=wt,
-        wake_deficitModel=deficit_model,
-        superpositionModel=WeightedSum(),
-        deflectionModel=JimenezWakeDeflection(),
-        turbulenceModel=turbulence_model
-    )
-
-    return {
-        "layout_df": layout_df,
-        "flow_model": wfm,
-        "x": x,
-        "y": y,
-        "flow_type": "pywake",
-        "turbine": wt,
-        "rotor_model": {"type": "CGI", "n_points": 21},
-        "setup_summary": {
-            "farm_definition_file": None,
-            "farm_name": "HKN_subset",
-            "flow_model": "PyWake.ZongGaussian + CrespoHernandez",
-            "turbine_model": "IEA22",
-            "rotor_avg": "CGI(21)",
-            "site_model": "UniformSite(alpha=0.2)"
-        }
+            "site_model": "UniformSite(alpha=0.2)",
+        },
     }
 
 

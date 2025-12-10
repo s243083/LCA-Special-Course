@@ -197,7 +197,7 @@ def load_finex_inputs(config):
         for identifier, file_name in config.Finex_inputFiles.items():
             finex_input[identifier] = load_yaml(config.valuewind_inputFolder, file_name)
             finex_input[identifier] = process_duration_fields(finex_input[identifier])  # Process for duration fields
-        print("Loaded Finex data structure:", finex_input)
+        #print("Loaded Finex data structure:", finex_input)
 
     return finex_input
 

@@ -4,8 +4,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from core.File_Handling import load_yaml, process_duration_fields
 
-#import sys
-#sys.path.append(r"M:\Projects\Cost Model\HiperSim\valuewind\DTU_Cost_Model")
+
+# TOPFARM Cost Model import
+# FROM Mads M. Pedersen, Mikkel Friis-Møller, Pierre-Elouan Réthoré, Ernestas Simutis, Riccardo Riva, Julian Quick, Nikolay Krasimirov Dimitrov, Jenni Rinker, & Katherine Dykes. (2025). DTUWindEnergy/TopFarm2: Release of v2.6.1 (v2.6.1). Zenodo. https://doi.org/10.5281/zenodo.17540961
 from core.DTU_Cost_Model.dtu_wind_cm_main import economic_evaluation
 from core.utils import apply_overrides
 
@@ -285,10 +286,8 @@ class CAPEX:
         """
         Iterate the extracted schedule (as-is) and compute costs for each item.
         """
-
+        n_turbines = self.env.windFarm.n_turbines
         # call external Cost model here
-        n_turbines = 34
-
         rated_rpm = np.full(n_turbines, 12.0)
         rotor_diameter = np.full(n_turbines, 120.0)
         rated_power = np.full(n_turbines, 3.0)
@@ -549,14 +548,14 @@ class CAPEX:
     
 
 
-    def plot_cost_pies(self, turbine_id: int, **kwargs):
+    def plot_capex_dashboard(self, turbine_id: int, **kwargs):
         """
         Wrapper around `plot_capex_cost_pies` using this instance's cost_records.
         """
         # Plot the dashboard first
         capex_dashboard(self, turbine_id=turbine_id)
         #material_dashboard(self, turbine_id=turbine_id)
-        #plot_capex_cost_pies(self.cost_records, turbine_id, **kwargs)
+
 
         return None
     
@@ -702,233 +701,6 @@ def load_capex_data(config):
         #print("Loaded Material data structure:", material_data)
 
     return capex_data, material_data
-
-
-
-
-
-def plot_capex_cost_pies(cost_records: pd.DataFrame,
-                         turbine_id: int,
-                         *,
-                         figsize_turbine=(8, 8),
-                         figsize_overall=(6, 6),
-                         ring_width=0.28,
-                         drop_zeros=True,
-                         textsize_outer=7,
-                         textsize_middle=8,
-                         textsize_inner=9,
-                         textsize_overall=10,
-                         show=True):
-    """
-    Draws:
-      1) Per-turbine nested donut: inner=Category, middle=Subcategory, outer=Subsubcategory.
-      2) Project-level pie by Category: (sum of all per-turbine rows) + (all per_turbine=False / BoP rows).
-    """
-    required = {"category_name", "subcategory_name", "subsubcategory_name", "cost", "turbine_id"}
-    missing = required.difference(cost_records.columns)
-    if missing:
-        raise ValueError(f"cost_records is missing required columns: {sorted(missing)}")
-
-    df = cost_records.copy()
-    df["cost"] = pd.to_numeric(df["cost"], errors="coerce").fillna(0.0)
-    if drop_zeros:
-        df = df[df["cost"] > 0]
-
-    def _labelize(x):
-        if pd.isna(x) or (isinstance(x, str) and x.strip() == ""):
-            return "Unspecified"
-        return str(x)
-
-    def make_autopct(values):
-        values = np.asarray(values, dtype=float)
-        total = values.sum() if values.size else 0.0
-        def _inner(pct):
-            if total <= 0:
-                return ""
-            val = pct * total / 100.0
-            return f"{val:,.0f}\n({pct:.1f}%)"
-        return _inner
-
-    # ---------- Robust turbine selection ----------
-    # mask that matches both numeric and string reps of turbine_id
-    def _mask_for_tid(series, tid):
-        num_match = pd.to_numeric(series, errors="coerce") == tid
-        str_match = series.astype(str) == str(tid)
-        return (num_match.fillna(False)) | (str_match.fillna(False))
-
-    dft = df[_mask_for_tid(df["turbine_id"], turbine_id)]
-
-    if dft.empty:
-        # try fallback: pick the first available turbine id (if any)
-        available = df["turbine_id"].dropna().unique()
-        if available.size > 0:
-            fallback_id = available[0]
-            #print(f"plot_capex_cost_pies: turbine_id={turbine_id} not found; using turbine_id={fallback_id} instead.")
-            dft = df[_mask_for_tid(df["turbine_id"], fallback_id)]
-            used_turbine_id = fallback_id
-        else:
-            used_turbine_id = None
-    else:
-        used_turbine_id = turbine_id
-
-    # ---------- Per-turbine nested donut ----------
-    if used_turbine_id is None or dft.empty:
-        # No per-turbine data available -> render a placeholder figure
-        fig_turbine, ax = plt.subplots(figsize=figsize_turbine)
-        ax.text(0.5, 0.5, "No per-turbine costs available", ha="center", va="center", fontsize=12)
-        ax.axis("off")
-    else:
-        cat_sum = (dft.groupby("category_name", dropna=False)["cost"].sum().sort_values(ascending=False))
-        subcat_sum = (dft.groupby(["category_name", "subcategory_name"], dropna=False)["cost"].sum())
-        subsub_sum = (dft.groupby(["category_name", "subcategory_name", "subsubcategory_name"], dropna=False)["cost"].sum())
-
-        inner_labels, inner_sizes = [], []
-        middle_labels, middle_sizes = [], []
-        outer_labels, outer_sizes = [], []
-
-        for cat in cat_sum.index:
-            inner_labels.append(_labelize(cat))
-            inner_sizes.append(float(cat_sum.loc[cat]))
-
-            # Subcategories
-            try:
-                sc_series = subcat_sum.loc[cat]
-                if isinstance(sc_series, pd.Series):
-                    for subcat, sc_val in sc_series.items():
-                        middle_labels.append(_labelize(subcat))
-                        middle_sizes.append(float(sc_val))
-
-                        # Subsubcategories
-                        try:
-                            ssub_series = subsub_sum.loc[(cat, subcat)]
-                            if isinstance(ssub_series, pd.Series):
-                                for ssub, ss_val in ssub_series.items():
-                                    outer_labels.append(_labelize(ssub))
-                                    outer_sizes.append(float(ss_val))
-                            else:
-                                outer_labels.append("Unspecified")
-                                outer_sizes.append(float(ssub_series))
-                        except KeyError:
-                            pass
-                else:
-                    middle_labels.append("Unspecified")
-                    middle_sizes.append(float(sc_series))
-            except KeyError:
-                pass
-
-        fig_turbine, ax = plt.subplots(figsize=figsize_turbine)
-        startangle = 90
-
-        # OUTER ring (Subsubcategory)
-        if len(outer_sizes) and np.sum(outer_sizes) > 0:
-            ax.pie(
-                outer_sizes,
-                labels=outer_labels,
-                autopct=make_autopct(outer_sizes),
-                pctdistance=0.85,
-                labeldistance=1.08,
-                radius=1.0,
-                startangle=startangle,
-                wedgeprops=dict(width=ring_width),
-                textprops=dict(fontsize=textsize_outer),
-            )
-
-        # MIDDLE ring (Subcategory)
-        if len(middle_sizes) and np.sum(middle_sizes) > 0:
-            ax.pie(
-                middle_sizes,
-                labels=middle_labels,
-                autopct=make_autopct(middle_sizes),
-                pctdistance=0.75,
-                labeldistance=0.95,
-                radius=1.0 - ring_width,
-                startangle=startangle,
-                wedgeprops=dict(width=ring_width),
-                textprops=dict(fontsize=textsize_middle),
-            )
-
-        # INNER ring (Category)
-        if len(inner_sizes) and np.sum(inner_sizes) > 0:
-            ax.pie(
-                inner_sizes,
-                labels=inner_labels,
-                autopct=make_autopct(inner_sizes),
-                pctdistance=0.65,
-                labeldistance=0.85,
-                radius=1.0 - 2 * ring_width,
-                startangle=startangle,
-                wedgeprops=dict(width=ring_width),
-                textprops=dict(fontsize=textsize_inner, weight="bold"),
-            )
-
-        ax.set(aspect="equal")
-        ax.set_title(f"Turbine {used_turbine_id} — Cost distribution\n(Category → Subcategory → Subsubcategory)")
-        plt.tight_layout()
-
-    # ---------- Project-level pie (sum of all turbines + BoP/project) ----------
-    if "per_turbine" in df.columns:
-        turbine_rows = df[df["per_turbine"] == True]
-        project_rows = df[df["per_turbine"] == False].copy()
-        # collapse duplicated project rows if they appear once per turbine_id
-        if not project_rows.empty and project_rows["turbine_id"].notna().any() and project_rows["turbine_id"].nunique() > 1:
-            project_rows = (
-                project_rows
-                .groupby(["category_name", "subcategory_name", "subsubcategory_name"], dropna=False, as_index=False)["cost"]
-                .mean()
-            )
-    else:
-        # heuristic: project rows have missing turbine_id
-        project_rows = df[df["turbine_id"].isna()].copy()
-        turbine_rows = df[df["turbine_id"].notna()].copy()
-        if not project_rows.empty and project_rows["turbine_id"].nunique() > 1:
-            project_rows = (
-                project_rows
-                .groupby(["category_name", "subcategory_name", "subsubcategory_name"], dropna=False, as_index=False)["cost"]
-                .mean()
-            )
-
-    overall_parts = []
-    if not turbine_rows.empty:
-        overall_parts.append(
-            turbine_rows.groupby("category_name", dropna=False)["cost"].sum().rename("cost")
-        )
-    if not project_rows.empty:
-        overall_parts.append(
-            project_rows.groupby("category_name", dropna=False)["cost"].sum().rename("cost")
-        )
-
-    if overall_parts:
-        overall_cat = pd.concat(overall_parts, axis=0).groupby(level=0).sum().sort_values(ascending=False)
-    else:
-        overall_cat = pd.Series(dtype=float)
-
-    overall_labels = [_labelize(c) for c in overall_cat.index]
-    overall_sizes = overall_cat.values
-
-    fig_overall, ax2 = plt.subplots(figsize=figsize_overall)
-    if overall_sizes.size and np.sum(overall_sizes) > 0:
-        ax2.pie(
-            overall_sizes,
-            labels=overall_labels,
-            autopct=make_autopct(overall_sizes),
-            pctdistance=0.7,
-            labeldistance=1.05,
-            startangle=90,
-            textprops=dict(fontsize=textsize_overall),
-        )
-    else:
-        ax2.text(0.5, 0.5, "No project costs to display", ha="center", va="center", fontsize=12)
-        ax2.axis("off")
-
-    ax2.set(aspect="equal")
-    ax2.set_title("Project cost distribution — (All turbines + Balance of Plant) by Category")
-    plt.tight_layout()
-
-    if show:
-        plt.show()
-
-    return fig_turbine, fig_overall
-
 
 
 def capex_dashboard(

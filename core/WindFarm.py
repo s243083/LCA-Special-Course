@@ -3,9 +3,7 @@ import ast
 from pathlib import Path
 
 from core.File_Handling import load_yaml, process_duration_fields
-from scipy.stats import weibull_min
 import numpy as np
-from core.WF_Controller import WF_Controller
 from core.utils import apply_overrides , get_input_parameter, repeat_timeseries, gap_fill_timeseries, remove_gaps_rebuild_timestamps, repeat_timeseries_to_duration
 
 class WindFarm:
@@ -24,7 +22,8 @@ class WindFarm:
         self.wind_farm_input = get_input_parameter(self.wind_farm_input, 'WF')
         self.config = env.config
 
-        self.wf_controller = WF_Controller(self.env)
+        self.n_turbines = get_input_parameter(self.wind_farm_input, 'WindFarm', 'n_turbines')
+        self.turbine_rated_power = get_input_parameter(self.wind_farm_input, 'WindFarm', 'turbine_rated_power')  # MW
 
         # Set start and end times from wind_farm_data for the 'WF' identifier
         self.start_time = self.env.config.WF_OperationsStart_h
@@ -32,8 +31,6 @@ class WindFarm:
         
         self.power_records = pd.DataFrame()  # Initialize power records DataFrame
         self.wf_metrics_records = pd.DataFrame()  # Initialize metrics records DataFrame
-
-        self.external_response_path = get_input_parameter(self.wind_farm_input,'WF_external_response_path')
         
 
         # Apply Scenario overrides if provided
@@ -48,7 +45,7 @@ class WindFarm:
         # load external response (eg.from VP framework)
             self.load_external()
         elif mode== "PyWake":
-            self.power_records = self.calculate_windfarm_response
+            self.power_records = self.calculate_windfarm_response()
         elif mode == "fixed":
             self.power_records = self.create_fixed_power_timeseries()
         else:
@@ -56,11 +53,12 @@ class WindFarm:
 
 
     def load_external(self):
-        import ast
-        import pandas as pd
-
         # reference response
+        
+        self.external_response_path = get_input_parameter(self.wind_farm_input, 'WindFarm','external_response', 'WF_external_response_path')
         path = self.external_response_path
+
+        duration = get_input_parameter(self.wind_farm_input, 'WindFarm','external_response', 'target_duration')
 
         reference_df = pd.read_parquet(
             f"{path}/turbine_timeseries_inst.parquet"
@@ -95,7 +93,7 @@ class WindFarm:
         # 2) Repeat until desired total duration is reached
         power_ref_df = repeat_timeseries_to_duration(
             power_ref_df,
-            duration="20 years",     # extend horizon to 20 years
+            duration=duration,     # extend horizon to desired duration
             timestamp_col="timestamp",
             trim_to_duration=True,
         )
@@ -120,34 +118,45 @@ class WindFarm:
         else:
             self.wf_metrics_records = None
 
-    def calculate_windfarm_response(self,
-                                    mode: str = "greedy_timeseries",
-                                    wind_ts_file: str = "ResponseFramework/data/timeseries/HKNB_timeseries_full_filled_no_gaps.csv",
-                                    dist_file: str = "ResponseFramework/distributions/HKNB_Weib_WSWD_dist_2deg.csv",
-                                    use_pywake_farm: bool = True,
-                                    wsp_cut_in: float = 3.0,
-                                    wsp_cut_off: float = 25.0):
+
+    def calculate_windfarm_response(self):
+        """
+        Run the PyWake-based wind farm response using:
+        - wind TS from env.metEnv.environmental_data_ts
+        - PyWake parameters from config.WindFarm.PyWake
+        """
+
+        pywake_cfg = get_input_parameter(self.wind_farm_input, 'WindFarm', 'PyWake')
+
         rf = self.env.response_framework
 
         rf.parameter_initialization(
-            baseline_mode=mode,                 # "greedy_timeseries" or "greedy_distribution"
-            wind_price_TS_file=wind_ts_file,   # used for timeseries mode
-            distribution_file=dist_file,       # used for distribution mode
-            use_pywake_farm=use_pywake_farm,   # True -> HKN farm, False -> single IEA22
-            input_resolution="10min",          # kept for simulate_block signature
-            wsp_cut_in=wsp_cut_in,
-            wsp_cut_off=wsp_cut_off,
+            baseline_mode           = pywake_cfg.get("baseline_mode", "timeseries"),
+            use_pywake_farm         = pywake_cfg.get("use_pywake_farm", True),
+            layout_file             = pywake_cfg.get("layout_file", None),
+            turbine_model           = pywake_cfg.get("turbine_model", "IEA22"),
+            distribution_file       = pywake_cfg.get("distribution_file", None),
+            wsp_cut_in              = float(pywake_cfg.get("wsp_cut_in", 3.0)),
+            wsp_cut_off             = float(pywake_cfg.get("wsp_cut_off", 25.0)),
+            use_sector_average      = bool(pywake_cfg.get("use_sector_average", False)),
+            flag_save_power_file    = bool(pywake_cfg.get("flag_save_power_file", False)),
+            flag_useprecomputed_file= bool(pywake_cfg.get("flag_useprecomputed_power_file", False)),
+            precomputed_power_file  = pywake_cfg.get("precomputed_power_file", None),
         )
 
         rf.execution()
 
-        
-        rf.power_timeseries = rf.power_timeseries[["timestamp", "FarmPower"]].rename(
-            columns={"FarmPower": "Total_Production"}
-        )
+        if rf.power_timeseries is not None:
+            power_ts = rf.power_timeseries[["timestamp", "FarmPower"]].rename(
+                columns={"FarmPower": "Total_Production"}
+            )
+            self.power_records = power_ts
+            return power_ts
 
-        # Return whichever result is populated
-        return rf.power_timeseries if mode == "greedy_timeseries" else rf.power_distribution
+        # distribution mode fallback
+        self.power_records = rf.power_distribution
+        return rf.power_distribution
+
 
     def create_fixed_power_timeseries(self):
         """

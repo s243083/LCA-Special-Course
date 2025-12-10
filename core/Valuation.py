@@ -110,7 +110,7 @@ class Valuation:
     # ------------------------------ Aggregation (WIDE) ------------------------------
     def aggregate_cash_flows(self, df_wide: pd.DataFrame) -> pd.DataFrame:
         period = self.cf_aggregation_period
-        freq_map = {"monthly": "M", "quarterly": "Q", "yearly": "A"}
+        freq_map = {"monthly": "ME", "quarterly": "Q", "yearly": "A"}
         if period not in freq_map:
             raise ValueError("cf_aggregation_period must be one of: 'monthly', 'quarterly', 'yearly'.")
         freq = freq_map[period]
@@ -202,8 +202,8 @@ class Valuation:
             if isinstance(cf_disc, pd.DataFrame) and "discounted_fcff" in cf_disc.columns
             else None
         )
-        print(f"NPV_equity: {self.npv_equity}")
-        print(f"NPV_firm:   {self.npv_firm}")
+        #print(f"NPV_equity: {self.npv_equity}")
+        #print(f"NPV_firm:   {self.npv_firm}")
 
         # ---- IRR (Equity) ----
         self.irr = None
@@ -214,7 +214,7 @@ class Valuation:
                 .to_numpy()
             )
             self.irr = self._compute_irr(irr_series)
-        print(f"IRR (Equity_CF): {self.irr}")
+        #print(f"IRR (Equity_CF): {self.irr}")
         # ---- LCOE (optional; excludes financing) ----
         self.lcoe = None
         if isinstance(getattr(self, "power_records", None), pd.DataFrame):
@@ -224,7 +224,7 @@ class Valuation:
                 # Treat spends as positive in numerator (capex/opex are negative)
                 base["costs"] = -(base["capex"] + base["opex"])
 
-                freq = {"monthly": "M", "quarterly": "Q", "yearly": "A"}[self.cf_aggregation_period]
+                freq = {"monthly": "ME", "quarterly": "Q", "yearly": "A"}[self.cf_aggregation_period]
 
                 pr = self.power_records.copy()
                 pr.columns = ["timestamp", "Total_Production"]
@@ -250,7 +250,7 @@ class Valuation:
 
                 denom = float(lcoe_df["pv_energy"].sum())
                 self.lcoe = float(lcoe_df["pv_costs"].sum() / denom) if denom > 0 else None
-                print(f"LCOE: {self.lcoe}")
+                #print(f"LCOE: {self.lcoe}")
 
         # ---- store metrics ----
         metrics_row = {"npv_firm": self.npv_firm,"npv_equity": self.npv_equity, "irr": self.irr, "lcoe": self.lcoe}

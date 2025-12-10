@@ -1,4 +1,4 @@
-import simpy
+import logging
 from core.CAPEX import CAPEX
 from core.FINEX import FINEX
 from core.OPEX import OPEX
@@ -10,12 +10,17 @@ from core.Revenue_Model import Revenue
 from core.ResponseFramework_dev.Response_Framework import ResponseFramework
 from core.ResultsCollector import ResultsCollector
 from core.LTE import LifetimeExtension
+from core.SimulationConfig import SimulationConfig
+from core.utils import check_time_series_alignment
 
-class ValueWindEnv(simpy.Environment):
-    def __init__(self, config):
-        super().__init__()
+
+class ValueWindEnv():
+    def __init__(self, config, simulation_config: SimulationConfig, logger: logging.Logger | None = None):
         self.config = config
-        self.metEnv= MetEnvironment(self)
+        self.simulation_config = simulation_config
+        self.logger = logger or logging.getLogger("winpact.env")
+
+        self.metEnv = MetEnvironment(self)
         self.windFarm = WindFarm(self)
         self.capex = CAPEX(self)
         self.finex = FINEX(self, self.capex)
@@ -29,44 +34,59 @@ class ValueWindEnv(simpy.Environment):
 
 
 
-
-
-
     def run_simulation(self, until=None):
-        # Start the CAPEX process in the environment
-        self.capex.start()
-        #self.capex.plot_cost_pies(turbine_id=1)
+        cfg = self.simulation_config  # shorthand
 
+        # Market Environment
+        if cfg.run_marketenv:
+            self.MarketEnv.create_electricityprice()
         
-        # Start the wind farm process in the environment
-        self.windFarm.start()
+        # Met Environment
+        if cfg.run_metenv:
+            self.metEnv.create_met_environment()
 
-        # Calculate OPEX
-        self.opex.calc_OPEX()
-        
+        # Alignment check
+        if cfg.run_marketenv and cfg.run_metenv:
+            check_time_series_alignment(self)
 
+        # CAPEX
+        if cfg.run_capex:
+            self.capex.start()
+            if cfg.capex_dashboard:
+                self.capex.plot_capex_dashboard(turbine_id=1)
 
-        # Apply Lifetime Extension if enabled
-        # self.lifetimeExtension.apply()
+        # Wind Farm
+        if cfg.run_windfarm:
+            self.windFarm.start()
 
+        # OPEX
+        if cfg.run_opex:
+            self.opex.calc_OPEX()
+            if cfg.opex_dashboard:
+                self.opex.plot_opex_dashboard()
 
+        # Lifetime Extension
+        if cfg.run_lifetime_extension:
+            self.lifetimeExtension.apply()
 
-        # calculate Revenues
-        self.RevenueModel.calc_revenues()
+        # Revenues
+        if cfg.run_revenue:
+            self.RevenueModel.calc_revenues()
 
+        # Valuation
+        if cfg.run_valuation:
+            self.valuation.project_valuation()
+            if cfg.valuation_dashboard:
+                self.valuation.plot_valuation_results()
 
-        # calculate Valuation
-        self.valuation.project_valuation()
-        #self.valuation.plot_valuation_results()
-        
-
-        # Call Reuslts Collector
-        self.results_collector.collect_df(
-            attr_map={
-                "valuation_metrics": "valuation.valuemetrics",
-                "capex": "capex.cost_records",
-            }
-        )
+        # Results Collector
+        if cfg.collect_results:
+            self.results_collector.collect_df(
+                attr_map={
+                    "valuation_metrics": "valuation.valuemetrics",
+                    "capex": "capex.cost_records",
+                }
+            )
 
 
         

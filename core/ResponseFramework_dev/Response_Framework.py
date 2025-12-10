@@ -1,5 +1,4 @@
-from pathlib import Path
-from typing import Optional, Dict, Any
+
 
 import numpy as np
 import pandas as pd
@@ -18,8 +17,7 @@ from core.ResponseFramework_dev.simulation_engine import (
 
 # Farm setup
 from core.ResponseFramework_dev.farm_setup import (
-    initialize_HKN_pywake_farm,
-    initialize_single_turbine_farm_IEA22,
+    initialize_pywake_farm
 )
 
 
@@ -39,83 +37,89 @@ class ResponseFramework:
     """
 
     def __init__(self, env):
-        self.env = env  # Access to the environment
+        self.env = env
+        self.farm = None
+        self.power_timeseries = None
+        self.power_distribution = None
 
-    
-    # -------------------------
-    # Parameter initialization
-    # -------------------------
+
     def parameter_initialization(
         self,
         *,
-        baseline_mode: str = "greedy_timeseries",            # "greedy_timeseries" or "greedy_distribution"
-        wind_price_TS_file: str = "ResponseFramework/data/timeseries/wind_price_timeseries_10min_short.csv",
-        distribution_file: str = "ResponseFramework/distributions/HKNB_Weib_WSWD_dist_2deg.csv",
-        use_pywake_farm: bool = True,                        # True: HKN PyWake farm, False: single IEA22
-        input_resolution: str = "10min",                     # kept for simulate_block signature
+        baseline_mode: str = "timeseries",      # "timeseries" or "distribution"
+        use_pywake_farm: bool = True,
+        layout_file: str | None = None,
+        turbine_model: str = "IEA22",
+        distribution_file: str | None = None,
         wsp_cut_in: float = 3.0,
         wsp_cut_off: float = 25.0,
+        use_sector_average: bool = False,
+        flag_save_power_file: bool = False,
+        flag_useprecomputed_file: bool = False,
+        precomputed_power_file: str | None = None,
     ) -> None:
-        # store params
-        self.baseline_mode = baseline_mode
-        self.wind_price_TS_file = wind_price_TS_file
-        self.distribution_file = distribution_file
-        self.use_pywake_farm = use_pywake_farm
-        self.input_resolution = input_resolution
-        self.wsp_cut_in = float(wsp_cut_in)
-        self.wsp_cut_off = float(wsp_cut_off)
+        self.baseline_mode          = baseline_mode
+        self.use_pywake_farm        = use_pywake_farm
+        self.layout_file            = layout_file
+        self.turbine_model          = turbine_model
+        self.distribution_file      = distribution_file
+        self.wsp_cut_in             = float(wsp_cut_in)
+        self.wsp_cut_off            = float(wsp_cut_off)
+        self.use_sector_average     = bool(use_sector_average)
+        self.flag_save_power_file   = bool(flag_save_power_file)
+        self.flag_useprecomputed    = bool(flag_useprecomputed_file)
+        self.precomputed_power_file = precomputed_power_file
 
-        # outputs
-        self.farm: Optional[Dict[str, Any]] = None
-        self.power_timeseries: Optional[pd.DataFrame] = None
-        self.power_distribution: Optional[pd.DataFrame] = None
+        self.farm = None
+        self.power_timeseries = None
+        self.power_distribution = None
 
     # -----------------------
     # Execution
     # -----------------------
     def execution(self) -> None:
-        # 1) Initialize farm
-        if self.use_pywake_farm:
-            self.farm = initialize_HKN_pywake_farm()
-        else:
-            self.farm = initialize_single_turbine_farm_IEA22()
+        # 1) Initialize farm from config
+        self.farm = initialize_pywake_farm(
+            use_pywake_farm=self.use_pywake_farm,
+            layout_file=self.layout_file,
+            turbine_model=self.turbine_model,
+        )
 
-        # 2) Branch by mode (power-only)
-        if self.baseline_mode == "greedy_timeseries":
-            # Load TS (no price required)
-            wind_data = self.env.metEnv.environmental_data_ts
+        # 2) Timeseries vs distribution
+        if self.baseline_mode == "timeseries":
+            if self.flag_useprecomputed and self.precomputed_power_file:
+                power_df = pd.read_parquet(self.precomputed_power_file)
+            else:
+                wind_data = self.env.metEnv.environmental_data_ts
+                power_df = simulate_block(
+                    wind_data=wind_data,
+                    farm=self.farm,
+                    wsp_min=self.wsp_cut_in,
+                    wsp_max=self.wsp_cut_off,
+                    use_sector_average=self.use_sector_average,
+                )
 
-            # Call minimal simulator
-            #load from csv
-            #self.power_distribution= pd.read_csv("M:\Projects\Cost Model\HiperSim\valuewind\ResponseFramework\repeated_power.csv")
-            
-            self.power_timeseries = simulate_block(
-                wind_data=wind_data,
-                farm=self.farm,
-                resolution=self.input_resolution,
-                use_sector_average=False,
-                wsp_min=self.wsp_cut_in,
-                wsp_max=self.wsp_cut_off,
-                price_series=None,     # ignored by the simplified simulate_block
-            )
+                if self.flag_save_power_file and self.precomputed_power_file:
+                    power_df.to_parquet(self.precomputed_power_file, index=False)
+
+            self.power_timeseries = power_df
             self.power_distribution = None
 
-        elif self.baseline_mode == "greedy_distribution":
-            # Load distribution (no price required)
-            dist_df = load_joint_distribution(
-                self.distribution_file,
-                require_price=False,
-            )
+        elif self.baseline_mode == "distribution":
+            if not self.distribution_file:
+                raise ValueError("distribution_file must be provided for 'distribution' mode.")
 
-            # Call minimal simulator
+            dist_df = load_joint_distribution(self.distribution_file, require_price=False)
+
             self.power_distribution = simulate_distribution(
                 distribution=dist_df,
                 farm=self.farm,
                 wsp_min=self.wsp_cut_in,
                 wsp_max=self.wsp_cut_off,
-                use_sector_average=False,
+                use_sector_average=self.use_sector_average,
             )
             self.power_timeseries = None
 
         else:
-            raise ValueError("baseline_mode must be 'greedy_timeseries' or 'greedy_distribution'.")
+            raise ValueError("baseline_mode must be 'timeseries' or 'distribution'.")
+

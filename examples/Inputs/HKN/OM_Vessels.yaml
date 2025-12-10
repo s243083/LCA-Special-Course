@@ -2,7 +2,7 @@
 # Vessel Specifications
 Vessels:
   CTV:
-    equipment_rate: 3500
+    equipment_rate: 5700 
     capability: CTV
     speed: 37.04  # 20 knots
     strategy: scheduled
@@ -15,7 +15,7 @@ Vessels:
     port_distance: 30
 
   HLV:
-    equipment_rate: 206550
+    equipment_rate: 336448
     capability: LCN
     speed: 20.4  # 11 knots
     strategy: scheduled
@@ -29,7 +29,7 @@ Vessels:
     port_distance: 100
 
   FSV:
-    equipment_rate: 13082
+    equipment_rate: 21309
     capability: SCN
     speed: 22.2  # 12 knots
     strategy: scheduled

@@ -1,8 +1,15 @@
 MetEnv:
-  - name: "Wind_speed"
-    Parameters: 
-      Weibull_shape: 2 #%
-      Weibull_scale: 8
-  - name: Turbulence_Intensity
-    Parameters: 
-      TI: 10
+  mode: "external" # [external, fixed, generate]
+  external:
+    file: "../examples/Inputs/HKN/Market_Data/HKNB_timeseries_full_filled.csv"
+    resolution: "10min" # [10min, 1h, 1d]
+    target_duration: "20 years" # e.g. "20 years", "6 months", this is used to extend the timeseries if it's shorter than required by repeating it   
+    expected_columns:
+      - "timestamp"
+      - "wsp"
+      - "TI"
+      - "wdir"
+  fixed:
+    wsp: 8.0  # m/s
+  generate:
+    dummy: true  # dummy variable

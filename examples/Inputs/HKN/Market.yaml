@@ -1,14 +1,17 @@
 Market:
-  mode: "fixed"  # [fixed, fromMetEnv, external]
+  mode: "fixed"  # [fixed, external]
   timeseries: 
     fixed: 
       price: 50  # used if mode is "fixed"
       resolution: "1h" # [10min, 1h, 1d]
     external:
-      file: "HKNB_timeseries_full_filled.csv"
+      file: "../examples/Inputs/HKN/Market_Data/HKNB_timeseries_full_filled.csv"
       resolution: "10min" # [10min, 1h, 1d]
-    fromMetEnv:
-      variable: "electricity_price" # variable name in metEnv # dummy
+      target_duration: "20 years" # e.g. "20 years", "6 months", this is used to extend the timeseries if it's shorter than required by repeating it
+      expected_columns:
+        - "timestamp"
+        - "price"
+
 
 
 Revenue: 

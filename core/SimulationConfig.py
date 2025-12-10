@@ -9,6 +9,8 @@ class SimulationConfig:
     """
     # High-level module switches
     run_capex: bool = True
+    run_marketenv: bool = True
+    run_metenv: bool = True
     capex_dashboard: bool = True
     run_opex: bool = True
     opex_dashboard: bool = True

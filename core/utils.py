@@ -499,6 +499,84 @@ def repeat_timeseries_to_duration(
     return out
 
 
+def check_time_series_alignment(self) -> None:
+    """
+    Ensure that MetEnvironment and MarketEnv time series are aligned:
+
+    - both non-empty
+    - same number of time steps
+    - same timestamps (same start, end and intermediate points)
+
+    If everything is consistent, prints and logs a summary.
+    """
+
+    logger = self.logger or logging.getLogger("winpact.env")
+
+    met_df = self.metEnv.environmental_data_ts
+    price_df = self.MarketEnv.el_price_records
+
+    # 1) Basic sanity
+    if met_df is None or met_df.empty:
+        raise ValueError("MetEnvironment.environmental_data_ts is empty; cannot run coupled simulation.")
+
+    if price_df is None or price_df.empty:
+        raise ValueError("MarketEnv.el_price_records is empty; cannot run coupled simulation.")
+
+    # 2) Normalize timestamp dtypes
+    met_ts = pd.to_datetime(met_df["timestamp"])
+    price_ts = pd.to_datetime(price_df["timestamp"])
+
+    # 3) Check length
+    if len(met_ts) != len(price_ts):
+        raise ValueError(
+            f"Time series length mismatch between MetEnv and MarketEnv: "
+            f"{len(met_ts)} vs {len(price_ts)} rows."
+        )
+
+    # 4) Check exact timestamp alignment
+    if not met_ts.equals(price_ts):
+        msg_parts = []
+
+        if met_ts.iloc[0] != price_ts.iloc[0]:
+            msg_parts.append(
+                f"start timestamps differ: "
+                f"MetEnv={met_ts.iloc[0]!r}, MarketEnv={price_ts.iloc[0]!r}"
+            )
+
+        if met_ts.iloc[-1] != price_ts.iloc[-1]:
+            msg_parts.append(
+                f"end timestamps differ: "
+                f"MetEnv={met_ts.iloc[-1]!r}, MarketEnv={price_ts.iloc[-1]!r}"
+            )
+
+        met_freq = pd.infer_freq(met_ts)
+        price_freq = pd.infer_freq(price_ts)
+        if met_freq != price_freq:
+            msg_parts.append(
+                f"inferred frequencies differ: MetEnv={met_freq}, MarketEnv={price_freq}"
+            )
+
+        details = " | ".join(msg_parts) if msg_parts else "timestamps are not identical."
+        raise ValueError(f"MetEnv and MarketEnv time series are not aligned: {details}")
+
+    # ----------------------------------------------------------------------------------
+    # If we reach here, everything is OK → log and print summary
+    # ----------------------------------------------------------------------------------
+
+    freq = pd.infer_freq(met_ts)
+    msg = (
+        f"Time series alignment OK:\n"
+        f"  • n_steps: {len(met_ts)}\n"
+        f"  • start:   {met_ts.iloc[0]}\n"
+        f"  • end:     {met_ts.iloc[-1]}\n"
+        f"  • freq:    {freq}\n"
+        f"  • sources: MetEnv + MarketEnv\n"
+    )
+
+    print(msg)            # console output
+    logger.info(msg)      # logfile output
+
+
 def save_sceanarios(
     scenarios: Sequence[Mapping[str, Any]],
     result_directory: Union[str, Path],

@@ -1,0 +1,207 @@
+{
+  "case_name": "HKN_TS_DA_HKN_Revenue_shutdown_500_TI_boost",
+  "baseline_dir": "baselines/TS_DA_HKN_full_filled_small_gaps_only_TI_boost",
+  "eval_mode": "timeseries",
+  "input_resolution": "10min",
+  "source": "data/timeseries/HKNB_timeseries_full_filled_small_gaps_only_TI_boost.csv",
+  "aux_files": [],
+  "baseline_loaded": true,
+  "rule_flags": {
+    "shutdown_rule_REV": {
+      "groups": [
+        {
+          "conditions": [
+            {
+              "var": "baseline.revenue",
+              "op": "<",
+              "value": 500.0
+            }
+          ],
+          "logic": "AND"
+        }
+      ],
+      "groups_logic": "OR"
+    }
+  },
+  "override_flags": {},
+  "num_turbines": 34,
+  "control_mode": "fixed",
+  "control_stack": {
+    "type": "combined_control",
+    "base": {
+      "type": "constant_control",
+      "yaw": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "power": [
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "control_requested_shutdown": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    "rules": [
+      {
+        "name": "shutdown_rule_REV",
+        "parameters": {
+          "groups": [
+            {
+              "conditions": [
+                {
+                  "var": "baseline.revenue",
+                  "op": "<",
+                  "value": 500.0
+                }
+              ],
+              "logic": "AND"
+            }
+          ],
+          "groups_logic": "OR"
+        },
+        "type": "shutdown"
+      }
+    ]
+  },
+  "use_rule_based": true,
+  "use_override": false,
+  "price_type": "DA_spot",
+  "price_source": "data/timeseries/HKNB_timeseries_full_filled_small_gaps_only_TI_boost.csv",
+  "fixed_price": null,
+  "use_prices": true,
+  "wsp_cut_in": 3,
+  "wsp_cut_out": 25,
+  "flow_type": "pywake",
+  "farm_setup": {
+    "farm_definition_file": "HKN_layout_subset_with_scaled.csv",
+    "farm_name": "HKN_subset",
+    "flow_model": "PyWake.ZongGaussian + CrespoHernandez",
+    "turbine_model": "IEA22",
+    "rotor_avg": "CGI(21)",
+    "site_model": "UniformSite(alpha=0.2)"
+  },
+  "rotor_model": {
+    "type": "CGI",
+    "n_points": 21
+  },
+  "surrogate": {
+    "type": "RA",
+    "channels": [
+      "RA_ADC",
+      "RA_BRM",
+      "RA_ebrm",
+      "RA_fbrm",
+      "RA_blade_torsion",
+      "RA_tbfa",
+      "RA_tbss",
+      "RA_TBM",
+      "RA_ttfa",
+      "RA_TTM",
+      "RA_gsb_l10",
+      "RA_rsb_l10",
+      "RA_shaft_mx_mb_fixed",
+      "RA_shaft_mz_mb_fixed"
+    ],
+    "supports_operating_modes": false,
+    "model_base_path": "models/RA_IEA22_DTU",
+    "scaler_base_path": "models/RA_IEA22_DTU"
+  }
+}

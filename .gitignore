@@ -1,7 +1,5 @@
 __pycache__/
-examples/Inputs/HKN/External_Response/
+examples/Inputs/HKN/Response_Framework/External_Response/
 core/ResponseFramework/data/
 core/ResponseFramework/models/
-core/ResponseFramework_dev/data/
-core/ResponseFramework_dev/models/
 results/

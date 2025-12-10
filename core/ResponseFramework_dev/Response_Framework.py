@@ -17,8 +17,7 @@ from core.ResponseFramework_dev.simulation_engine import (
 
 # Farm setup
 from core.ResponseFramework_dev.farm_setup import (
-    initialize_pywake_farm,
-    initialize_single_turbine_farm_IEA22,
+    initialize_pywake_farm
 )
 
 

@@ -55,8 +55,10 @@ class WindFarm:
     def load_external(self):
         # reference response
         
-        self.external_response_path = get_input_parameter(self.wind_farm_input,'external_response', 'WF_external_response_path')
+        self.external_response_path = get_input_parameter(self.wind_farm_input, 'WindFarm','external_response', 'WF_external_response_path')
         path = self.external_response_path
+
+        duration = get_input_parameter(self.wind_farm_input, 'WindFarm','external_response', 'target_duration')
 
         reference_df = pd.read_parquet(
             f"{path}/turbine_timeseries_inst.parquet"
@@ -91,7 +93,7 @@ class WindFarm:
         # 2) Repeat until desired total duration is reached
         power_ref_df = repeat_timeseries_to_duration(
             power_ref_df,
-            duration="20 years",     # extend horizon to 20 years
+            duration=duration,     # extend horizon to desired duration
             timestamp_col="timestamp",
             trim_to_duration=True,
         )

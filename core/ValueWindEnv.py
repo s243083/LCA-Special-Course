@@ -11,6 +11,7 @@ from core.ResponseFramework_dev.Response_Framework import ResponseFramework
 from core.ResultsCollector import ResultsCollector
 from core.LTE import LifetimeExtension
 from core.SimulationConfig import SimulationConfig
+from core.utils import check_time_series_alignment
 
 
 class ValueWindEnv():
@@ -35,6 +36,18 @@ class ValueWindEnv():
 
     def run_simulation(self, until=None):
         cfg = self.simulation_config  # shorthand
+
+        # Market Environment
+        if cfg.run_marketenv:
+            self.MarketEnv.create_electricityprice()
+        
+        # Met Environment
+        if cfg.run_metenv:
+            self.metEnv.create_met_environment()
+
+        # Alignment check
+        if cfg.run_marketenv and cfg.run_metenv:
+            check_time_series_alignment(self)
 
         # CAPEX
         if cfg.run_capex:

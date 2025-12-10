@@ -2,4 +2,5 @@ __pycache__/
 examples/Inputs/HKN/Response_Framework/External_Response/
 core/ResponseFramework/data/
 core/ResponseFramework/models/
+results/
 results/__pycache__/

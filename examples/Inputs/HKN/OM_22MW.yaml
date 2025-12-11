@@ -114,6 +114,7 @@ Turbine:
         scale: 1.657
         shape: 1
         time: 15.1
+        MTTW_L: 24
         materials: 2214
         service_equipment: CTV
         n_technicians: 2
@@ -126,6 +127,7 @@ Turbine:
         scale: 2.638
         shape: 1
         time: 32.0
+        MTTW_L: 48
         materials: 17375
         service_equipment: LCN
         n_technicians: 3
@@ -138,6 +140,7 @@ Turbine:
         scale: 11.58
         shape: 1
         time: 194.4
+        MTTW_L: 120
         materials: 136527
         service_equipment: LCN
         n_technicians: 4
@@ -162,6 +165,7 @@ Turbine:
         scale: 2.49
         shape: 1
         time: 10.8
+        MTTW_L: 24
         materials: 2214
         service_equipment: CTV
         n_technicians: 2
@@ -174,6 +178,7 @@ Turbine:
         scale: 55.716
         shape: 1
         time: 32.0
+        MTTW_L: 48
         materials: 12412
         service_equipment: LCN
         n_technicians: 3
@@ -186,6 +191,7 @@ Turbine:
         scale: 445.729
         shape: 1
         time: 61.7
+        MTTW_L: 120
         materials: 124115
         service_equipment: LCN
         n_technicians: 4
@@ -199,6 +205,7 @@ Turbine:
     maintenance:
       description: n/a
       time: 0
+      
       materials: 0
       service_equipment: CTV
       n_technicians: 2
@@ -210,6 +217,7 @@ Turbine:
         scale: 1.168
         shape: 1
         time: 18.7
+        MTTW_L: 24
         materials: 1025
         service_equipment: CTV
         n_technicians: 2
@@ -222,6 +230,7 @@ Turbine:
         scale: 5.377
         shape: 1
         time: 41.8
+        MTTW_L: 48
         materials: 4369
         service_equipment: CTV
         n_technicians: 3
@@ -234,6 +243,7 @@ Turbine:
         scale: 962.425
         shape: 1
         time: 82.5
+        MTTW_L: 120
         materials: 32190
         service_equipment: LCN
         n_technicians: 4
@@ -258,6 +268,7 @@ Turbine:
         scale: 5.941
         shape: 1
         time: 10.4
+        MTTW_L: 24
         materials: 1025
         service_equipment: CTV
         
@@ -270,6 +281,7 @@ Turbine:
         scale: 160.436
         shape: 1
         time: 44.0
+        MTTW_L: 48
         materials: 6898
         service_equipment: LCN
         n_technicians: 3
@@ -282,6 +294,7 @@ Turbine:
         scale: 962.425
         shape: 1
         time: 161.8
+        MTTW_L: 120
         materials: 28740
         service_equipment: LCN
         n_technicians: 4
@@ -305,6 +318,7 @@ Turbine:
         # baseline (15 MW, 2015): scale: 2.193, time: 18, materials: 6000
         scale: 1.677
         shape: 1
+        MTTW_L: 24
         time: 20.2
         materials: 15476
         service_equipment: CTV
@@ -318,6 +332,7 @@ Turbine:
         scale: 76.484
         shape: 1
         time: 50.9
+        MTTW_L: 48
         materials: 144051
         service_equipment: LCN
         n_technicians: 3
@@ -330,6 +345,7 @@ Turbine:
         scale: 764.835
         shape: 1
         time: 1046.4
+        MTTW_L: 120
         materials: 1486956
         service_equipment: LCN
         n_technicians: 4
@@ -356,6 +372,7 @@ Turbine:
         scale: 1.633
         shape: 1
         time: 14.0
+        MTTW_L: 24
         materials: 2214
         service_equipment: CTV
         n_technicians: 2
@@ -368,6 +385,7 @@ Turbine:
         scale: 29.715
         shape: 1
         time: 56.0
+        MTTW_L: 48
         materials: 35596
         service_equipment: LCN
         n_technicians: 3
@@ -380,6 +398,7 @@ Turbine:
         scale: 99.051
         shape: 1
         time: 279.0
+        MTTW_L: 120
         materials: 587068
         service_equipment: LCN
         n_technicians: 4
@@ -415,6 +434,7 @@ Turbine:
         scale: 3.575
         shape: 1
         time: 11.0
+        MTTW_L: 24
         materials: 2390
         service_equipment: CTV
         n_technicians: 2
@@ -427,6 +447,7 @@ Turbine:
         scale: 31.759
         shape: 1
         time: 42.0
+        MTTW_L: 48
         materials: 36109
         service_equipment: LCN
         n_technicians: 3
@@ -439,6 +460,7 @@ Turbine:
         scale: 91.747
         shape: 1
         time: 167.8
+        MTTW_L: 120
         materials: 598383
         service_equipment: LCN
         n_technicians: 4
@@ -465,6 +487,7 @@ Turbine:
         scale: 4.812
         shape: 1
         time: 12.7
+        MTTW_L: 24
         materials: 4260
         service_equipment: CTV
         n_technicians: 2
@@ -477,6 +500,7 @@ Turbine:
         scale: 96.242
         shape: 1
         time: 67.3
+        MTTW_L: 48
         materials: 238905
         service_equipment: CTV
         n_technicians: 3

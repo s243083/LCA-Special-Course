@@ -85,6 +85,7 @@ class ValueWindEnv():
                 attr_map={
                     "valuation_metrics": "valuation.valuemetrics",
                     "capex": "capex.cost_records",
+                    "opex": "opex.OPEX_records",
                 }
             )
 

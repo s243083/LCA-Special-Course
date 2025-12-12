@@ -479,12 +479,14 @@ class OPEX:
         for s in specs:
             # --- failure rate uncertainty (CM only) ---
             if s.task_type == "CM" and lam_sigma_default > 0.0 and s.lambda_per_h > 0.0:
-                lam_factor = rng.lognormal(mean=0.0, sigma=lam_sigma_default)
+                mu = -0.5 * (lam_sigma_default ** 2)
+                lam_factor = rng.lognormal(mean=mu, sigma=lam_sigma_default)
                 s.lambda_per_h *= lam_factor
 
             # --- MTTR uncertainty (all modes) ---
             if mttr_sigma_default > 0.0 and s.MTTR_h > 0.0:
-                mttr_factor = rng.lognormal(mean=0.0, sigma=mttr_sigma_default)
+                mu = -0.5 * (mttr_sigma_default ** 2)
+                mttr_factor = rng.lognormal(mean=mu, sigma=mttr_sigma_default)
                 s.MTTR_h *= mttr_factor
                 # keep labour_h consistent with MTTR
                 if s.labour_h > 0.0:
@@ -497,8 +499,44 @@ class OPEX:
                 and math.isfinite(s.MTTW_L_h)
                 and s.MTTW_L_h > 0.0
             ):
-                mttwL_factor = rng.lognormal(mean=0.0, sigma=mttwL_sigma_default)
+                
+                mu = -0.5 * (mttwL_sigma_default ** 2)
+                mttwL_factor = rng.lognormal(mean=mu, sigma=mttwL_sigma_default)
                 s.MTTW_L_h *= mttwL_factor
+
+
+    def _apply_factors_to_maintenance_specs(self, specs: List[MaintenanceSpec]) -> None:
+        """
+        Deterministic mean-shift factors (scenario assumptions).
+        These are NOT tied to scenarios here; orchestration sets them via overrides.
+        """
+        cfg = get_input_parameter(self.parameters, "analytic_ctmc", "mean_shift") or {}
+
+        lambda_factor = float(cfg.get("lambda_factor", 1.0))
+        mttr_factor   = float(cfg.get("mttr_factor", 1.0))
+        mttwL_factor  = float(cfg.get("mttwL_factor", 1.0))
+        tau_factor    = float(cfg.get("tau_factor", 1.0))
+
+        for s in specs:
+            # Failure rate: only meaningful for CM because PM uses tau_h
+            if s.task_type == "CM" and s.lambda_per_h and s.lambda_per_h > 0:
+                s.lambda_per_h *= lambda_factor
+
+            # MTTR affects both CM and PM (and keep labour consistent)
+            if s.MTTR_h and s.MTTR_h > 0:
+                s.MTTR_h *= mttr_factor
+                if s.labour_h and s.labour_h > 0:
+                    s.labour_h *= mttr_factor
+
+            # Logistics waiting: apply if finite and >0 (both CM/PM if present)
+            if s.MTTW_L_h is not None and math.isfinite(s.MTTW_L_h) and s.MTTW_L_h > 0:
+                s.MTTW_L_h *= mttwL_factor
+
+            # PM interval: apply only when tau exists (PM only)
+            if s.task_type == "PM" and s.tau_h is not None and s.tau_h > 0:
+                s.tau_h *= tau_factor
+                # keep frequency consistent if you rely on it
+                s.frequency_per_year = 8760.0 / s.tau_h
 
 
     def _load_vessels(self, *args, **kwargs) -> Dict[str, VesselSpec]:
@@ -808,13 +846,18 @@ class OPEX:
             i -> 0 : mu_i      (repair+access rate)
         - Component availability = steady-state probability pi[0].
         """
-        self.p_access_hourly = get_input_parameter(self.parameters,'analytic_ctmc', 'p_access_hourly')
-        
+        self.p_access_hourly = float(get_input_parameter(self.parameters, "analytic_ctmc", "p_access_hourly"))
         maint_specs = self._load_maintenance_specs()
 
-        # Apply uncertainty if enabled
-        self.process_uncertainty = get_input_parameter(self.parameters, 'analytic_ctmc','uncertainty','flag_apply')
+        self.process_mean_shift = bool(get_input_parameter(self.parameters, "analytic_ctmc", "mean_shift", "flag_apply"))
+        if self.process_mean_shift:
+            self._apply_factors_to_maintenance_specs(maint_specs)
 
+            ms_cfg = get_input_parameter(self.parameters, "analytic_ctmc", "mean_shift") or {}
+            p_access_factor = float(ms_cfg.get("p_access_factor", 1.0))
+            self.p_access_hourly = float(np.clip(self.p_access_hourly * p_access_factor, 0.0, 1.0))
+
+        self.process_uncertainty = bool(get_input_parameter(self.parameters, "analytic_ctmc", "uncertainty", "flag_apply"))
         if self.process_uncertainty:
             self._apply_uncertainty_to_maintenance_specs(maint_specs, rng=np.random.default_rng())
 

@@ -14,7 +14,14 @@ OM_Process:
         flag_apply: false
         lamda_sigma: 0.3 # lognormal standard deviation for failure rates
         mttr_sigma: 0.2  # lognormal standard deviation for MTTR
-        mttwL_sigma: 0.2 # lognormal standard deviation for MTTW        
+        mttwL_sigma: 0.2 # lognormal standard deviation for MTTW
+      mean_shift:
+        flag_apply: false
+        lambda_factor: 1.0
+        mttr_factor: 1.0
+        mttwL_factor: 1.0
+        tau_factor: 1.0 # factor to shift frequency of planned maintenance
+        p_access_factor: 1.0
 
   time_march_ctmc:
       dummy_param: true

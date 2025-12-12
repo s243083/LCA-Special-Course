@@ -20,7 +20,7 @@ Commodity:
         value: 12
         unit: months
       material_cost: 1500    # €/t
-      flag_GBM: true
+      flag_GBM: false
       flag_JumpDif: false
       flag_OU: false
 
@@ -41,7 +41,7 @@ Commodity:
         value: 12
         unit: months 
       material_cost: 8000    # €/t
-      flag_GBM: true
+      flag_GBM: false
       flag_JumpDif: false
       flag_OU: false
 
@@ -60,7 +60,7 @@ Commodity:
         value: 12
         unit: months 
       material_cost: 500     # €/t
-      flag_GBM: true
+      flag_GBM: false
       flag_JumpDif: false
       flag_OU: false
 
@@ -80,7 +80,7 @@ Commodity:
         unit: months 
       material_cost: 90000   # €/t
       flag_GBM: false
-      flag_JumpDif: true     # rare earths → more jumpy
+      flag_JumpDif: false     # rare earths → more jumpy
       flag_OU: false
 
       # baseline diffusion part
@@ -100,7 +100,7 @@ Commodity:
         value: 12
         unit: months
       material_cost: 3000    # €/t
-      flag_GBM: true
+      flag_GBM: false
       flag_JumpDif: false
       flag_OU: false
 
@@ -119,7 +119,7 @@ Commodity:
         value: 12
         unit: months
       material_cost: 3500    # €/t
-      flag_GBM: true
+      flag_GBM: false
       flag_JumpDif: false
       flag_OU: false
 
@@ -139,7 +139,7 @@ Commodity:
         unit: months
       material_cost: 24000   # €/t
       flag_GBM: false
-      flag_JumpDif: true     # treat as jumpy, like NdFeB
+      flag_JumpDif: false     # treat as jumpy, like NdFeB
       flag_OU: false
 
       mu: 0.05
@@ -157,7 +157,7 @@ Commodity:
         value: 12
         unit: months
       material_cost: 3500    # €/t
-      flag_GBM: true
+      flag_GBM: false
       flag_JumpDif: false
       flag_OU: false
 
@@ -176,7 +176,7 @@ Commodity:
         value: 12
         unit: months
       material_cost: 4500    # €/t
-      flag_GBM: true
+      flag_GBM: false
       flag_JumpDif: false
       flag_OU: false
 
@@ -195,7 +195,7 @@ Commodity:
         value: 12
         unit: months
       material_cost: 2000    # €/t
-      flag_GBM: true
+      flag_GBM: false
       flag_JumpDif: false
       flag_OU: false
 

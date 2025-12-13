@@ -7,7 +7,7 @@ from core.WindFarm import WindFarm
 from core.Valuation import Valuation
 from core.MarketEnvironment import MarketEnv
 from core.Revenue_Model import Revenue
-from core.ResponseFramework_dev.Response_Framework import ResponseFramework
+#from core.ResponseFramework_dev.Response_Framework import ResponseFramework
 from core.ResultsCollector import ResultsCollector
 from core.LTE import LifetimeExtension
 from core.SimulationConfig import SimulationConfig
@@ -28,7 +28,7 @@ class ValueWindEnv():
         self.MarketEnv = MarketEnv(self)
         self.RevenueModel = Revenue(self)
         self.valuation = Valuation(self)
-        self.response_framework = ResponseFramework(self)
+#        self.response_framework = ResponseFramework(self)
         self.lifetimeExtension = LifetimeExtension(self)
         self.results_collector = ResultsCollector(self)
 

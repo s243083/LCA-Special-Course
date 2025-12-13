@@ -22,7 +22,8 @@ from core.ValueWindEnv import ValueWindEnv
 from core.SimulationConfig import SimulationConfig
 from core.utils import init_experiment_logging
 
-
+from dataclasses import dataclass
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 
 # ---------------------------------------------------------------------------
 # Tiny helpers
@@ -180,7 +181,7 @@ class Simulation:
           * raw dict
           * `Configuration` instance
         """
-        library_path = Path(library_path)
+        library_path = Path(library_path).resolve()
 
         # Load and process YAML / dict into Configuration
         if isinstance(config, (str, Path)):
@@ -190,6 +191,35 @@ class Simulation:
             config = Configuration.from_dict(raw)
         elif isinstance(config, dict):
             config = Configuration.from_dict(config)
+
+       # --- normalize valuewind_inputFolder (avoid Inputs/HKN duplication) ---
+
+        cfg_dir = config_path.parent.resolve() if "config_path" in locals() else library_path.resolve()
+
+        raw = getattr(config, "valuewind_inputFolder", None)
+        if raw:
+            rel = Path(str(raw).replace("\\", "/"))
+
+            if rel.is_absolute():
+                base = rel.resolve()
+            else:
+                # Candidate 1: relative to config directory (old behavior)
+                cand1 = (cfg_dir / rel).resolve()
+
+                # If cand1 duplicates the library folder (e.g. .../Inputs/HKN/Inputs/HKN), use cfg_dir instead
+                # This happens when Config.yaml already lives inside Inputs/HKN
+                if cfg_dir.as_posix().endswith(rel.as_posix()):
+                    base = cfg_dir
+                # Otherwise, prefer a path relative to the config dir's parent (common repo layout: examples/Inputs/HKN)
+                elif (cfg_dir.parent / rel).exists():
+                    base = (cfg_dir.parent / rel).resolve()
+                else:
+                    # Fall back to cand1
+                    base = cand1
+
+            config.valuewind_inputFolder = str(base)
+
+
 
         if not isinstance(config, Configuration):
             raise TypeError("`config` must be a dictionary or `Configuration` object!")
@@ -222,7 +252,15 @@ class Simulation:
 # ---------------------------------------------------------------------------
 # Experiment abstractions
 # ---------------------------------------------------------------------------
-
+@dataclass(frozen=True)
+class ExecutionConfig:
+    """
+    Execution settings for running experiments.
+    Default is sequential so local + HPC work the same out of the box.
+    """
+    backend: str = "sequential"   # "sequential" | "process" | "thread"
+    n_jobs: int = 1
+    chunksize: int = 1
 
 class Experiment(ABC):
     """High-level façade for single-run or sweep experiments."""
@@ -249,6 +287,28 @@ def _normalise_sim_cfg(
     if isinstance(simulation_config, Mapping):
         return SimulationConfig.from_dict(simulation_config)
     return simulation_config
+
+
+def _normalise_execution_config(execution):
+    """
+    Accepts:
+      - None  -> default sequential
+      - ExecutionConfig
+      - dict-like: {"backend": "...", "n_jobs": ..., "chunksize": ...}
+    """
+    if execution is None:
+        return ExecutionConfig()
+
+    # Allow dict-like config
+    if isinstance(execution, dict):
+        return ExecutionConfig(
+            backend=str(execution.get("backend", "sequential")),
+            n_jobs=int(execution.get("n_jobs", 1)),
+            chunksize=int(execution.get("chunksize", 1)),
+        )
+
+    # Already an ExecutionConfig
+    return execution
 
 
 def _build_configuration_dict(
@@ -279,12 +339,15 @@ def _run_single_scenario(
     name: Optional[str],
     result_directory: Optional[Union[str, Path]],
     debug: bool,
-    logger: logging.Logger,
+    logger_name: str,
 ) -> Dict[str, Any]:
     """Core routine to run one scenario and return a status row.
 
     This is shared between SingleExperiment and SweepExperiment.
     """
+    
+    logger = logging.getLogger(logger_name)
+
     t0 = time.time()
     status: str = "success"
     err: Optional[str] = None
@@ -300,8 +363,18 @@ def _run_single_scenario(
         result_directory=result_directory,
     )
 
+    logger.info(
+        "[scenario:start] id=%s label=%s seed=%s result_dir=%s experiment=%s",
+        scenario.scenario_id, scenario.label, scenario.seed,
+        str(result_directory), str(name),
+    )
+
     try:
-        sim = Simulation.from_config(library_path, cfg_full, simulation_config=simulation_config, logger=logger)
+        sim = Simulation.from_config(
+            library_path, cfg_full,
+            simulation_config=simulation_config,
+            logger=logger,
+        )
 
         # Seed injection, if your environment supports it
         if hasattr(sim.env, "seed"):
@@ -309,13 +382,18 @@ def _run_single_scenario(
 
         sim.run()
 
+        logger.info(
+            "[scenario:done] id=%s duration_s=%.3f",
+            scenario.scenario_id, time.time() - t0,
+        )
+
     except Exception as e:
-        duration_s = time.time() - t0
-        status = "failed"
-        err = f"{type(e).__name__}: {e}"
-        tb_txt = traceback.format_exc()
-        if debug:
-            raise
+        logger.exception(
+            "[scenario:fail] id=%s label=%s seed=%s",
+            scenario.scenario_id, scenario.label, scenario.seed,
+        )
+        raise
+
 
     finally:
         if duration_s is None:
@@ -338,6 +416,79 @@ def _run_single_scenario(
         "result_directory": str(result_directory) if result_directory is not None else None,
     }
 
+def _run_scenarios(
+    *,
+    scenarios,
+    library_path,
+    base_cfg,
+    simulation_config,
+    name,
+    result_directory,
+    debug,
+    logger_name,
+    execution: ExecutionConfig,
+    on_result=None,
+):
+    """
+    Runs scenarios sequentially by default.
+    Optional thread/process execution when execution.n_jobs > 1.
+    """
+    # Default: sequential (safe everywhere)
+    if execution.backend == "sequential" or execution.n_jobs <= 1:
+        rows = []
+        for sc in scenarios:
+            row = _run_single_scenario(
+                library_path=library_path,
+                base_cfg=base_cfg,
+                scenario=sc,
+                simulation_config=simulation_config,
+                name=name,
+                result_directory=result_directory,
+                debug=debug,
+                logger_name=logger_name,
+            )
+            rows.append(row)
+            if on_result:
+                on_result(row)
+        return rows
+
+    # Parallel mode: don’t allow debug=True, because your debug mode likely re-raises exceptions
+    if debug:
+        raise ValueError("debug=True is not compatible with parallel execution. Set debug=False.")
+
+    if execution.backend not in ("process", "thread"):
+        raise ValueError(f"Unknown execution backend: {execution.backend!r}")
+
+    Executor = ProcessPoolExecutor if execution.backend == "process" else ThreadPoolExecutor
+
+    rows = []
+    with Executor(max_workers=execution.n_jobs) as ex:
+        futures = [
+            ex.submit(
+                _run_single_scenario,
+                library_path=library_path,
+                base_cfg=base_cfg,
+                scenario=sc,
+                simulation_config=simulation_config,
+                name=name,
+                result_directory=result_directory,
+                debug=False,
+                logger_name=logger_name,
+            )
+            for sc in scenarios
+        ]
+
+        for fut in as_completed(futures):
+            row = fut.result()
+            rows.append(row)
+            if on_result:
+                on_result(row)
+
+    # Optional: restore original scenario order
+    order = {s.scenario_id: i for i, s in enumerate(scenarios)}
+    rows.sort(key=lambda r: order.get(r.get("scenario_id"), 10**9))
+    return rows
+
 
 @define(auto_attribs=True)
 class SingleExperiment(Experiment):
@@ -356,6 +507,8 @@ class SingleExperiment(Experiment):
     result_directory: Optional[Union[str, Path]] = None
     debug: bool = True
     logger: logging.Logger = field(factory=lambda: logging.getLogger("winpact.single"))
+    execution: ExecutionConfig = field(factory=ExecutionConfig)
+
 
     def run(self) -> pd.DataFrame:
         base_cfg = _load_base_config_yaml(self.library_path, self.base_config_path)
@@ -367,7 +520,7 @@ class SingleExperiment(Experiment):
             name=self.name,
             result_directory=self.result_directory,
             debug=self.debug,
-            logger=self.logger,
+            logger_name=self.logger.name,
 
         )
         return pd.DataFrame([row])
@@ -386,28 +539,28 @@ class SweepExperiment(Experiment):
     debug: bool = True
     on_result: Optional[Callable[[Mapping[str, Any]], None]] = None
     logger: logging.Logger = field(factory=lambda: logging.getLogger("winpact.sweep"))
+    execution: ExecutionConfig = field(factory=ExecutionConfig)
+
 
     def run(self) -> pd.DataFrame:
         base_cfg = _load_base_config_yaml(self.library_path, self.base_config_path)
 
         rows: List[Dict[str, Any]] = []
 
-        for sc in self.scenarios:
-            row = _run_single_scenario(
-                library_path=self.library_path,
-                base_cfg=base_cfg,
-                scenario=sc,
-                simulation_config=self.simulation_config,
-                name=self.name,
-                result_directory=self.result_directory,
-                debug=self.debug,
-                logger=self.logger,
-            )
-            rows.append(row)
-            if self.on_result:
-                self.on_result(row)
-
+        rows = _run_scenarios(
+            scenarios=self.scenarios,
+            library_path=self.library_path,
+            base_cfg=base_cfg,
+            simulation_config=self.simulation_config,
+            name=self.name,
+            result_directory=self.result_directory,
+            debug=self.debug,
+            logger_name=self.logger.name,
+            execution=self.execution,
+            on_result=self.on_result,
+        )
         df = pd.DataFrame(rows)
+
 
         # Optionally persist an index of runs for bookkeeping
         if self.result_directory is not None:
@@ -591,6 +744,7 @@ def build_experiment(
     name: Optional[str] = None,
     result_directory: Optional[Union[str, Path]] = None,
     debug: bool = True,
+    execution: Optional[Union[ExecutionConfig, Mapping[str, Any]]] = None,
 ) -> Experiment:
     """Build an Experiment (single-run or sweep) in a unified way.
 
@@ -614,6 +768,8 @@ def build_experiment(
     library_path = Path(library_path)
     base_config_path = Path(base_config_path)
     sim_cfg = _normalise_sim_cfg(simulation_config)
+    exec_cfg = _normalise_execution_config(execution)
+
 
     # Initialize experiment-wide logging
     # Initialize logging once for this experiment
@@ -640,6 +796,7 @@ def build_experiment(
                 library_path=library_path,
                 base_config_path=base_config_path,
                 simulation_config=sim_cfg,
+                execution=exec_cfg,
                 scenario=scenarios[0],
                 name=name,
                 result_directory=result_directory,
@@ -652,6 +809,7 @@ def build_experiment(
             library_path=library_path,
             base_config_path=base_config_path,
             simulation_config=sim_cfg,
+            execution=exec_cfg,
             scenarios=scenarios,
             name=name,
             result_directory=result_directory,
@@ -704,6 +862,7 @@ def build_experiment(
         library_path=library_path,
         base_config_path=base_config_path,
         simulation_config=sim_cfg,
+        execution=exec_cfg,
         scenarios=scenarios,
         name=name,
         result_directory=result_directory,

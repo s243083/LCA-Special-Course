@@ -1,0 +1,16 @@
+Traceback (most recent call last):
+  File "/work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/examples/HPC/run_revenue_sweep_parallel.py", line 115, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/examples/HPC/run_revenue_sweep_parallel.py", line 27, in main
+    from core.Simulation import build_experiment  # noqa: E402
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/core/Simulation.py", line 21, in <module>
+    from core.ValueWindEnv import ValueWindEnv
+  File "/work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/core/ValueWindEnv.py", line 2, in <module>
+    from core.CAPEX import CAPEX
+  File "/work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/core/CAPEX.py", line 10, in <module>
+    from core.DTU_Cost_Model.dtu_wind_cm_main import economic_evaluation
+  File "/work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/core/DTU_Cost_Model/dtu_wind_cm_main.py", line 7, in <module>
+    import numpy_financial as npf
+ModuleNotFoundError: No module named 'numpy_financial'

@@ -1,0 +1,16 @@
+Traceback (most recent call last):
+  File "/work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/examples/HPC/run_revenue_sweep_parallel.py", line 115, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/examples/HPC/run_revenue_sweep_parallel.py", line 27, in main
+    from core.Simulation import build_experiment  # noqa: E402
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/core/Simulation.py", line 21, in <module>
+    from core.ValueWindEnv import ValueWindEnv
+  File "/work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/core/ValueWindEnv.py", line 10, in <module>
+    from core.ResponseFramework_dev.Response_Framework import ResponseFramework
+  File "/work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/core/ResponseFramework_dev/Response_Framework.py", line 7, in <module>
+    from core.ResponseFramework_dev.input_handling import (
+  File "/work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/core/ResponseFramework_dev/input_handling.py", line 7, in <module>
+    from surrogates_interface.surrogates import TensorFlowModel
+ModuleNotFoundError: No module named 'surrogates_interface'

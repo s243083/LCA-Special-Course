@@ -13,7 +13,7 @@ Phase:
             fixed_cost: 3610000
             beta_markup: 0
             flag_material_cost: true
-            use_blade_mass_estimator: true
+            use_blade_mass_estimator: false
             # Mass basis: 3 × 82.301 t = 246.903 t (report Table 1).
             # Material split is approximate to cover cost lookups; CFs capture manufacturing complexity.
             material:

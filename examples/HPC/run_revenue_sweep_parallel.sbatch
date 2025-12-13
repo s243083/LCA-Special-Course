@@ -9,14 +9,17 @@
 #SBATCH --output=logs/%x_%j.out
 #SBATCH --error=logs/%x_%j.err
 
+echo "TMPDIR=$TMPDIR"
+echo "PWD=$(pwd)"
+
 set -euo pipefail
 mkdir -p logs
 
-# Load your environment (edit to match your setup)
+# Load your environment
 module purge
-# module load <python/anaconda module if needed>
-# source ~/miniconda3/etc/profile.d/conda.sh
-# conda activate <your-env>
+source /work/users/mograf/miniconda3/etc/profile.d/conda.sh
+conda activate winpact
 
-cd /work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact   # adjust to your repo root
-python run_revenue_sweep_parallel.py
+cd /work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact
+python examples/HPC/run_revenue_sweep_parallel.py
+

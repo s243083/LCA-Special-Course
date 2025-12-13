@@ -299,8 +299,8 @@ class CAPEX:
             rated_rpm, rotor_diameter, rated_power,
             hub_height, water_depth, cabling_cost
         )
-        # Call blade mass estimator once
-        self.run_blade_mass_estimator()
+        # Call blade mass estimator once-- this needs to be done only if use_bme is True in any category
+#        self.run_blade_mass_estimator()
 
         for phase_name, timing_hours, category, per_turbine in self.cost_items:
             timestamp = self.project_start + pd.Timedelta(hours=float(timing_hours))

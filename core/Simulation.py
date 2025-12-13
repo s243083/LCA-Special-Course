@@ -180,7 +180,7 @@ class Simulation:
           * raw dict
           * `Configuration` instance
         """
-        library_path = Path(library_path)
+        library_path = Path(library_path).resolve()
 
         # Load and process YAML / dict into Configuration
         if isinstance(config, (str, Path)):
@@ -190,6 +190,35 @@ class Simulation:
             config = Configuration.from_dict(raw)
         elif isinstance(config, dict):
             config = Configuration.from_dict(config)
+
+       # --- normalize valuewind_inputFolder (avoid Inputs/HKN duplication) ---
+
+        cfg_dir = config_path.parent.resolve() if "config_path" in locals() else library_path.resolve()
+
+        raw = getattr(config, "valuewind_inputFolder", None)
+        if raw:
+            rel = Path(str(raw).replace("\\", "/"))
+
+            if rel.is_absolute():
+                base = rel.resolve()
+            else:
+                # Candidate 1: relative to config directory (old behavior)
+                cand1 = (cfg_dir / rel).resolve()
+
+                # If cand1 duplicates the library folder (e.g. .../Inputs/HKN/Inputs/HKN), use cfg_dir instead
+                # This happens when Config.yaml already lives inside Inputs/HKN
+                if cfg_dir.as_posix().endswith(rel.as_posix()):
+                    base = cfg_dir
+                # Otherwise, prefer a path relative to the config dir's parent (common repo layout: examples/Inputs/HKN)
+                elif (cfg_dir.parent / rel).exists():
+                    base = (cfg_dir.parent / rel).resolve()
+                else:
+                    # Fall back to cand1
+                    base = cand1
+
+            config.valuewind_inputFolder = str(base)
+
+
 
         if not isinstance(config, Configuration):
             raise TypeError("`config` must be a dictionary or `Configuration` object!")
@@ -333,8 +362,18 @@ def _run_single_scenario(
         result_directory=result_directory,
     )
 
+    logger.info(
+        "[scenario:start] id=%s label=%s seed=%s result_dir=%s experiment=%s",
+        scenario.scenario_id, scenario.label, scenario.seed,
+        str(result_directory), str(name),
+    )
+
     try:
-        sim = Simulation.from_config(library_path, cfg_full, simulation_config=simulation_config, logger=logger)
+        sim = Simulation.from_config(
+            library_path, cfg_full,
+            simulation_config=simulation_config,
+            logger=logger,
+        )
 
         # Seed injection, if your environment supports it
         if hasattr(sim.env, "seed"):
@@ -342,13 +381,18 @@ def _run_single_scenario(
 
         sim.run()
 
+        logger.info(
+            "[scenario:done] id=%s duration_s=%.3f",
+            scenario.scenario_id, time.time() - t0,
+        )
+
     except Exception as e:
-        duration_s = time.time() - t0
-        status = "failed"
-        err = f"{type(e).__name__}: {e}"
-        tb_txt = traceback.format_exc()
-        if debug:
-            raise
+        logger.exception(
+            "[scenario:fail] id=%s label=%s seed=%s",
+            scenario.scenario_id, scenario.label, scenario.seed,
+        )
+        raise
+
 
     finally:
         if duration_s is None:

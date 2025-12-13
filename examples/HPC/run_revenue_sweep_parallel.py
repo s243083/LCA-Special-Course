@@ -13,6 +13,14 @@ from pathlib import Path
 import sys
 import os
 
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+)
+
+
 
 def main() -> int:
     # ---------------------------------------------------------------------
@@ -108,8 +116,23 @@ def main() -> int:
     print(f"Completed {len(df)} runs")
     print(f"Results written to: {RESULT_DIR}")
 
-    return 0
 
+    print("=== DF columns ===")
+    print(df.columns.tolist())
+    print("=== DF head ===")
+    print(df.head())
+
+    print("=== RESULT_DIR ===")
+    print(RESULT_DIR)
+
+    print("=== RESULT_DIR contents (maxdepth=3) ===")
+    for p in RESULT_DIR.rglob("*"):
+        if p.is_file():
+            print(p)
+
+        return 0
+
+    print(df[["scenario_id", "status", "error_message"]])
 
 if __name__ == "__main__":
     raise SystemExit(main())

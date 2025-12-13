@@ -1,0 +1,14 @@
+Traceback (most recent call last):
+  File "/work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/examples/HPC/run_revenue_sweep_parallel.py", line 138, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/examples/HPC/run_revenue_sweep_parallel.py", line 35, in main
+    from core.Simulation import build_experiment  # noqa: E402
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/core/Simulation.py", line 21, in <module>
+    from core.ValueWindEnv import ValueWindEnv
+  File "/work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/core/ValueWindEnv.py", line 11, in <module>
+    from core.ResultsCollector import ResultsCollector
+  File "/work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/core/ResultsCollector.py", line 46
+    self.logger.info(
+IndentationError: unexpected indent

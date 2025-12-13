@@ -7,6 +7,8 @@ import itertools, time, hashlib, gc
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Union, List
 from datetime import datetime
 import re  # ensure this is imported
+import logging
+
 
 
 class ResultsCollector:
@@ -22,6 +24,8 @@ class ResultsCollector:
 
     def __init__(self, env) -> None:
         self.env = env
+        self.logger = getattr(env, "logger", logging.getLogger("winpact.results"))
+
         config = self.env.config
 
         # ---- Direct access to config fields ----
@@ -39,6 +43,10 @@ class ResultsCollector:
         self.cfg_scenario_id = str(config.scenario_id)
         self.cfg_label = config.scenario_label
         self.cfg_seed = config.seed
+        self.logger.info(
+            "[collector:init] results_root=%s out_path=%s scenario_id=%s",
+            self.results_root, self.out_path, self.cfg_scenario_id
+        )
 
 
     def _get(self, obj: Any, path: str) -> Any:
@@ -71,38 +79,76 @@ class ResultsCollector:
     def collect_df(
         self,
         scenario_id: Optional[str] = None,
-        label: Optional[str] = None,                 # kept for API compatibility; unused
-        attr_map: Optional[Mapping[str, str]] = None # {name: dotted_path}
-    ) -> pd.DataFrame:
-        """
-        Save each DataFrame specified in attr_map to its own Parquet file:
-            <results_root[/experiment_name]>/<name>_df_<scenario_id>.parquet
+        label: Optional[str] = None,
+        attr_map: Optional[Mapping[str, str]] = None
+    ) -> Optional[pd.DataFrame]:
 
-        - Does NOT add scenario/experiment columns to the data.
-        - Returns a summary DataFrame with file paths and row counts.
-        """
         if attr_map is None:
             attr_map = {"valuation_metrics": "valuation.valuemetrics"}
 
-        # Determine scenario id for filenames
         sid = scenario_id or self.cfg_scenario_id or "noid"
         safe_sid = re.sub(r"[^A-Za-z0-9._-]+", "_", str(sid)).strip("_") or "noid"
 
-        saved_rows: List[dict] = []
+        self.logger.info(
+            "ResultsCollector started | scenario_id=%s | results_root=%s",
+            safe_sid,
+            self.results_root,
+        )
+
+        wrote_anything = False
+
         for name, dotted in attr_map.items():
+            self.logger.info("Collecting result '%s' from '%s'", name, dotted)
+
             val = self._get(self.env, dotted)
+
+            if val is None:
+                self.logger.warning(
+                    "Result '%s' resolved to None (path='%s') — skipping",
+                    name,
+                    dotted,
+                )
+                continue
+
             df = self._coerce_df(val)
-            if df is None or df.empty:
+
+            if df is None:
+                self.logger.warning(
+                    "Result '%s' could not be coerced to DataFrame (type=%s) — skipping",
+                    name,
+                    type(val),
+                )
+                continue
+
+            if df.empty:
+                self.logger.warning(
+                    "Result '%s' DataFrame is EMPTY — skipping write",
+                    name,
+                )
                 continue
 
             safe_name = re.sub(r"[^A-Za-z0-9._-]+", "_", str(name)).strip("_") or "table"
             out_path = self.results_root / f"{safe_name}_df_{safe_sid}.parquet"
 
+            self.logger.info(
+                "Writing %d rows to %s",
+                len(df),
+                out_path,
+            )
+
             df.to_parquet(out_path, index=False)
-            saved_rows.append({
-                "name": name,
-                "path": str(out_path),
-                "rows": len(df)
-            })
+            wrote_anything = True
+
+        if not wrote_anything:
+            self.logger.warning(
+                "ResultsCollector finished — NO result files were written for scenario %s",
+                safe_sid,
+            )
+        else:
+            self.logger.info(
+                "ResultsCollector finished successfully for scenario %s",
+                safe_sid,
+            )
 
         return None
+

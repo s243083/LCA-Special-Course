@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "/work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/examples/HPC/run_revenue_sweep_parallel.py", line 138, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/examples/HPC/run_revenue_sweep_parallel.py", line 35, in main
+    from core.Simulation import build_experiment  # noqa: E402
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/core/Simulation.py", line 351
+    logger.info(
+    ^^^^^^
+SyntaxError: expected 'except' or 'finally' block

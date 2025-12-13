@@ -1,8 +1,0 @@
-/work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/core/CAPEX.py:505: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
-  self.cost_records = pd.concat([self.cost_records, pd.DataFrame(rows)], ignore_index=True)
-/work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/core/CAPEX.py:505: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
-  self.cost_records = pd.concat([self.cost_records, pd.DataFrame(rows)], ignore_index=True)
-/work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/core/Revenue_Model.py:281: FutureWarning: 'M' is deprecated and will be removed in a future version, please use 'ME' instead.
-  df.groupby(pd.Grouper(key="settlement_time", freq=pay_freq))
-/work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/core/Revenue_Model.py:281: FutureWarning: 'M' is deprecated and will be removed in a future version, please use 'ME' instead.
-  df.groupby(pd.Grouper(key="settlement_time", freq=pay_freq))

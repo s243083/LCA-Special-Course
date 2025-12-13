@@ -14,8 +14,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 # Blade Mass estimator implementation
-
-from maesopt.structure.mcsprop import BladeMassEstimator
+#from maesopt.structure.mcsprop import BladeMassEstimator
 
 
 

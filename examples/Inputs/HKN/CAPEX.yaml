@@ -10,7 +10,7 @@ Phase:
 
           # ---------------- Rotor ----------------
           - name: "3_blades"
-            fixed_cost: 0
+            fixed_cost: 3610000
             beta_markup: 0
             flag_material_cost: true
             use_blade_mass_estimator: true

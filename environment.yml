@@ -11,7 +11,7 @@ dependencies:
       - astral==3.2
       - attr==0.3.2
       - attrs==25.4.0
-      - git+https://gitlab.windenergy.dtu.dk/AESOpt/maesopt.git
+#      - git+https://gitlab.windenergy.dtu.dk/AESOpt/maesopt.git
       - matplotlib==3.10.7
       - numpy_financial==1.0.0
       - pandas==2.3.3

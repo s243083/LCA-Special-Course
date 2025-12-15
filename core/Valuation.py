@@ -55,6 +55,13 @@ class Valuation:
         # cost of equity (annual)
         self.cost_of_equity_annual = self.env.finex.equity_annual
 
+        # lte costs (if any)
+        lte_df = None
+        if hasattr(self.env, "lifetimeExtension") and hasattr(self.env.lifetimeExtension, "cost_records"):
+            lte_df = self.env.lifetimeExtension.cost_records
+
+
+
         # Optional power for LCOE
         if hasattr(self.env, "windFarm") and hasattr(self.env.windFarm, "power_records"):
             self.power_records = self.env.windFarm.power_records
@@ -75,6 +82,7 @@ class Valuation:
             revenue_df=self.env.RevenueModel.revenue_records,
             finex_df=finex_df,
             tax_rate=self.tax_rate,
+            lte_df=lte_df,
         )
 
         # 3) Aggregate & discount
@@ -328,7 +336,8 @@ class Valuation:
         else:
             data["FCF"] = data["revenue"] + data["opex"] + data["capex"]
 
-        series_order = ["capex", "DS", "opex", "revenue"]
+        series_order = ["capex", "DS", "opex", "lte", "revenue"] if "lte" in data.columns else ["capex", "DS", "opex", "revenue"]
+
 
         default_title = "Discounted Cash Flows by Period" if use_discounted else "Cash Flows by Period"
         plot_title = title or default_title
@@ -594,10 +603,12 @@ class Valuation:
             pv = {
                 "Revenue":       (df["revenue"] * df["df"]).sum(),
                 "Opex":          (df["opex"] * df["df"]).sum(),
+                "LTE":           (df["lte"] * df["df"]).sum() if "lte" in df.columns else 0.0,
                 "Tax":           (df["Tax"] * df["df"]).sum(),
                 "Debt Service":  (df["DS"] * df["df"]).sum(),
                 "Equity Capex":  (df["equity_capex"] * df["df"]).sum(),
             }
+
             # NPV to equity = PV of Equity_CF using equity discount factor
             end_total = (df["Equity_CF"] * df["df"]).sum()
             label = "NPV Equity"
@@ -606,9 +617,11 @@ class Valuation:
             pv = {
                 "Revenue":  (df["revenue"] * df["df"]).sum(),
                 "Opex":     (df["opex"] * df["df"]).sum(),
+                "LTE":      (df["lte"] * df["df"]).sum() if "lte" in df.columns else 0.0,
                 "Tax":      (df["Tax"] * df["df"]).sum(),
                 "Capex":    (df["capex"] * df["df"]).sum(),
             }
+
             # NPV to firm = PV of FCFF using WACC discount factor
             end_total = (df["FCFF"] * df["df"]).sum()
             label = "NPV Firm"
@@ -628,19 +641,32 @@ class Valuation:
 
     def dscr_heatmap(self):
         df = self.cashflow_records.copy()
-        df["y"] = df["period_end"].dt.year.astype(str)
-        df["m"] = df["period_end"].dt.strftime("%b")
-        pivot = df.pivot_table(index="y", columns="m", values="DSCR", aggfunc="mean")
-        # Order months
-        months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
-        pivot = pivot.reindex(columns=months)
-        fig = go.Figure(data=go.Heatmap(z=pivot.values, x=pivot.columns, y=pivot.index, zmin=0.5, zmax=2.0,
-                                        colorbar_title="DSCR"))
+        df["period_end"] = pd.to_datetime(df["period_end"], errors="coerce")
+        df["DSCR"] = pd.to_numeric(df["DSCR"], errors="coerce")
+        df = df.dropna(subset=["period_end", "DSCR"])
+
+        df["year"] = df["period_end"].dt.year.astype(str)
+        df["month"] = df["period_end"].dt.month  # 1..12 (NOT locale-dependent)
+
+        pivot = df.pivot_table(index="year", columns="month", values="DSCR", aggfunc="mean")
+        pivot = pivot.reindex(columns=range(1, 13))  # ensure Jan..Dec present
+
+        # Convert to numeric array explicitly (protect against object dtype)
+        z = pivot.to_numpy(dtype=float)
+
+        month_labels = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+
+        fig = go.Figure(
+            data=go.Heatmap(
+                z=z,
+                x=month_labels,
+                y=pivot.index.tolist(),
+                colorbar_title="DSCR",
+            )
+        )
         fig.update_layout(title="DSCR Calendar Heatmap")
         fig.show()
         return fig
-
-
 
 
 def load_valuationInput(config):

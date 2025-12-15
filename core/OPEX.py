@@ -28,10 +28,12 @@ import logging
 
 from core.File_Handling import load_yaml, process_duration_fields
 from core.utils import apply_overrides , get_input_parameter
+import copy
 
 # Plotly imports for dashboard
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+
 
 
 
@@ -180,14 +182,64 @@ class OPEX:
 
 
     # --------------------------- Entry point ---------------------------
-    def calc_OPEX(self) -> pd.DataFrame:
+    def calc_OPEX(
+        self,
+        window: tuple[pd.Timestamp, pd.Timestamp] | None = None,
+        overrides: dict | None = None,
+        append: bool = True,
+        window_label: str | None = None,
+    ) -> None:
         """
-        Compute OpEx time series and store auxiliary artefacts as attributes.
-        Returns
-        -------
-        pd.DataFrame
-            Columns: ['timestamp', 'OM_payment']
+        Compute OpEx for a given time window and accumulate results.
+
+        Parameters
+        ----------
+        window:
+            (start_ts, end_ts) timestamps. If None, uses config.WF_OperationsStart_h/End_h as today.
+        overrides:
+            Nested dict of parameter overrides applied ONLY for this call (e.g. analytic_ctmc.mean_shift).
+            Expected to patch self.parameters (YAML parameters dict) not just attributes.
+        append:
+            If True, accumulate into self.OPEX_records / self.OPEX_records_extras.
+            If False, overwrite/reset (useful for first call).
+        window_label:
+            Optional label stored in extras (e.g., "baseline", "lte_extension", "2029-01").
         """
+
+        # ----------------------------
+        # 0) Save state we might override temporarily
+        # ----------------------------
+        old_start_h = getattr(self.config, "WF_OperationsStart_h", None)
+        old_end_h   = getattr(self.config, "WF_OperationsEnd_h", None)
+
+        # parameters dict is what get_input_parameter() reads from
+        old_parameters = copy.deepcopy(getattr(self, "parameters", {}))
+
+        # ----------------------------
+        # 1) Apply window override via config hours (agreed approach)
+        # ----------------------------
+        if window is not None:
+            w0, w1 = pd.to_datetime(window[0]), pd.to_datetime(window[1])
+            if w1 <= w0:
+                raise ValueError(f"OPEX window end must be after start. Got {w0=} {w1=}")
+
+            # project_start already computed in __init__ from config.Project_StartDate
+            # (keep consistent with existing code)
+            start_h = int(round((w0 - self.project_start).total_seconds() / 3600.0))
+            end_h   = int(round((w1 - self.project_start).total_seconds() / 3600.0))
+
+            self.config.WF_OperationsStart_h = start_h
+            self.config.WF_OperationsEnd_h   = end_h
+
+        # ----------------------------
+        # 2) Apply per-call overrides into self.parameters (deep-merge)
+        # ----------------------------
+        if overrides:
+            self._deep_update_dict(self.parameters, overrides)
+
+        # ----------------------------
+        # 3) Run the selected mode (unchanged)
+        # ----------------------------
         mode = self.mode
         if mode == "capex_fraction":
             opex_df, extras = self._calc_opex_as_fraction_of_capex()
@@ -198,16 +250,42 @@ class OPEX:
         else:
             raise ValueError(f"Unsupported OPEX mode: {mode}")
 
-        # store metadata as attributes for inspection
+        # annotate extras with window metadata (useful later)
+        extras = extras or {}
+        extras["mode"] = mode
+        extras["window_label"] = window_label
+        extras["window"] = window
+
+        # ----------------------------
+        # 4) Accumulate records (OPEX_records) and merge extras
+        # ----------------------------
+        if not append or not isinstance(getattr(self, "OPEX_records", None), pd.DataFrame) or self.OPEX_records is None or len(self.OPEX_records) == 0:
+            # reset/overwrite
+            self.OPEX_records = opex_df.copy(deep=True)
+            self.OPEX_records_extras = self._init_extras_container()
+            self._merge_extras_inplace(self.OPEX_records_extras, extras)
+        else:
+            # append/accumulate
+            self.OPEX_records = self._accumulate_opex_records(self.OPEX_records, opex_df)
+            self._merge_extras_inplace(self.OPEX_records_extras, extras)
+
+        # keep the “latest window” artefacts for convenience (optional, preserves old UX)
         self.availability_summary = extras.get("availability_summary")
         self.availability_profile = extras.get("availability_profile")
         self.activity_log = extras.get("activity_log")
         self.OpEx_breakdown = extras.get("OpEx_breakdown")
 
-        # keep DataFrame reference and return
-        self.OPEX_records = opex_df
-        self.OPEX_records_extras = extras
+        # ----------------------------
+        # 5) Restore temporary overrides
+        # ----------------------------
+        self.parameters = old_parameters
+        if old_start_h is not None:
+            self.config.WF_OperationsStart_h = old_start_h
+        if old_end_h is not None:
+            self.config.WF_OperationsEnd_h = old_end_h
+
         return None
+
     
     # ---------------------------- Plotting Entry Point ----------------------------
 
@@ -800,16 +878,7 @@ class OPEX:
 
         # --- optional: scale production by availability ---
         availability = float(getattr(self, "availability", 0.93))
-        if getattr(self.env, "windFarm", None) is not None:
-            power_df = getattr(self.env.windFarm, "power_records", None)
-            if power_df is not None and not power_df.empty:
-                prod_cols = [c for c in power_df.columns if c != "timestamp"]
-                self.env.windFarm.power_records[prod_cols] = (
-                    self.env.windFarm.power_records[prod_cols]
-                    .apply(pd.to_numeric, errors="coerce")
-                    .fillna(0.0)
-                    * availability
-                )
+        self._apply_availability_to_power_window(availability)
 
         # --- extras payload ---
         availability_summary = AvailabilitySummary(
@@ -1164,22 +1233,9 @@ class OPEX:
             opex_df["fixed_OM"] = 0.0
 
         # -------------------------------------------------------------------------
-        # 5) correct production by availability
+        # 5) correct production by availability (window-aware)
         # -------------------------------------------------------------------------
-
-        availability = farm_A
-        if getattr(self.env, "windFarm", None) is not None:
-            power_df = getattr(self.env.windFarm, "power_records", None)
-            if power_df is not None and not power_df.empty:
-                prod_cols = [c for c in power_df.columns if c != "timestamp"]
-                self.env.windFarm.power_records[prod_cols] = (
-                    self.env.windFarm.power_records[prod_cols]
-                    .apply(pd.to_numeric, errors="coerce")
-                    .fillna(0.0)
-                    * availability
-                )
-
-
+        self._apply_availability_to_power_window(farm_A)
 
         # --------------------------------------------------------------------------
         # 6) EXTRAS PAYLOAD (consistent with _calc_opex_as_fraction_of_capex)
@@ -1219,6 +1275,71 @@ class OPEX:
 
     def _monthly_availability_profile(self, idx: pd.DatetimeIndex, farm_A: float) -> pd.DataFrame:
         return pd.DataFrame({"timestamp": idx, "availability": np.repeat(farm_A, len(idx))})
+    
+
+    def _apply_availability_to_power_window(
+        self,
+        availability: float,
+    ) -> None:
+        """
+        Apply availability scaling to env.windFarm.power_records
+        ONLY within the current OPEX window defined by
+        config.WF_OperationsStart_h / WF_OperationsEnd_h.
+
+        This function is safe to call multiple times for different windows;
+        it will never double-scale outside the active window.
+        """
+
+        if availability is None:
+            return
+
+        if getattr(self.env, "windFarm", None) is None:
+            return
+
+        power_df = getattr(self.env.windFarm, "power_records", None)
+        if power_df is None or power_df.empty:
+            return
+
+        if "timestamp" not in power_df.columns:
+            return
+
+        # Derive window timestamps from config
+        project_start = pd.to_datetime(self.config.Project_StartDate)
+        op_start_h = int(getattr(self.config, "WF_OperationsStart_h"))
+        op_end_h   = int(getattr(self.config, "WF_OperationsEnd_h"))
+
+        op_start_ts = project_start + pd.to_timedelta(op_start_h, unit="h")
+        op_end_ts   = project_start + pd.to_timedelta(op_end_h, unit="h")
+
+        ts = pd.to_datetime(power_df["timestamp"])
+        mask = (ts >= op_start_ts) & (ts < op_end_ts)
+
+        if not mask.any():
+            return
+
+        availability = float(availability)
+
+        # Scale only numeric, non-timestamp columns
+        prod_cols = [
+            c for c in power_df.columns
+            if c != "timestamp" and pd.api.types.is_numeric_dtype(power_df[c])
+        ]
+
+        if prod_cols:
+            power_df.loc[mask, prod_cols] = power_df.loc[mask, prod_cols] * availability
+        else:
+            # Fallback: attempt numeric coercion
+            cols = [c for c in power_df.columns if c != "timestamp"]
+            power_df.loc[mask, cols] = (
+                power_df.loc[mask, cols]
+                .apply(pd.to_numeric, errors="coerce")
+                .fillna(0.0)
+                * availability
+            )
+
+        # Explicit assignment for clarity
+        self.env.windFarm.power_records = power_df
+
 
 
     # --------------------------- Mode 3: Time-marching CTMC ---------------------------
@@ -1465,513 +1586,442 @@ class OPEX:
         }
 
 
+    def _deep_update_dict(self, dst: dict, src: dict) -> dict:
+        """Recursive dict merge: dst <- src (in place)."""
+        for k, v in (src or {}).items():
+            if isinstance(v, dict) and isinstance(dst.get(k), dict):
+                self._deep_update_dict(dst[k], v)
+            else:
+                dst[k] = v
+        return dst
 
 
-    def opex_dashboard(
-        self,
-        drop_zeros: bool = True,
-        show: bool = True,
-    ):
+    def _accumulate_opex_records(self, df_old: pd.DataFrame, df_new: pd.DataFrame) -> pd.DataFrame:
         """
-        Interactive OPEX dashboard (analytic CTMC) using Plotly.
-
-        KPIs:
-        - Total OPEX
-        - OPEX per kWh
-
-        Sunbursts:
-        - Total OPEX → Component → Failure Mode → Cost Category
-        - Total interventions → Component → Failure Mode
+        Accumulate two OPEX_records frames safely.
+        Requirement: both have ['timestamp','OM_payment'] at minimum.
         """
-        # ------------------------------------------------------------------
-        # 0) Sanity checks / inputs
-        # ------------------------------------------------------------------
+        if df_old is None or df_old.empty:
+            return df_new.copy(deep=True)
+        if df_new is None or df_new.empty:
+            return df_old.copy(deep=True)
+
+        # Align columns: keep any extra columns but sum OM_payment; others can be kept by last or ignored.
+        # For now, only guarantee aggregation of OM_payment (valuation depends on that).
+        keep_cols = ["timestamp", "OM_payment"]
+        old2 = df_old[keep_cols].copy()
+        new2 = df_new[keep_cols].copy()
+
+        out = (
+            pd.concat([old2, new2], ignore_index=True)
+            .groupby("timestamp", as_index=False)["OM_payment"].sum()
+            .sort_values("timestamp")
+        )
+        return out
+
+
+    def _init_extras_container(self) -> dict:
+        """
+        Container for merged extras across many windows.
+        - windows: store raw per-window extras for traceability and dashboards
+        - full: optional aggregated views
+        """
+        return {
+            "mode": None,          # last mode used
+            "windows": [],
+
+            # aggregated / stitched helpers (optional but useful)
+            "availability_profile": None,     # concatenated profile
+            "activity_log": None,             # concatenated log (if any)
+            "OpEx_breakdown": None,           # summed breakdown
+            "availability_summary": None,     # aggregated summary (weighted)
+            "mode_cost_breakdown": None,      # concatenated list if present (analytic_ctmc dashboard)
+        }
+
+
+    def _merge_extras_inplace(self, dst: dict, new: dict) -> None:
+        """
+        Merge one window's extras into the accumulated container.
+
+        Policy:
+        - Always append raw window extras into dst["windows"].
+        - Concatenate availability_profile and activity_log if present.
+        - Sum OpEx_breakdown numeric fields across windows.
+        - Aggregate availability_summary via weighted average by window duration (if available).
+        - Concatenate mode_cost_breakdown lists (analytic_ctmc dashboard expects this). :contentReference[oaicite:1]{index=1}
+        """
+
+        if dst is None:
+            raise ValueError("Extras container not initialized.")
+        
+        # propagate mode to top-level for backward compatibility
+        m = new.get("mode", None)
+        if m is not None:
+            dst["mode"] = m
+            if "modes" in dst and isinstance(dst["modes"], set):
+                dst["modes"].add(m)
+
+
+        # 1) store raw window extras
+        dst["windows"].append(new)
+
+        # 2) availability_profile
+        ap = new.get("availability_profile", None)
+        if ap is not None and isinstance(ap, pd.DataFrame) and not ap.empty:
+            if dst["availability_profile"] is None:
+                dst["availability_profile"] = ap.copy(deep=True)
+            else:
+                dst["availability_profile"] = (
+                    pd.concat([dst["availability_profile"], ap], ignore_index=True)
+                    .drop_duplicates(subset=["timestamp"], keep="last")
+                    .sort_values("timestamp")
+                )
+
+        # 3) activity_log
+        al = new.get("activity_log", None)
+        if al is not None and isinstance(al, pd.DataFrame) and not al.empty:
+            if dst["activity_log"] is None:
+                dst["activity_log"] = al.copy(deep=True)
+            else:
+                dst["activity_log"] = pd.concat([dst["activity_log"], al], ignore_index=True)
+
+        # 4) OpEx_breakdown: sum numeric attributes when present
+        bd = new.get("OpEx_breakdown", None)
+        if bd is not None:
+            if dst["OpEx_breakdown"] is None:
+                dst["OpEx_breakdown"] = bd
+            else:
+                # dataclass-like: add fields defensively
+                for field in ["fixed_OM_eur", "CM_cost_eur", "PM_cost_eur", "transport_eur", "labour_eur", "spares_eur"]:
+                    a = getattr(dst["OpEx_breakdown"], field, 0.0)
+                    b = getattr(bd, field, 0.0)
+                    try:
+                        setattr(dst["OpEx_breakdown"], field, float(a) + float(b))
+                    except Exception:
+                        pass
+
+        # 5) availability_summary: weighted by window duration
+        summ = new.get("availability_summary", None)
+        if summ is not None:
+            # Need a duration weight. Prefer explicit window timestamps.
+            w = new.get("window", None)
+            weight_h = None
+            if w is not None:
+                w0, w1 = w
+                weight_h = (pd.to_datetime(w1) - pd.to_datetime(w0)).total_seconds() / 3600.0
+                if weight_h <= 0:
+                    weight_h = None
+
+            if dst["availability_summary"] is None:
+                dst["availability_summary"] = {"_weighted_hours": 0.0, "_farmA_x_h": 0.0, "farm_A": None}
+            agg = dst["availability_summary"]
+
+            if weight_h is not None:
+                farm_A = getattr(summ, "farm_A", None)
+                if farm_A is not None:
+                    agg["_weighted_hours"] += weight_h
+                    agg["_farmA_x_h"] += float(farm_A) * float(weight_h)
+                    agg["farm_A"] = agg["_farmA_x_h"] / max(1e-12, agg["_weighted_hours"])
+
+            # (Optional extension: merge component_A/turbine_A/downtime_h similarly if you need)
+            # For now we preserve detailed per-window summaries in dst["windows"].
+
+        # 6) analytic_ctmc dashboard breakdown list
+        mcb = new.get("mode_cost_breakdown", None)
+        if mcb is not None:
+            if dst["mode_cost_breakdown"] is None:
+                dst["mode_cost_breakdown"] = list(mcb) if isinstance(mcb, list) else mcb
+            else:
+                if isinstance(dst["mode_cost_breakdown"], list) and isinstance(mcb, list):
+                    dst["mode_cost_breakdown"].extend(mcb)
+
+    def opex_dashboard(self, drop_zeros: bool = True, show: bool = True):
+        """
+        OPEX dashboard (CTMC only).
+
+        Preserves legacy layout:
+        - KPI panel
+        - Sunburst: cost breakdown
+        - Sunburst: interventions breakdown
+
+        Aggregates over ALL windows by re-reading extras['windows'][i]['mode_cost_breakdown']
+        and summing on (component, task_type, mode_id).
+        """
+
+        # -----------------------------
+        # 0) Guards: CTMC-only
+        # -----------------------------
         extras = getattr(self, "OPEX_records_extras", None)
         if not isinstance(extras, dict):
+            raise ValueError("OPEX dashboard unavailable: missing OPEX_records_extras (run OPEX first).")
+
+        windows = extras.get("windows", None)
+        if not isinstance(windows, list) or len(windows) == 0:
+            raise ValueError("OPEX dashboard unavailable: extras['windows'] is empty. Run CTMC windows first.")
+
+        # This dashboard is only meaningful if we have CTMC breakdown rows
+        has_any_ctmc_breakdown = any(
+            isinstance(w.get("mode_cost_breakdown", None), list) and len(w["mode_cost_breakdown"]) > 0
+            for w in windows
+        )
+        if not has_any_ctmc_breakdown:
             raise ValueError(
-                "No OPEX_records_extras available. Run OPEX.calc_OPEX() first."
+                "OPEX dashboard is available for CTMC (analytic_ctmc / time_march_ctmc) only: "
+                "no per-window 'mode_cost_breakdown' found."
             )
 
-        mode = extras.get("mode", None)
-        if mode != "analytic_ctmc":
-            raise ValueError(
-                f"OPEX dashboard currently only supports 'analytic_ctmc' mode. Got mode={mode!r}."
-            )
+        # -----------------------------
+        # 1) Total OPEX (use accumulated records)
+        # -----------------------------
+        df_cash = getattr(self, "OPEX_records", None)
+        if not isinstance(df_cash, pd.DataFrame) or df_cash.empty or "OM_payment" not in df_cash.columns:
+            raise ValueError("Missing self.OPEX_records with column 'OM_payment' (run OPEX first).")
 
-        mode_cost_breakdown = extras.get("mode_cost_breakdown", None)
-        if mode_cost_breakdown is None:
-            raise ValueError(
-                "extras['mode_cost_breakdown'] is missing. "
-                "Make sure _calc_opex_analytic_ctmc populates it."
-            )
+        df_cash2 = df_cash.copy()
+        if "timestamp" in df_cash2.columns:
+            df_cash2["timestamp"] = pd.to_datetime(df_cash2["timestamp"])
+        df_cash2["OM_payment"] = pd.to_numeric(df_cash2["OM_payment"], errors="coerce").fillna(0.0)
 
-        # Convert to DataFrame for easier grouping
-        df_modes = pd.DataFrame(mode_cost_breakdown)
-        if df_modes.empty:
-            raise ValueError("mode_cost_breakdown is empty – nothing to show in the dashboard.")
+        # Convention in your codebase: OM_payment is negative outflow
+        total_opex_eur = float(-df_cash2["OM_payment"].sum())
 
-        # Ensure expected columns exist (be defensive)
-        for col in [
-            "component",
-            "mode_id",
-            "task_type",
-            "N_interventions",
-            "transport_eur",
-            "labour_eur",
-            "spares_eur",
-            "fixed_OM_eur",
-            "total_eur",
-        ]:
-            if col not in df_modes.columns:
-                raise ValueError(f"mode_cost_breakdown is missing required column: {col!r}")
-
-        # Make numeric columns properly numeric
-        num_cols = [
-            "N_interventions",
-            "transport_eur",
-            "labour_eur",
-            "spares_eur",
-            "fixed_OM_eur",
-            "total_eur",
-        ]
-        df_modes[num_cols] = df_modes[num_cols].apply(
-            pd.to_numeric, errors="coerce"
-        ).fillna(0.0)
-
-        # Optionally drop zero-total modes (no cost, no interventions)
-        if drop_zeros:
-            mask_nonzero = (df_modes["total_eur"] != 0.0) | (df_modes["N_interventions"] != 0.0)
-            df_modes = df_modes[mask_nonzero].copy()
-            if df_modes.empty:
-                raise ValueError(
-                    "All modes have zero cost and zero interventions after drop_zeros=True."
-                )
-            
-        availability_summary = extras.get("availability_summary", None)
-        if availability_summary is not None:
+        # Weighted availability (your merge helper already aggregates this)
+        farm_A = np.nan
+        av = extras.get("availability_summary", None)
+        if isinstance(av, dict):
             try:
-                farm_A = float(getattr(availability_summary, "farm_A", np.nan))
+                farm_A = float(av.get("farm_A", np.nan))
             except Exception:
                 farm_A = np.nan
-        else:
-            farm_A = np.nan
 
-        # ------------------------------------------------------------------
-        # 1) KPIs: Total OPEX, OPEX per MWh, OPEX per MW-year
-        # ------------------------------------------------------------------
-        # Total OPEX: prefer extras["total_opex_eur"], else sum from df
-        total_opex_eur = extras.get("total_opex_eur", None)
-        if total_opex_eur is None:
-            total_opex_eur = float(df_modes["total_eur"].sum())
-        total_opex_eur = float(total_opex_eur)
+        # -----------------------------
+        # 2) Rebuild & aggregate CTMC mode breakdowns across ALL windows
+        # -----------------------------
+        rows = []
+        for w in windows:
+            mcb = w.get("mode_cost_breakdown", None)
+            if not isinstance(mcb, list):
+                continue
+            for r in mcb:
+                if isinstance(r, dict):
+                    rows.append(dict(r))
 
-        kpi_total_opex_M = total_opex_eur / 1e6
+        df_modes = pd.DataFrame(rows)
+        if df_modes.empty:
+            raise ValueError("No CTMC breakdown rows found after scanning windows[].")
 
-        # --- OPEX per MWh (OPEX per production) ---
-        def _compute_total_energy_mwh(env) -> float | None:
-            """
-            Returns total production over the simulated period in MWh.
+        # Ensure required fields exist
+        required = [
+            "component", "mode_id", "task_type",
+            "N_interventions",
+            "transport_eur", "labour_eur", "spares_eur", "fixed_OM_eur", "total_eur",
+        ]
+        for c in required:
+            if c not in df_modes.columns:
+                df_modes[c] = 0.0
 
-            Assumptions:
-            - power_records contains power [MW] per timestamp (per turbine
-              or already aggregated).
-            - We integrate power over time: sum( P_MW * dt_h ) -> MWh.
-            """
-            wf = getattr(env, "windFarm", None)
-            if wf is None:
-                return None
+        # Coerce numerics
+        num_cols = ["N_interventions", "transport_eur", "labour_eur", "spares_eur", "fixed_OM_eur", "total_eur"]
+        df_modes[num_cols] = df_modes[num_cols].apply(pd.to_numeric, errors="coerce").fillna(0.0)
 
-            power_df = getattr(wf, "power_records", None)
-            if not isinstance(power_df, pd.DataFrame) or power_df.empty:
-                return None
+        # Optional: drop zeros to keep plots clean
+        if drop_zeros:
+            df_modes = df_modes.loc[
+                (df_modes["total_eur"] != 0.0) | (df_modes["N_interventions"] != 0.0)
+            ].copy()
 
-            pr = power_df.copy()
-
-            # Normalise to ["timestamp", "Total_Production"]
-            if "timestamp" in pr.columns and len(pr.columns) == 2:
-                # already timestamp + one power column
-                pr.columns = ["timestamp", "Total_Production"]
-            else:
-                # assume "timestamp" + multiple power columns (per turbine); sum them
-                if "timestamp" not in pr.columns:
-                    return None
-                power_cols = [c for c in pr.columns if c != "timestamp"]
-                if not power_cols:
-                    return None
-
-                pr = pr[["timestamp"] + power_cols].copy()
-                pr["Total_Production"] = (
-                    pr[power_cols]
-                    .apply(pd.to_numeric, errors="coerce")
-                    .fillna(0.0)
-                    .sum(axis=1)
-                )
-
-            pr["timestamp"] = pd.to_datetime(pr["timestamp"], errors="coerce")
-            pr["Total_Production"] = pd.to_numeric(
-                pr["Total_Production"], errors="coerce"
-            )
-            pr = pr.dropna(subset=["timestamp", "Total_Production"]).sort_values(
-                "timestamp"
-            )
-            if pr.empty:
-                return None
-
-            # dt in hours between samples
-            pr["dt_h"] = pr["timestamp"].diff().dt.total_seconds() / 3600.0
-            # Use median dt as default for the first row / any NA
-            if pr["dt_h"].iloc[1:].notna().any():
-                dt_default = float(pr["dt_h"].iloc[1:].median())
-            else:
-                dt_default = 1.0  # fallback
-            pr["dt_h"] = pr["dt_h"].fillna(dt_default)
-
-            # Integrate power [MW] over time [h] → energy [MWh]
-            total_energy_mwh = float((pr["Total_Production"] * pr["dt_h"]).sum())
-            if total_energy_mwh <= 0.0:
-                return None
-
-            return total_energy_mwh
-
-        total_energy_mwh = _compute_total_energy_mwh(self.env)
-        if total_energy_mwh is not None and total_energy_mwh > 0.0:
-            kpi_opex_per_mwh = total_opex_eur / total_energy_mwh
-        else:
-            kpi_opex_per_mwh = np.nan
-
-        # --- OPEX per MW-year (optional, if you keep this KPI) ---
-        capacity_kw = 0.0
-        wf = getattr(self.env, "windFarm", None)
-        if wf is not None:
-            try:
-                turbine_rated_power_mw = float(getattr(wf, "turbine_rated_power", 0.0))
-            except Exception:
-                turbine_rated_power_mw = 0.0
-            try:
-                n_turbines = int(getattr(wf, "n_turbines", 0))
-            except Exception:
-                n_turbines = 0
-            capacity_mw = turbine_rated_power_mw * n_turbines
-
-
-        ops_horizon = extras.get("ops_horizon", {}) or {}
-        try:
-            T_h = float(ops_horizon.get("T_h", 0.0))
-        except Exception:
-            T_h = 0.0
-        years = T_h / 8760.0 if T_h > 0.0 else 0.0
-
-        if capacity_mw > 0.0 and years > 0.0:
-            kpi_opex_per_mw_year = total_opex_eur / (capacity_mw * years)
-        else:
-            kpi_opex_per_mw_year = np.nan
-
-        # ------------------------------------------------------------------
-        # 2) Build KPI figure
-        # ------------------------------------------------------------------
-        fig_kpi = make_subplots(
-            rows=1,
-            cols=4,
-            specs=[[{"type": "indicator"}, {"type": "indicator"}, {"type": "indicator"}, {"type": "indicator"}]],
-            horizontal_spacing=0.08,
-        )
-
-        # KPI 1: Total OPEX
-        fig_kpi.add_trace(
-            go.Indicator(
-                mode="number",
-                value=float(kpi_total_opex_M),
-                title={"text": "Total OPEX"},
-                number={"valueformat": ",.1f", "suffix": " M€"},
-            ),
-            row=1,
-            col=1,
-        )
-
-        # KPI 2: OPEX per MWh
-        if np.isfinite(kpi_opex_per_mwh):
-            value_opex_per_mwh = float(kpi_opex_per_mwh)
-        else:
-            value_opex_per_mwh = 0.0  # fallback display
-
-        fig_kpi.add_trace(
-            go.Indicator(
-                mode="number",
-                value=value_opex_per_mwh,
-                title={"text": "OPEX per MWh"},
-                number={"valueformat": ".2f", "suffix": " €/MWh"},
-            ),
-            row=1,
-            col=2,
-        )
-
-        # KPI 3: OPEX per MW-year
-        if np.isfinite(kpi_opex_per_mw_year):
-            value_opex_per_mw_year = float(kpi_opex_per_mw_year)
-        else:
-            value_opex_per_mw_year = 0.0
-
-        fig_kpi.add_trace(
-            go.Indicator(
-                mode="number",
-                value=value_opex_per_mw_year /1000, # convert to k€/MW-year
-                title={"text": "OPEX per MW-year"},
-                number={"valueformat": ",.0f", "suffix": " k€/MW-yr"},
-            ),
-            row=1,
-            col=3,
-        )
-
-        # KPI 4: Farm availability
-        if np.isfinite(farm_A):
-            value_farm_A_pct = 100.0 * farm_A  # convert 0..1 → %
-        else:
-            value_farm_A_pct = 0.0  # fallback display
-
-        fig_kpi.add_trace(
-            go.Indicator(
-                mode="number",
-                value=value_farm_A_pct,
-                title={"text": "Farm availability"},
-                number={"valueformat": ".1f", "suffix": " %"},
-            ),
-            row=1,
-            col=4,
-        )
-
-        # ------------------------------------------------------------------
-        # 3) Sunburst 1: Total OPEX → Component → Mode → Cost Category
-        # ------------------------------------------------------------------
-        def _labelize(x: str | None, fallback: str = "Unspecified"):
-            if pd.isna(x):
-                return fallback
-            if isinstance(x, str) and x.strip() == "":
-                return fallback
-            return str(x)
-
-        # Root node value in M€
-        total_cost_M = total_opex_eur / 1e6
-
-        # Per-component cost breakdown from df_modes categories
-        comp_costs = (
-            df_modes.groupby("component", dropna=False)[
-                ["transport_eur", "labour_eur", "spares_eur", "fixed_OM_eur"]
-            ]
+        # Canonical aggregation key across windows
+        df_agg = (
+            df_modes
+            .groupby(["component", "task_type", "mode_id"], dropna=False, as_index=False)[num_cols]
             .sum()
         )
-        comp_total = comp_costs.sum(axis=1)  # EUR
 
-        labels_cost = []
-        parents_cost = []
-        values_cost = []
-        ids_cost = []
+        # -----------------------------
+        # 3) Build Sunburst 1: Costs (stable IDs)
+        # Hierarchy:
+        #   Root
+        #     component
+        #       task_type
+        #         mode_id
+        #           transport/labour/spares/fixed  (optional leaf breakdown)
+        # -----------------------------
+        # If you want the exact “category breakdown rings” like before, we include category leaves.
+        categories = [
+            ("transport_eur", "Transport"),
+            ("labour_eur", "Labour"),
+            ("spares_eur", "Spares"),
+            ("fixed_OM_eur", "Fixed OM"),
+        ]
 
-        root_label_cost = "Total OPEX"
-        root_id_cost = "root_opex"
-        labels_cost.append(root_label_cost)
+        ids_cost, parents_cost, labels_cost, values_cost = [], [], [], []
+
+        root_id = "cost_root"
+        ids_cost.append(root_id)
         parents_cost.append("")
-        values_cost.append(total_cost_M)
-        ids_cost.append(root_id_cost)
+        labels_cost.append("OPEX Costs")
+        values_cost.append(float(df_agg["total_eur"].sum()))
 
-        # Components (level 1)
-        for comp_raw, row_c in comp_costs.iterrows():
-            comp_label = _labelize(comp_raw, "Unspecified component")
-            comp_id = f"comp:{comp_label}"
-            comp_val_M = float(comp_total.loc[comp_raw]) / 1e6
-
-            if drop_zeros and comp_val_M <= 0.0:
-                continue
-
-            labels_cost.append(comp_label)
-            parents_cost.append(root_id_cost)
-            values_cost.append(comp_val_M)
+        # Build nodes
+        for comp, dfc in df_agg.groupby("component", dropna=False):
+            comp_label = str(comp)
+            comp_id = f"{root_id}|comp:{comp_label}"
             ids_cost.append(comp_id)
+            parents_cost.append(root_id)
+            labels_cost.append(comp_label)
+            values_cost.append(float(dfc["total_eur"].sum()))
 
-        # Modes (level 2) + cost categories (level 3)
-        for _, row in df_modes.iterrows():
-            comp_label = _labelize(row["component"], "Unspecified component")
-            comp_id = f"comp:{comp_label}"
+            for task, dft in dfc.groupby("task_type", dropna=False):
+                task_label = str(task)
+                task_id = f"{comp_id}|task:{task_label}"
+                ids_cost.append(task_id)
+                parents_cost.append(comp_id)
+                labels_cost.append(task_label)
+                values_cost.append(float(dft["total_eur"].sum()))
 
-            # Skip modes for components that were filtered out above
-            if comp_id not in ids_cost:
-                continue
+                for mode, dfm in dft.groupby("mode_id", dropna=False):
+                    mode_label = str(mode)
+                    # IMPORTANT: include task in the ID to avoid collisions
+                    mode_id = f"{task_id}|mode:{mode_label}"
+                    ids_cost.append(mode_id)
+                    parents_cost.append(task_id)
+                    labels_cost.append(f"Mode {mode_label}")
+                    values_cost.append(float(dfm["total_eur"].sum()))
 
-            mode_raw = str(row["mode_id"])
-            task_type = str(row["task_type"])
-            mode_label = f"{mode_raw} ({task_type})"
-            mode_id = f"{comp_id}|mode:{mode_raw}"
+                    # Category leaves under each mode
+                    # (Sum in case dfm has multiple rows, though after groupby it should be 1 row)
+                    for col, lab in categories:
+                        v = float(dfm[col].sum())
+                        if drop_zeros and v == 0.0:
+                            continue
+                        leaf_id = f"{mode_id}|cat:{col}"
+                        ids_cost.append(leaf_id)
+                        parents_cost.append(mode_id)
+                        labels_cost.append(lab)
+                        values_cost.append(v)
 
-            # Sum of categories to define the mode value (M€)
-            mode_total_eur = (
-                row["transport_eur"]
-                + row["labour_eur"]
-                + row["spares_eur"]
-                + row["fixed_OM_eur"]
-            )
-            mode_total_M = mode_total_eur / 1e6
-
-            if drop_zeros and mode_total_M <= 0.0:
-                continue
-
-            labels_cost.append(mode_label)
-            parents_cost.append(comp_id)
-            values_cost.append(mode_total_M)
-            ids_cost.append(mode_id)
-
-            # Cost categories (leaves)
-            for cat_col, cat_label in [
-                ("transport_eur", "Transport"),
-                ("labour_eur", "Labour"),
-                ("spares_eur", "Spares"),
-                ("fixed_OM_eur", "Fixed OM"),
-            ]:
-                val_eur = float(row[cat_col])
-                if drop_zeros and val_eur <= 0.0:
-                    continue
-
-                val_M = val_eur / 1e6
-                leaf_label = cat_label
-                leaf_id = f"{mode_id}|cat:{cat_col}"
-
-                labels_cost.append(leaf_label)
-                parents_cost.append(mode_id)
-                values_cost.append(val_M)
-                ids_cost.append(leaf_id)
-
-        sunburst_cost = go.Sunburst(
+        fig_cost = go.Figure(go.Sunburst(
+            ids=ids_cost,
             labels=labels_cost,
             parents=parents_cost,
             values=values_cost,
-            ids=ids_cost,
             branchvalues="total",
-            hovertemplate=(
-                "%{label}<br>"
-                "Value: %{value:,.3f} M€<br>"
-                "Share: %{percentParent:.1%} of parent<br>"
-                "Global: %{percentRoot:.1%} of total<extra></extra>"
-            ),
+            hovertemplate="%{label}<br>%{value:,.0f} €<extra></extra>",
+        ))
+        fig_cost.update_layout(
+            title="OPEX Cost Breakdown (CTMC aggregated)",
+            height=650
         )
 
-        # ------------------------------------------------------------------
-        # 4) Sunburst 2: Total interventions → Component → Mode
-        # ------------------------------------------------------------------
-        total_interventions = float(df_modes["N_interventions"].sum())
-
-        labels_int = []
-        parents_int = []
-        values_int = []
-        ids_int = []
-
-        root_label_int = "Total interventions"
-        root_id_int = "root_interventions"
-        labels_int.append(root_label_int)
+        # -----------------------------
+        # 4) Build Sunburst 2: Interventions (stable IDs)
+        # Hierarchy:
+        #   Root
+        #     component
+        #       task_type
+        #         mode_id
+        # -----------------------------
+        ids_int, parents_int, labels_int, values_int = [], [], [], []
+        root2_id = "int_root"
+        ids_int.append(root2_id)
         parents_int.append("")
-        values_int.append(total_interventions if total_interventions > 0 else 1.0)
-        ids_int.append(root_id_int)
+        labels_int.append("Interventions")
+        values_int.append(float(df_agg["N_interventions"].sum()))
 
-        # Components (level 1)
-        comp_interventions = (
-            df_modes.groupby("component", dropna=False)["N_interventions"].sum()
-        )
-
-        for comp_raw, N_comp in comp_interventions.items():
-            comp_label = _labelize(comp_raw, "Unspecified component")
-            comp_id = f"comp:{comp_label}"
-
-            if drop_zeros and N_comp <= 0.0:
-                continue
-
-            labels_int.append(comp_label)
-            parents_int.append(root_id_int)
-            values_int.append(float(N_comp))
+        for comp, dfc in df_agg.groupby("component", dropna=False):
+            comp_label = str(comp)
+            comp_id = f"{root2_id}|comp:{comp_label}"
             ids_int.append(comp_id)
+            parents_int.append(root2_id)
+            labels_int.append(comp_label)
+            values_int.append(float(dfc["N_interventions"].sum()))
 
-        # Modes (level 2)
-        for _, row in df_modes.iterrows():
-            comp_label = _labelize(row["component"], "Unspecified component")
-            comp_id = f"comp:{comp_label}"
-            if comp_id not in ids_int:
-                continue
+            for task, dft in dfc.groupby("task_type", dropna=False):
+                task_label = str(task)
+                task_id = f"{comp_id}|task:{task_label}"
+                ids_int.append(task_id)
+                parents_int.append(comp_id)
+                labels_int.append(task_label)
+                values_int.append(float(dft["N_interventions"].sum()))
 
-            N_mode = float(row["N_interventions"])
-            if drop_zeros and N_mode <= 0.0:
-                continue
+                for mode, dfm in dft.groupby("mode_id", dropna=False):
+                    mode_label = str(mode)
+                    mode_id = f"{task_id}|mode:{mode_label}"
+                    ids_int.append(mode_id)
+                    parents_int.append(task_id)
+                    labels_int.append(f"Mode {mode_label}")
+                    values_int.append(float(dfm["N_interventions"].sum()))
 
-            mode_raw = str(row["mode_id"])
-            task_type = str(row["task_type"])
-            mode_label = f"{mode_raw} ({task_type})"
-            mode_id = f"{comp_id}|mode:{mode_raw}"
-
-            labels_int.append(mode_label)
-            parents_int.append(comp_id)
-            values_int.append(N_mode)
-            ids_int.append(mode_id)
-
-        sunburst_int = go.Sunburst(
+        fig_int = go.Figure(go.Sunburst(
+            ids=ids_int,
             labels=labels_int,
             parents=parents_int,
             values=values_int,
-            ids=ids_int,
             branchvalues="total",
-            hovertemplate=(
-                "%{label}<br>"
-                "Interventions: %{value:,.2f}<br>"
-                "Share: %{percentParent:.1%} of parent<br>"
-                "Global: %{percentRoot:.1%} of total<extra></extra>"
-            ),
+            hovertemplate="%{label}<br>%{value:,.2f}<extra></extra>",
+        ))
+        fig_int.update_layout(
+            title="Interventions Breakdown (CTMC aggregated)",
+            height=650
         )
 
-        # ------------------------------------------------------------------
-        # 5) Combine sunbursts into one figure
-        # ------------------------------------------------------------------
-        fig_sun = make_subplots(
-            rows=1,
-            cols=2,
-            specs=[[{"type": "domain"}, {"type": "domain"}]],
-            column_widths=[0.5, 0.5],
-            horizontal_spacing=0.08,
+        # -----------------------------
+        # 5) KPI panel (simple & robust)
+        # -----------------------------
+        # If your old dashboard had more KPIs (€/MWh etc.), you can add them here,
+        # but this keeps it stable and strictly “aggregated over windows”.
+        kpi_fig = make_subplots(
+            rows=2, cols=2,
+            specs=[[{"type": "indicator"}, {"type": "indicator"}],
+                [{"type": "indicator"}, {"type": "indicator"}]],
+            vertical_spacing=0.25
         )
 
-        fig_sun.add_trace(sunburst_cost, row=1, col=1)
-        fig_sun.add_trace(sunburst_int, row=1, col=2)
+        kpi_fig.add_trace(go.Indicator(
+            mode="number",
+            value=total_opex_eur / 1e6,
+            title={"text": "Total OPEX (all windows)"},
+            number={"valueformat": ",.2f", "suffix": " M€"},
+        ), row=1, col=1)
 
-        fig_sun.update_layout(
-            title=dict(
-                text="OPEX Breakdown — Costs and Interventions (analytic CTMC)",
-                font=dict(size=26),
-                x=0.01,
-            ),
-            template="plotly_white",
-            margin=dict(l=40, r=40, t=80, b=40),
-            height=700,
-            annotations=[
-                dict(
-                    text="Costs (M€)",
-                    x=0.19,
-                    y=0.02,
-                    xref="paper",
-                    yref="paper",
-                    showarrow=False,
-                    font=dict(size=14),
-                ),
-                dict(
-                    text="Interventions",
-                    x=0.81,
-                    y=0.02,
-                    xref="paper",
-                    yref="paper",
-                    showarrow=False,
-                    font=dict(size=14),
-                ),
-            ],
+        kpi_fig.add_trace(go.Indicator(
+            mode="number",
+            value=float(df_agg["N_interventions"].sum()),
+            title={"text": "Total interventions (all windows)"},
+            number={"valueformat": ",.0f"},
+        ), row=1, col=2)
+
+        kpi_fig.add_trace(go.Indicator(
+            mode="number",
+            value=float(100.0 * farm_A) if np.isfinite(farm_A) else 0.0,
+            title={"text": "Farm availability (weighted)"},
+            number={"valueformat": ".1f", "suffix": " %"},
+        ), row=2, col=1)
+
+        kpi_fig.add_trace(go.Indicator(
+            mode="number",
+            value=float(df_agg["total_eur"].sum()) / 1e6,
+            title={"text": "Total CTMC breakdown cost"},
+            number={"valueformat": ",.2f", "suffix": " M€"},
+        ), row=2, col=2)
+
+        kpi_fig.update_layout(
+            title="OPEX KPIs CTMC",
+            height=420,
+            showlegend=False
         )
 
         if show:
-            fig_kpi.show()
-            fig_sun.show()
+            kpi_fig.show()
+            fig_cost.show()
+            fig_int.show()
 
-        return fig_kpi, fig_sun
-
+        return {
+            "kpis": kpi_fig,
+            "sunburst_cost": fig_cost,
+            "sunburst_interventions": fig_int,
+            "df_ctmc_breakdown_agg": df_agg,
+        }
 
 
 def load_OMData(config):

@@ -1,2 +1,45 @@
-LTE: 
-  apply_lte: false
+LTE:
+  apply_lte: true
+  extension_h: 43000  # e.g. 15 years * 8760 (can still be fixed for now)
+
+  tail_strategy: repeat_full
+  timestamp_col: timestamp
+
+  aep_haircut:
+    mu: -0.02
+    sigma: 0.01
+    min: -0.30
+    max: 0.0
+
+  opex_extension:
+    analytic_ctmc:
+      p_access_hourly: 0.1
+      uncertainty:
+        flag_apply: true
+        lamda_sigma: 0.3
+        mttr_sigma: 0.2
+        mttwL_sigma: 0.2
+      mean_shift:
+        flag_apply: true
+        lambda_factor: 1.2
+        mttr_factor: 1.1
+        mttwL_factor: 1.1
+        tau_factor: 1.0
+        p_access_factor: 0.9
+
+  costs:
+    cost_prelim_analysis_eur: 250000
+    cost_inspection_eur: 700000
+    cost_detailed_analysis_eur: 900000
+
+    # Refurbishment uplift: deterministic OR stochastic
+    refurb_uplift:
+      dist: normal_trunc
+      mu: 15000000
+      sigma: 5000000
+      min: 0
+      max: null     # or a number
+      # timing optional; if omitted uses lte_start_cost_timing
+      timing: at_base_end
+
+    lte_start_cost_timing: at_base_end   # at_base_end | first_ext_month

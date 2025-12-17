@@ -129,7 +129,7 @@ class ValueWindEnv():
             if cfg.valuation_dashboard:
                 self.valuation.plot_valuation_results()
 
-                # Results Collector
+        # Results Collector
         if cfg.collect_results:
             self.results_collector.collect_df(
                 attr_map={

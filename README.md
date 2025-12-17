@@ -25,3 +25,105 @@ See the accompanying [NOTICE](NOTICE) file for attribution details.
 If you use **WINPACT** in your research or project, please cite it as follows:
 
 Gräfe, M., Pettas, V., & Dimitrov, N. (2025). WINPACT (v1.0.0). Zenodo. https://doi.org/10.5281/zenodo.17641606
+
+
+---
+
+# Installation
+
+
+WINPACT is a Python package and can be installed into an environment that provides a compatible Python version.
+
+## Requirements
+
+* **Python ≥ 3.11**
+* `pip` (recent version recommended)
+* (Optional but recommended) Conda or Mamba for environment management
+
+> ⚠️ `pip` does **not** create or manage Python environments. You must activate an environment with a compatible Python version **before** installing WINPACT.
+
+---
+
+### 1. Create and activate an environment
+
+#### Option A: Conda / Mamba (recommended)
+
+```bash
+conda create -n winpact python=3.11
+conda activate winpact
+```
+
+#### Option B: Python venv
+
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate    # Linux / macOS
+.venv\\Scripts\\activate       # Windows
+```
+
+---
+
+### 2. Clone the repository
+
+```bash
+git clone https://gitlab.windenergy.dtu.dk/HiperSim/winpact.git
+cd winpact
+```
+
+The repository root must contain `pyproject.toml`.
+
+
+
+### 3. Install WINPACT
+
+#### Base install (library only)
+
+```bash
+pip install .
+```
+
+Installs WINPACT and its required dependencies.
+
+---
+
+#### Editable install (recommended for development and notebooks)
+
+```bash
+pip install -e .
+```
+
+An editable install links the installed package directly to the cloned repository:
+
+* Code changes take effect immediately
+* No reinstallation is required after edits
+* Ideal for development and running notebooks in `winpact/examples`
+
+---
+
+### 4. Optional installation extras
+
+#### Notebook support
+
+```bash
+pip install -e ".[notebook]"
+```
+
+Installs additional dependencies required for running example notebooks (e.g. `ipykernel`, `nbformat`).
+
+---
+
+#### Internal dependencies (Needed for TREND UseCase, BladeMassEstimator)
+
+```bash
+pip install -e ".[internal]"
+```
+
+Installs optional internal dependencies from private Git repositories. This requires appropriate access rights.
+
+Extras can be combined:
+
+```bash
+pip install -e ".[notebook,internal]"
+```
+
+---

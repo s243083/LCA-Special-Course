@@ -6,8 +6,8 @@ LTE:
   timestamp_col: timestamp
 
   aep_haircut:
-    mu: -0.02
-    sigma: 0.01
+    mu: -0.036 # [%]
+    sigma: 0.013 # [%]
     min: -0.30
     max: 0.0
 
@@ -15,7 +15,7 @@ LTE:
     analytic_ctmc:
       p_access_hourly: 0.1
       uncertainty:
-        flag_apply: true
+        flag_apply: false
         lamda_sigma: 0.3
         mttr_sigma: 0.2
         mttwL_sigma: 0.2
@@ -35,8 +35,8 @@ LTE:
     # Refurbishment uplift: deterministic OR stochastic
     refurb_uplift:
       dist: normal_trunc
-      mu: 15000000
-      sigma: 5000000
+      mu: 1000000
+      sigma: 200000
       min: 0
       max: null     # or a number
       # timing optional; if omitted uses lte_start_cost_timing

@@ -396,7 +396,7 @@ Phase:
       - name: "Turbine_removal"
         per_turbine: false
         project_time:
-          value: 285
+          value: 275
           unit: months
         subcategories:
           - name: "WTG_disassembly_and_lifts"
@@ -413,7 +413,7 @@ Phase:
       - name: "Foundation_and_seabed_removal"
         per_turbine: false
         project_time:
-          value: 285
+          value: 275
           unit: months
         subcategories:
           - name: "Monopile_cut_and_recovery"
@@ -431,7 +431,7 @@ Phase:
       - name: "Array_cabling_decom_66kV"
         per_turbine: false
         project_time:
-          value: 285
+          value: 275
           unit: months
         subcategories:
           - name: "Array_cable_recovery_and_disposal"
@@ -442,7 +442,7 @@ Phase:
       - name: "Export_system_decom_220kV"
         per_turbine: false
         project_time:
-          value: 285
+          value: 275
           unit: months
         subcategories:
           - name: "Export_cable_recovery_offshore"
@@ -453,7 +453,7 @@ Phase:
       - name: "Substations_decom"
         per_turbine: false
         project_time:
-          value: 285
+          value: 275
           unit: months
         subcategories:
           - name: "Offshore_substation_topside_and_foundation"
@@ -468,7 +468,7 @@ Phase:
       - name: "Permitting_engineering_and_project_management"
         per_turbine: false
         project_time:
-          value:  285
+          value:  275
           unit: months
         subcategories:
           - name: "Decom_program_permitting_stakeholder_and_engineering"
@@ -479,7 +479,7 @@ Phase:
       - name: "Site_clearance_and_post-survey"
         per_turbine: false
         project_time:
-          value: 285
+          value: 275
           unit: months
         subcategories:
           - name: "Debris_clearance_and_final_MBES/UXO_surveys"
@@ -491,7 +491,7 @@ Phase:
       - name: "Contingency_15pct"
         per_turbine: false
         project_time:
-          value: 285
+          value: 275
           unit: months
         subcategories:
           - name: "Contingency_allowance"

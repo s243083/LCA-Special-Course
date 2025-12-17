@@ -231,15 +231,16 @@ class LifetimeExtension:
         # ---- Enable flag from YAML ----
         self.lte_enabled = bool(get_input_parameter(self.lte_input, "LTE", "apply_lte"))
 
+        
+        # ---- Apply scenario overrides ----
+        apply_overrides(self, getattr(self.config, "LTE_overrides", {}))
+
+
         # ---- Build LTEConfig from YAML (unless explicitly provided) ----
         if cfg is not None:
             self.cfg = cfg
         else:
             self.cfg = self._cfg_from_lte_input(self.lte_input)
-
-        # ---- Apply scenario overrides ----
-        # (same pattern as old implementation)
-        apply_overrides(self, getattr(self.config, "Lifetime_extension_overrides", {}))
 
         # ---- Outputs / state ----
         self.base_end_h: Optional[int] = None
@@ -383,6 +384,9 @@ class LifetimeExtension:
         # update horizon
         setattr(c, "WF_OperationsEnd_h", int(ext_end_h))
 
+        # SHIFT CAPEX DECOMMISSIONING TO END OF EXTENDED LIFE
+        self._shift_capex_decommissioning(extension_h=int(cfg.extension_h))
+
         # extend power_records
         pr = getattr(self.env.windFarm, "power_records", None)
         if pr is None or not isinstance(pr, pd.DataFrame):
@@ -471,8 +475,13 @@ class LifetimeExtension:
         lte_ts = self._lte_cost_timestamp(self.ext_start_ts)
         rows = []
 
+        n_turbines = self.env.windFarm.n_turbines
+        PER_TURBINE_CATS = {"refurb_uplift"}  # shoud be defined in config
+
         def add_cost(cat: str, amount: float):
             amount = float(amount or 0.0)
+            if cat in PER_TURBINE_CATS:
+                amount *= n_turbines
             if amount != 0.0:
                 rows.append(
                     {cfg.timestamp_col: lte_ts, "LTE_payment": -abs(amount), "LTE_cost_category": cat}
@@ -487,6 +496,40 @@ class LifetimeExtension:
             rows, columns=[cfg.timestamp_col, "LTE_payment", "LTE_cost_category"]
         )
         return
+    
+
+    def _shift_capex_decommissioning(self, extension_h: int) -> None:
+        """
+        Shift realized CAPEX 'Decommissioning' costs to the end of the extended life
+        by moving their timestamps forward by `extension_h` hours.
+        """
+        if extension_h <= 0:
+            return
+
+        capex = getattr(self.env, "capex", None)
+        if capex is None:
+            return
+
+        df = getattr(capex, "cost_records", None)
+        if df is None or df.empty:
+            return
+
+        mask = (
+            df["phase_name"]
+            .astype(str)
+            .str.strip()
+            .str.lower()
+            .eq("decommissioning")
+        )
+
+        if not mask.any():
+            return
+
+        df.loc[mask, "timestamp"] = (
+            df.loc[mask, "timestamp"]
+            + pd.Timedelta(hours=int(extension_h))
+        )
+
 
 
 

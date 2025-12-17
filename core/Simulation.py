@@ -143,6 +143,8 @@ class Configuration(FromDictMixin):
     WindFarm_overrides: dict[str, Any] = field(factory=dict)
     Revenue_overrides: dict[str, Any] = field(factory=dict)
     CAPEX_overrides: dict[str, Any] = field(factory=dict)
+    OPEX_overrides: dict[str, Any] = field(factory=dict)
+    LTE_overrides: dict[str, Any] = field(factory=dict)
 
 
 @define(auto_attribs=True)

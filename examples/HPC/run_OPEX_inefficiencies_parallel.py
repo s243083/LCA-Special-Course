@@ -63,39 +63,47 @@ def main() -> int:
     # ---------------------------------------------------------------------
     # Design of Experiments (from notebook)
     # ---------------------------------------------------------------------
+
     parameter_space = {
         # Mean-shift factors
+        # Failure rates fixed at baseline
         "OPEX_overrides.parameters.analytic_ctmc.mean_shift.lambda_factor": [
-            1.00, 1.00, 1.00, 1.00, 0.775
-        ],
-        "OPEX_overrides.parameters.analytic_ctmc.mean_shift.mttr_factor": [
-            1.00, 1.00, 1.00, 1.00, 0.75
-        ],
-        "OPEX_overrides.parameters.analytic_ctmc.mean_shift.mttwL_factor": [
-            1.00, 1.00, 1.00, 1.00, 0.70
-        ],
-        "OPEX_overrides.parameters.analytic_ctmc.mean_shift.tau_factor": [
             1.00, 1.00, 1.00, 1.00, 1.00
+        ],
+        # MTTR alpha
+        "OPEX_overrides.parameters.analytic_ctmc.mean_shift.mttr_factor": [
+            1.00, 1.00, 1.00, 0.95, 0.80
+        ],
+        # MTTW_L alpha
+        "OPEX_overrides.parameters.analytic_ctmc.mean_shift.mttwL_factor": [
+            1.00, 1.00, 1.00, 0.90, 0.75
+        ],
+        # Access factor alpha_p
+        "OPEX_overrides.parameters.analytic_ctmc.mean_shift.p_access_factor": [
+            1.00, 0.90, 1.00, 1.05, 1.10
         ],
 
         # Uncertainty
+        # Failure-rate uncertainty disabled (fixed baseline failure rates)
         "OPEX_overrides.parameters.analytic_ctmc.uncertainty.lamda_sigma": [
-            0.00, 0.55, 0.20, 0.175, 0.10
+            0.00, 0.00, 0.00, 0.00, 0.00
         ],
+        # MTTR sigma
         "OPEX_overrides.parameters.analytic_ctmc.uncertainty.mttr_sigma": [
-            0.00, 0.20, 0.55, 0.20, 0.175
+            0.00, 0.55, 0.35, 0.25, 0.18
         ],
+        # MTTW_L sigma
         "OPEX_overrides.parameters.analytic_ctmc.uncertainty.mttwL_sigma": [
-            0.00, 0.30, 0.80, 0.25, 0.20
+            0.00, 0.85, 0.50, 0.30, 0.25
         ],
 
         # Scenario labels
         "Scenario.name": [
-            "S0 – Reference",
-            "S1 – High reliability uncertainty",
-            "S2 – High process uncertainty",
-            "S3 – Mature fleet",
-            "S4 – Best practice / optimised O&M",
+            "P0 -- Reference",
+            "P1 -- High process uncertainty",
+            "P2 -- Typical offshore operations",
+            "P3 -- Mature O&M processes",
+            "P4 -- Best practice O&M",
         ],
     }
 
@@ -105,7 +113,7 @@ def main() -> int:
             "OPEX_overrides.parameters.analytic_ctmc.mean_shift.lambda_factor",
             "OPEX_overrides.parameters.analytic_ctmc.mean_shift.mttr_factor",
             "OPEX_overrides.parameters.analytic_ctmc.mean_shift.mttwL_factor",
-            "OPEX_overrides.parameters.analytic_ctmc.mean_shift.tau_factor",
+            "OPEX_overrides.parameters.analytic_ctmc.mean_shift.p_access_factor",
             # uncertainties
             "OPEX_overrides.parameters.analytic_ctmc.uncertainty.lamda_sigma",
             "OPEX_overrides.parameters.analytic_ctmc.uncertainty.mttr_sigma",
@@ -114,6 +122,7 @@ def main() -> int:
             "Scenario.name",
         ]
     }
+
 
     # ---------------------------------------------------------------------
     # Parallel execution settings (SLURM-friendly)
@@ -136,8 +145,8 @@ def main() -> int:
         simulation_config=sim_cfg,
         parameter_space=parameter_space,
         base_seed=42,
-        replicates=1000,
-        name="OPEX_Uncertainty",
+        replicates=5000,
+        name="OPEX_efficiency",
         result_directory=str(RESULT_DIR),
         zip_groups=zip_groups,
 

@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "winpact"
+version = "0.0.0"
+description = "WINPACT"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+
+dependencies = [
+  "pyarrow",
+  "astral==3.2",
+  "attr==0.3.2",
+  "attrs==25.4.0",
+  "matplotlib==3.10.7",
+  "numpy-financial==1.0.0",
+  "pandas==2.3.3",
+  "plotly==6.0.1",
+  "py_wake==2.6.11",
+  "pyyaml==6.0.3",
+  "scipy==1.16.3",
+  "wind_farm_loads==0.19.1",
+  "windio==2.0.1",
+]
+
+[project.optional-dependencies]
+notebook = [
+  "ipykernel",
+  "nbformat>=4.2.0",
+]
+
+# Optional internal/private dependency
+internal = [
+  "maesopt @ git+https://gitlab.windenergy.dtu.dk/AESOpt/maesopt.git",
+]
+
+[tool.setuptools.packages.find]
+# This tells setuptools to look in the repo root and pick up:
+# - winpact
+# - winpact.core
+# - winpact.core.<subpackages>
+where = ["."]
+include = ["winpact*"]
+exclude = [
+  "winpact.examples*",
+]
+
+[tool.setuptools]
+include-package-data = false

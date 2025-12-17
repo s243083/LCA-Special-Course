@@ -11,7 +11,7 @@ class CashFlowEngine:
         self.E0 = self.env.finex.E0
 
 
-    def run_waterfall(self, *, capex_df, opex_df, revenue_df, finex_df, tax_rate: float) -> pd.DataFrame:
+    def run_waterfall(self, *, capex_df, opex_df, revenue_df, finex_df, tax_rate: float, lte_df = None) -> pd.DataFrame:
         """
         Orchestrates the waterfall for one pass.
         Inputs (required columns):
@@ -25,7 +25,10 @@ class CashFlowEngine:
         """
         # Build cash flow base table
 
-        df = self._align(capex_df, opex_df, revenue_df, finex_df)
+        df = self._align(capex_df, opex_df, revenue_df, finex_df, lte_df=lte_df)
+        if "lte" not in df.columns:
+            df["lte"] = 0.0
+
 
         # operating lines
         df["EBITDA"] = df["revenue"] + df["opex"]
@@ -69,7 +72,7 @@ class CashFlowEngine:
         #   CFADS        : operating cash after tax (pre-interest)
         #   DS           : debt service (interest + principal, negative)
         #   equity_contr.: equity injections (negative in build years)
-        df["Equity_CF"] = df["CFADS"] + df["DS"] + df["equity_contribution"]
+        df["Equity_CF"] = df["CFADS"] + df["DS"] + df["equity_contribution"] + df["lte"]
 
         # coverage
         ds_pos = df["DS"].abs()  # DS magnitude
@@ -79,22 +82,27 @@ class CashFlowEngine:
         return df
 
     # --- helper ---
-    def _align(self, capex_df, opex_df, revenue_df, finex_df) -> pd.DataFrame:
+    def _align(self, capex_df, opex_df, revenue_df, finex_df, lte_df = None) -> pd.DataFrame:
         # --- helpers
         def _normalize_to_calendar(ts: pd.Series) -> pd.Series:
+            ts = pd.to_datetime(ts, errors="coerce")
+
             if self.calendar is None:
                 return ts
-            # Prefer the actual DateOffset if present; fallback to string
-            freq = getattr(self.calendar, "freq", None) or getattr(self.calendar, "freqstr", None)
+
+            fs = getattr(self.calendar, "freqstr", None)
+
+            # 1) If calendar is month-start, normalize explicitly to month-start
+            if fs == "MS":
+                return ts.dt.to_period("M").dt.to_timestamp()
+
+            # 2) Otherwise try floor for fixed freqs
+            freq = getattr(self.calendar, "freq", None) or fs
             try:
-                # Works for "MS", "D", "H", "W-MON", etc.
                 return ts.dt.floor(freq)
             except Exception:
-                # Safe fallback: month-start if calendar is monthly; else leave unchanged
-                fs = getattr(self.calendar, "freqstr", None)
-                if fs == "MS":
-                    return ts.dt.to_period("M").dt.to_timestamp()  # start of month
                 return ts
+
 
 
         def _prep(df, rename_map, cols, ensure_negative_for=None):
@@ -131,14 +139,19 @@ class CashFlowEngine:
         opex  = _prep(opex_df, {"OM_payment": "opex"}, ["opex"])
         rev   = _prep(revenue_df, {"total_revenue": "revenue"}, ["revenue"])
         fin   = _prep(finex_df, None, ["payment","interest","principal","outstanding","depreciation"])
+        lte = _prep(lte_df, {"LTE_payment": "lte"}, ["lte"]) if lte_df is not None else None
 
         df = (
             rev.merge(opex, on="timestamp", how="outer")
             .merge(capex, on="timestamp", how="outer")
             .merge(fin, on="timestamp", how="outer")
-            .sort_values("timestamp")
-            .fillna(0.0)
         )
+
+        if lte is not None:
+            df = df.merge(lte, on="timestamp", how="outer")
+
+        df = df.sort_values("timestamp").fillna(0.0)
+
 
         if self.calendar is not None:
             df = (df.set_index("timestamp")

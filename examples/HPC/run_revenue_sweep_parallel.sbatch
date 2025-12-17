@@ -6,20 +6,24 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32
 #SBATCH --mem=0
-#SBATCH --output=logs/%x_%j.out
-#SBATCH --error=logs/%x_%j.err
+#SBATCH --chdir=/work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact
+#SBATCH --output=/work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/logs/%x_%j.out
+#SBATCH --error=/work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/logs/%x_%j.err
+
+set -euo pipefail
+
+mkdir -p /work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/logs
 
 echo "TMPDIR=$TMPDIR"
 echo "PWD=$(pwd)"
 
-set -euo pipefail
-mkdir -p logs
-
-# Load your environment
 module purge
 source /work/users/mograf/miniconda3/etc/profile.d/conda.sh
 conda activate winpact
 
-cd /work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact
-python examples/HPC/run_revenue_sweep_parallel.py
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
+export NUMEXPR_NUM_THREADS=1
 
+python -u examples/HPC/run_OPEX_parallel.py

@@ -4,3 +4,4 @@ core/ResponseFramework/data/
 core/ResponseFramework/models/
 results/
 results/__pycache__/
+/logs/

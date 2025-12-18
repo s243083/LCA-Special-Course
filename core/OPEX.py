@@ -84,6 +84,7 @@ class MaintenanceSpec:
     task_type: Literal["CM", "PM"]
     # Stochastic/tempo
     lambda_per_h: float                 # CM failure rate per hour; 0 for PM
+    lambda_nominal_per_h: Optional[float] = None  # baseline failure rate (before uncertainty/factors)
     shape: Optional[float] = None       # Weibull shape (CM only, if provided)
     scale_years: Optional[float] = None # Weibull scale in years (CM only, if provided)
     frequency_per_year: Optional[float] = None # PM only; if set, tau_h = 8760/freq
@@ -421,6 +422,7 @@ class OPEX:
                         mode_id=str(mode_id),
                         task_type="CM",
                         lambda_per_h=lambda_per_h,
+                        lambda_nominal_per_h=lambda_per_h,
                         shape=shape,
                         scale_years=scale_years,
                         frequency_per_year=None,
@@ -532,55 +534,62 @@ class OPEX:
                 )
 
         return specs
+    
+    def _apply_uncertainty_to_maintenance_specs(self, specs, rng):
+        cfg = get_input_parameter(self.parameters, "analytic_ctmc", "uncertainty") or {}
 
-    def _apply_uncertainty_to_maintenance_specs(
-        self,
-        specs: List[MaintenanceSpec],
-        rng: np.random.Generator,
-    ) -> None:
-        """
-        Overwrite process parameters in-place with stochastic multipliers.
-        Baseline values are read from YAML via _load_maintenance_specs;
-        this function perturbs them for one Monte Carlo realisation.
+        if bool(cfg.get("flag_apply_epistemic_lambda", False)):
+            self._apply_epistemic_uncertainty_failure_rates_gamma(specs, rng)
 
-        Currently:
-        - lambda_per_h (CM only)
-        - MTTR_h (all modes)
-        - labour_h (kept consistent with MTTR_h)
-        - MTTW_L_h (if finite)
-        """
-        cfg = get_input_parameter(self.parameters, 'analytic_ctmc','uncertainty')
-        lam_sigma_default =  float(cfg.get("lamda_sigma", 0.0))
-        mttr_sigma_default = float(cfg.get("mttr_sigma", 0.0))
-        mttwL_sigma_default = float(cfg.get("mttwL_sigma", 0.0))
+        if bool(cfg.get("flag_apply_process", False)):
+            self._apply_process_uncertainty_lognormal(specs, rng)
+
+
+    def _apply_process_uncertainty_lognormal(self, specs, rng):
+        cfg = get_input_parameter(self.parameters, "analytic_ctmc", "uncertainty") or {}
+        mttr_sigma = float(cfg.get("mttr_sigma", 0.0))
+        mttwL_sigma = float(cfg.get("mttwL_sigma", 0.0))
 
         for s in specs:
-            # --- failure rate uncertainty (CM only) ---
-            if s.task_type == "CM" and lam_sigma_default > 0.0 and s.lambda_per_h > 0.0:
-                mu = -0.5 * (lam_sigma_default ** 2)
-                lam_factor = rng.lognormal(mean=mu, sigma=lam_sigma_default)
-                s.lambda_per_h *= lam_factor
-
-            # --- MTTR uncertainty (all modes) ---
-            if mttr_sigma_default > 0.0 and s.MTTR_h > 0.0:
-                mu = -0.5 * (mttr_sigma_default ** 2)
-                mttr_factor = rng.lognormal(mean=mu, sigma=mttr_sigma_default)
-                s.MTTR_h *= mttr_factor
-                # keep labour_h consistent with MTTR
+            if mttr_sigma > 0.0 and s.MTTR_h > 0.0:
+                mu = -0.5 * (mttr_sigma ** 2)
+                f = rng.lognormal(mean=mu, sigma=mttr_sigma)
+                s.MTTR_h *= f
                 if s.labour_h > 0.0:
-                    s.labour_h *= mttr_factor
+                    s.labour_h *= f
 
-            # --- logistics waiting time uncertainty (if modelled) ---
             if (
-                mttwL_sigma_default > 0.0
+                mttwL_sigma > 0.0
                 and s.MTTW_L_h is not None
                 and math.isfinite(s.MTTW_L_h)
                 and s.MTTW_L_h > 0.0
             ):
-                
-                mu = -0.5 * (mttwL_sigma_default ** 2)
-                mttwL_factor = rng.lognormal(mean=mu, sigma=mttwL_sigma_default)
-                s.MTTW_L_h *= mttwL_factor
+                mu = -0.5 * (mttwL_sigma ** 2)
+                f = rng.lognormal(mean=mu, sigma=mttwL_sigma)
+                s.MTTW_L_h *= f
+
+
+    def _apply_epistemic_uncertainty_failure_rates_gamma(self, specs, rng):
+        cfg = get_input_parameter(self.parameters, "analytic_ctmc", "uncertainty") or {}
+        # new config key (example): lambda_gamma_cv
+        cv = float(cfg.get("lambda_gamma_cv", 0.0))
+
+        if cv <= 0.0:
+            return
+
+        cv = max(1e-6, cv)
+        k = 1.0 / (cv * cv)  # shape
+
+        for s in specs:
+            if s.task_type != "CM":
+                continue
+            lam0 = s.lambda_per_h
+            if lam0 <= 0.0:
+                continue
+
+            theta = lam0 / k  # scale so mean is lam0
+            s.lambda_per_h = rng.gamma(shape=k, scale=theta)
+
 
 
     def _apply_factors_to_maintenance_specs(self, specs: List[MaintenanceSpec]) -> None:
@@ -597,8 +606,9 @@ class OPEX:
 
         for s in specs:
             # Failure rate: only meaningful for CM because PM uses tau_h
-            if s.task_type == "CM" and s.lambda_per_h and s.lambda_per_h > 0:
-                s.lambda_per_h *= lambda_factor
+            if s.task_type == "CM" and s.lambda_nominal_per_h is not None:
+                s.lambda_per_h = s.lambda_nominal_per_h * lambda_factor
+
 
             # MTTR affects both CM and PM (and keep labour consistent)
             if s.MTTR_h and s.MTTR_h > 0:
@@ -926,8 +936,6 @@ class OPEX:
             p_access_factor = float(ms_cfg.get("p_access_factor", 1.0))
             self.p_access_hourly = float(np.clip(self.p_access_hourly * p_access_factor, 0.0, 1.0))
 
-        self.process_uncertainty = bool(get_input_parameter(self.parameters, "analytic_ctmc", "uncertainty", "flag_apply"))
-        if self.process_uncertainty:
             self._apply_uncertainty_to_maintenance_specs(maint_specs, rng=np.random.default_rng())
 
         vessels = self._load_vessels()

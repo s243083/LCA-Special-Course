@@ -1,27 +1,33 @@
 OM_Process:
   OM_input_file: "OM_22MW.yaml"
   OM_Vessel_input_file: "OM_Vessels.yaml"
-  Simulation_Mode: "analytic_ctmc" # options: [capex_fraction, analytic_ctmc, time_march_ctmc]
-  OM_overhead: 25 # [k€/MW/year] fixed annual overhead cost per MW installed: Insurerance, administration, Onshore operations, Onshore staff, grid connection fees etc. 
+  Simulation_Mode: "analytic_ctmc"
+
+  OM_overhead: 25   # [k€/MW/year] fixed annual overhead cost per MW installed
 
   capex_fraction:
-      capex_fraction: 0.30
-      n_yearly_payments: 12
+    capex_fraction: 0.30
+    n_yearly_payments: 12
 
   analytic_ctmc:
-      p_access_hourly: 0.1 # for now this is directly treated a a transition rate from WAITING to REPAIR
-      uncertainty:
-        flag_apply: true
-        lamda_sigma: 0.3 # lognormal standard deviation for failure rates
-        mttr_sigma: 0.2  # lognormal standard deviation for MTTR
-        mttwL_sigma: 0.2 # lognormal standard deviation for MTTW
-      mean_shift:
-        flag_apply: false
-        lambda_factor: 1.0
-        mttr_factor: 1.0
-        mttwL_factor: 1.0
-        tau_factor: 1.0 # factor to shift frequency of planned maintenance
-        p_access_factor: 1.0
+    p_access_hourly: 0.1   # treated as weather access rate
+
+    uncertainty:
+      # --- Epistemic uncertainty on failure rates (CM only) ---
+      flag_apply_epistemic_lambda: true
+      lambda_gamma_cv: 0.30   # coefficient of variation of λ
+
+      # --- Process uncertainty on durations / waits ---
+      flag_apply_process: true
+      mttr_sigma: 0.20        # lognormal sigma for MTTR
+      mttwL_sigma: 0.20       # lognormal sigma for MTTW_L
+
+    mean_shift:
+      flag_apply: true
+      lambda_factor: 1.0     # deterministic shift of failure rates
+      mttr_factor: 1.0       # deterministic shift of MTTR
+      mttwL_factor: 1.0      # deterministic shift of logistics waiting
+      tau_factor: 1.0        # deterministic shift of PM interval
 
   time_march_ctmc:
-      dummy_param: true
+    dummy_param: true

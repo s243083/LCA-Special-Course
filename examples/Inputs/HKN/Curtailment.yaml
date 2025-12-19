@@ -3,6 +3,11 @@ Curtailment:
   timestamp_col: timestamp
 
   reduceProduction:
+    apply_epistemic_uncertainty: True
+    gamma_shape: [1.5, 3.5] # uniform distribution bounds
+    gamma_scale: [0.02, 0.08] # uniform distribution bounds
+
+    apply_aleatory_uncertainty: True
     gamma_shape_k: 2.0
     gamma_scale_theta: 0.05
     curtailment_min: 0.0

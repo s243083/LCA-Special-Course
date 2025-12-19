@@ -1,0 +1,9 @@
+Curtailment:
+  mode: reduceProduction
+  timestamp_col: timestamp
+
+  reduceProduction:
+    gamma_shape_k: 2.0
+    gamma_scale_theta: 0.05
+    curtailment_min: 0.0
+    curtailment_max: 0.95

@@ -123,6 +123,7 @@ class Configuration(FromDictMixin):
     Valuation_inputFiles: dict[str, str]
     Market_inputFiles: dict[str, str]
     LTE_inputFiles: dict[str, str]
+    Curtailment_inputFiles: dict[str, str]
     Project_Duration: dict[str, Union[int, str]]
     Project_StartDate: str
     WF_OperationsStart: dict[str, Union[int, str]]
@@ -145,6 +146,7 @@ class Configuration(FromDictMixin):
     CAPEX_overrides: dict[str, Any] = field(factory=dict)
     OPEX_overrides: dict[str, Any] = field(factory=dict)
     LTE_overrides: dict[str, Any] = field(factory=dict)
+    Curtailment_overrides: dict[str, Any] = field(factory=dict)
 
 
 @define(auto_attribs=True)

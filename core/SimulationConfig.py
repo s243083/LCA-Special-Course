@@ -17,6 +17,7 @@ class SimulationConfig:
     run_windfarm: bool = True
     run_opex: bool = True
     run_lifetime_extension: bool = False
+    run_curtailment: bool = False
     run_revenue: bool = True
     run_valuation: bool = True
     valuation_dashboard: bool = False

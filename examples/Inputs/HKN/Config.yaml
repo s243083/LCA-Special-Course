@@ -18,6 +18,8 @@ Market_inputFiles:
     MA: Market.yaml
 Opex_inputFiles:
     OM: OPEX.yaml
+Curtailment_inputFiles:
+    CU: Curtailment.yaml
 LTE_inputFiles:
     LTE: LTE.yaml    
 

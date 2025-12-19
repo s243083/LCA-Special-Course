@@ -10,6 +10,7 @@ from core.Revenue_Model import Revenue
 #from core.ResponseFramework_dev.Response_Framework import ResponseFramework
 from core.ResultsCollector import ResultsCollector
 from core.LTE import LifetimeExtension
+from core.Curtailment import Curtailment
 from core.SimulationConfig import SimulationConfig
 from core.utils import check_time_series_alignment
 import pandas as pd
@@ -31,6 +32,7 @@ class ValueWindEnv():
         self.valuation = Valuation(self)
 #        self.response_framework = ResponseFramework(self)
         self.lifetimeExtension = LifetimeExtension(self)
+        self.curtailment = Curtailment(self)
         self.results_collector = ResultsCollector(self)
 
     def run_simulation(self, until=None):
@@ -56,6 +58,10 @@ class ValueWindEnv():
         # Wind Farm
         if cfg.run_windfarm:
             self.windFarm.start()
+
+        # Curtailment
+        if cfg.run_curtailment:
+            self.curtailment.apply()
 
         # -------------------------
         # LTE (optional) BEFORE OPEX

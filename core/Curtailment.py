@@ -90,17 +90,55 @@ class Curtailment:
         if timestamp_col not in pr.columns:
             raise KeyError(f"power_records missing required timestamp column '{timestamp_col}'.")
 
-        # Gamma parameters
-        # numpy uses Gamma(shape=k, scale=theta)
-        shape_k = float(get_input_parameter(self.curt_input, "Curtailment", "reduceProduction", "gamma_shape_k"))
-        scale_theta = float(get_input_parameter(self.curt_input, "Curtailment", "reduceProduction", "gamma_scale_theta"))
+        # -----------------------------
+        # Epistemic uncertainty (one draw per simulation)
+        # -----------------------------
+        apply_epi = bool(
+            get_input_parameter(self.curt_input, "Curtailment", "reduceProduction", "apply_epistemic_uncertainty") or False
+        )
+
+        if apply_epi:
+            shape_bounds = get_input_parameter(self.curt_input, "Curtailment", "reduceProduction", "gamma_shape")
+            scale_bounds = get_input_parameter(self.curt_input, "Curtailment", "reduceProduction", "gamma_scale")
+
+            if not (isinstance(shape_bounds, (list, tuple)) and len(shape_bounds) == 2):
+                raise ValueError("Curtailment.reduceProduction.gamma_shape must be a 2-element list [lower, upper].")
+            if not (isinstance(scale_bounds, (list, tuple)) and len(scale_bounds) == 2):
+                raise ValueError("Curtailment.reduceProduction.gamma_scale must be a 2-element list [lower, upper].")
+
+            k_low, k_high = float(shape_bounds[0]), float(shape_bounds[1])
+            th_low, th_high = float(scale_bounds[0]), float(scale_bounds[1])
+
+            if k_low <= 0 or k_high <= 0 or k_low > k_high:
+                raise ValueError("gamma_shape bounds must satisfy 0 < lower <= upper.")
+            if th_low <= 0 or th_high <= 0 or th_low > th_high:
+                raise ValueError("gamma_scale bounds must satisfy 0 < lower <= upper.")
+
+            shape_k = float(rng.uniform(k_low, k_high))
+            scale_theta = float(rng.uniform(th_low, th_high))
+        else:
+            # Existing fixed parameters
+            shape_k = float(get_input_parameter(self.curt_input, "Curtailment", "reduceProduction", "gamma_shape_k"))
+            scale_theta = float(get_input_parameter(self.curt_input, "Curtailment", "reduceProduction", "gamma_scale_theta"))
+
+        # -----------------------------
+        # Aleatory uncertainty (monthly draws)
+        # -----------------------------
+        apply_alea = bool(
+            get_input_parameter(
+                self.curt_input,
+                "Curtailment",
+                "reduceProduction",
+                "apply_aleatory_uncertainty",
+            ) or False
+        )
 
         # Truncation/clipping (because Gamma is unbounded)
         c_min = float(get_input_parameter(self.curt_input, "Curtailment", "reduceProduction", "curtailment_min") or 0.0)
         c_max = float(get_input_parameter(self.curt_input, "Curtailment", "reduceProduction", "curtailment_max") or 0.95)
 
         if shape_k <= 0 or scale_theta <= 0:
-            raise ValueError("Gamma parameters must be > 0 (gamma_shape_k, gamma_scale_theta).")
+            raise ValueError("Gamma parameters must be > 0 (gamma_shape_k/gamma_scale_theta or epistemic draws).")
         if not (0.0 <= c_min <= c_max):
             raise ValueError("Curtailment bounds must satisfy 0 <= curtailment_min <= curtailment_max.")
 
@@ -112,39 +150,44 @@ class Curtailment:
         if not prod_cols:
             raise ValueError("No numeric production columns found to apply curtailment.")
 
-        # Month key: Period('M')
         month_key = df[timestamp_col].dt.to_period("M")
-
-        # Sample one curtailment fraction per month
         months = pd.PeriodIndex(month_key.unique()).sort_values()
 
         records = []
         month_to_multiplier: Dict[pd.Period, float] = {}
 
+        # Optional: store epistemic draw in diagnostics
+        epi_meta = {
+            "epistemic_shape_k": shape_k,
+            "epistemic_scale_theta": scale_theta,
+            "apply_epistemic_uncertainty": apply_epi,
+            "apply_aleatory_uncertainty": apply_alea,
+        }
+
         for m in months:
-            c = float(rng.gamma(shape=shape_k, scale=scale_theta))
+            if apply_alea:
+                c = float(rng.gamma(shape=shape_k, scale=scale_theta))
+            else:
+                # Deterministic monthly curtailment = mean of Gamma (k*theta)
+                c = float(shape_k * scale_theta)
+
             c = float(np.clip(c, c_min, c_max))
             mult = 1.0 - c
 
             month_to_multiplier[m] = mult
-            records.append(
-                {
-                    "month": str(m),  # store as string like '2025-01'
-                    "curtailment_fraction": c,
-                    "multiplier": mult,
-                }
-            )
+            rec = {
+                "month": str(m),
+                "curtailment_fraction": c,
+                "multiplier": mult,
+                **epi_meta,
+            }
+            records.append(rec)
 
-        # Apply multiplier to each row based on its month
         multipliers = month_key.map(month_to_multiplier).astype(float).to_numpy()
         df.loc[:, prod_cols] = df.loc[:, prod_cols].multiply(multipliers, axis=0)
 
-        # Write back mutated production
         self.env.windFarm.power_records = df
-
-        # Store diagnostics
-        self.curtailment_records = pd.DataFrame(records, columns=["month", "curtailment_fraction", "multiplier"])
-
+        self.curtailment_records = pd.DataFrame(records)
 
 def load_CurtailmentData(config) -> dict:
     """

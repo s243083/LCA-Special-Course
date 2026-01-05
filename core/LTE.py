@@ -160,6 +160,7 @@ def sample_truncated_normal(
 @dataclass
 class LTEConfig:
     enable_lte: bool = False
+    mode: str = "fixed"  # [external, WindFarm_potential]
     extension_h: int = 0
 
     # Time-series extension
@@ -173,6 +174,7 @@ class LTEConfig:
     aep_max: float = 0.0
 
     # OPEX mean shift overrides (analytic_ctmc.mean_shift.*) for extension regime
+    mean_shift_flag_apply: bool = False
     lambda_factor: float = 1.0
     mttr_factor: float = 1.0
     mttwL_factor: float = 1.0
@@ -258,6 +260,7 @@ class LifetimeExtension:
         L = lte_input.get("LTE", {}) if isinstance(lte_input, dict) else {}
 
         enable_lte = bool(L.get("apply_lte", False))
+        mode =  str(L.get("mode", "fixed"))
         extension_h = int(L.get("extension_h", 0))
 
         tail_strategy = str(L.get("tail_strategy", "repeat_full"))
@@ -273,6 +276,7 @@ class LifetimeExtension:
         analytic = opex.get("analytic_ctmc", {}) or {}
         ms = analytic.get("mean_shift", {}) or {}
 
+        mean_shift_flag_apply = bool(ms.get("flag_apply", False))
         lambda_factor = float(ms.get("lambda_factor", 1.0))
         mttr_factor = float(ms.get("mttr_factor", 1.0))
         mttwL_factor = float(ms.get("mttwL_factor", 1.0))
@@ -305,6 +309,7 @@ class LifetimeExtension:
 
         return LTEConfig(
             enable_lte=enable_lte,
+            mode=mode,
             extension_h=extension_h,
             tail_strategy=tail_strategy,
             timestamp_col=timestamp_col,
@@ -312,6 +317,7 @@ class LifetimeExtension:
             aep_sigma=aep_sigma,
             aep_min=aep_min,
             aep_max=aep_max,
+            mean_shift_flag_apply=mean_shift_flag_apply,
             lambda_factor=lambda_factor,
             mttr_factor=mttr_factor,
             mttwL_factor=mttwL_factor,
@@ -357,6 +363,27 @@ class LifetimeExtension:
         and keeps refurb uplift sampling inside apply().
         """
         cfg = self.cfg
+
+        if cfg.mode == "WindFarm_potential":
+            # Default
+            cfg.extension_h = 0
+
+            wf_metrics_records = getattr(self.env.windFarm, "wf_metrics_records", None)
+
+            if wf_metrics_records is not None and not wf_metrics_records.empty:
+                self.base_end_h = int(self.env.config.WF_OperationsEnd_h)
+                self.base_start_h = int(self.env.config.WF_OperationsStart_h)
+                turbine_mean = wf_metrics_records.loc[
+                    wf_metrics_records["component_group"] == "Turbine",
+                    "mean"
+                ].iloc[0]   
+
+
+
+                cfg.extension_h = math.ceil(
+                    (self.base_end_h - self.base_start_h) * (turbine_mean - 1)
+                )
+
 
         # No-op if disabled
         if (not cfg.enable_lte) or (cfg.extension_h <= 0):
@@ -438,7 +465,7 @@ class LifetimeExtension:
 
         # Build OPEX overrides
         mean_shift = {
-            "flag_apply": True,
+            "flag_apply": bool(cfg.mean_shift_flag_apply),
             "lambda_factor": float(cfg.lambda_factor),
             "mttr_factor": float(cfg.mttr_factor),
             "mttwL_factor": float(cfg.mttwL_factor),

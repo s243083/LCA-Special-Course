@@ -68,11 +68,48 @@ class Valuation:
 
         # 2) CashFlowEngine
         start_ts = pd.to_datetime(self.env.config.Project_StartDate, format="%d.%m.%Y")
-        end_h = float(getattr(self.env.config, "WF_OperationsEnd_h", 0.0) or 0.0)
-        op_end_ts = start_ts + pd.to_timedelta(end_h, unit="h")
 
-        # hardcoded monthly calendar (month start frequency)
+        # Prefer actual data horizons (covers LTE extensions)
+        candidates = []
+
+        def _max_ts(df, col="timestamp"):
+            if isinstance(df, pd.DataFrame) and (not df.empty) and (col in df.columns):
+                ts = pd.to_datetime(df[col], errors="coerce")
+                m = ts.max()
+                return m if pd.notna(m) else None
+            return None
+
+        # WindFarm (power)
+        candidates.append(_max_ts(getattr(self.env.windFarm, "power_records", None)))
+
+        # Revenue
+        candidates.append(_max_ts(getattr(self.env.RevenueModel, "revenue_records", None)))
+
+        # OPEX
+        candidates.append(_max_ts(getattr(self.env.opex, "OPEX_records", None)))
+
+        # FINEX
+        candidates.append(_max_ts(finex_df))
+
+        # CAPEX
+        candidates.append(_max_ts(getattr(self.env.capex, "cost_records", None)))
+
+
+        # LTE costs (one-offs)
+        if lte_df is not None:
+            candidates.append(_max_ts(lte_df))
+
+        # Choose the latest valid timestamp
+        op_end_ts = max([t for t in candidates if t is not None], default=None)
+
+        # Fallback to config-based end if nothing else exists
+        if op_end_ts is None:
+            end_h = float(getattr(self.env.config, "WF_OperationsEnd_h", 0.0) or 0.0)
+            op_end_ts = start_ts + pd.to_timedelta(end_h, unit="h")
+
+        # Month-start calendar up to *actual* end
         calendar = pd.date_range(start=start_ts, end=op_end_ts, freq="MS")
+
 
         # pass it to the CashFlowEngine
         cfe = CashFlowEngine(self.env, calendar=calendar)
@@ -189,6 +226,24 @@ class Valuation:
         return out
 
 
+    # ------------------------------ Energy helper ------------------------------
+    def _total_energy_mwh(self) -> float | None:
+        """
+        Total produced electricity over the full available lifetime (MWh),
+        based on windFarm.power_records['_energy'].
+        Returns None if power records are missing/invalid.
+        """
+        pr = getattr(self, "power_records", None)
+        if not isinstance(pr, pd.DataFrame) or pr.empty:
+            return None
+        if "_energy" not in pr.columns:
+            return None
+
+        energy = pd.to_numeric(pr["_energy"], errors="coerce")
+        total = float(energy.dropna().sum())
+        return total if np.isfinite(total) else None
+
+
     # ------------------------------ KPIs ------------------------------
     def valuation(self):
         """
@@ -227,24 +282,41 @@ class Valuation:
         self.lcoe = None
         if isinstance(getattr(self, "power_records", None), pd.DataFrame):
             base_cols = ["period_end", "df_wacc", "capex", "opex"]
+            has_lte = isinstance(cf_disc, pd.DataFrame) and ("lte" in cf_disc.columns)
+
+            if has_lte:
+                base_cols.append("lte")
+
             if all(c in cf_disc.columns for c in base_cols):
                 base = cf_disc[base_cols].copy().fillna(0.0)
-                # Treat spends as positive in numerator (capex/opex are negative)
-                base["costs"] = -(base["capex"] + base["opex"])
+
+                # capex/opex/lte are expected as cashflows (typically negative for costs)
+                # LCOE numerator wants positive costs
+                if has_lte:
+                    base["costs"] = -(base["capex"] + base["opex"] + base["lte"])
+                else:
+                    base["costs"] = -(base["capex"] + base["opex"])
 
                 freq = {"monthly": "ME", "quarterly": "Q", "yearly": "A"}[self.cf_aggregation_period]
 
                 pr = self.power_records.copy()
-                pr.columns = ["timestamp", "Total_Production"]
-                pr["timestamp"] = pd.to_datetime(pr["timestamp"], errors="coerce")
-                pr["Total_Production"] = pd.to_numeric(pr["Total_Production"], errors="coerce")
-                pr = pr.dropna(subset=["timestamp", "Total_Production"]).sort_values("timestamp")
 
+                # Expect internal convention: timestamp + Total_Power + _energy
+                if "timestamp" not in pr.columns:
+                    raise KeyError("power_records missing required 'timestamp' column for LCOE.")
+                if "_energy" not in pr.columns:
+                    raise KeyError("power_records missing required '_energy' column (MWh per row) for LCOE.")
+
+                pr["timestamp"] = pd.to_datetime(pr["timestamp"], errors="coerce")
+                pr["_energy"] = pd.to_numeric(pr["_energy"], errors="coerce")
+                pr = pr.dropna(subset=["timestamp", "_energy"]).sort_values("timestamp")
+
+                # Aggregate energy to the same period frequency as cashflows
                 energy_agg = (
-                    pr.groupby(pd.Grouper(key="timestamp", freq=freq))["Total_Production"]
-                      .sum()
-                      .reset_index()
-                      .rename(columns={"timestamp": "period_end", "Total_Production": "energy"})
+                    pr.groupby(pd.Grouper(key="timestamp", freq=freq))["_energy"]
+                    .sum()
+                    .reset_index()
+                    .rename(columns={"timestamp": "period_end", "_energy": "energy"})
                 )
 
                 lcoe_df = (
@@ -258,10 +330,46 @@ class Valuation:
 
                 denom = float(lcoe_df["pv_energy"].sum())
                 self.lcoe = float(lcoe_df["pv_costs"].sum() / denom) if denom > 0 else None
+
                 #print(f"LCOE: {self.lcoe}")
 
-        # ---- store metrics ----
-        metrics_row = {"npv_firm": self.npv_firm,"npv_equity": self.npv_equity, "irr": self.irr, "lcoe": self.lcoe}
+        # ---- Total energy (lifetime, MWh) ----
+        self.total_energy_mwh = self._total_energy_mwh()
+
+        # ---- MVF (optional) ----
+        self.avg_mvf = None
+        mvf_df = None
+
+        # Try to read MVF metrics from RevenueModel (preferred)
+        if hasattr(self.env, "RevenueModel") and hasattr(self.env.RevenueModel, "revenue_metrics_records"):
+            mvf_df = self.env.RevenueModel.revenue_metrics_records
+
+        if isinstance(mvf_df, pd.DataFrame) and (not mvf_df.empty) and ("market_value_factor" in mvf_df.columns):
+            tmp = mvf_df.copy()
+
+            tmp["market_value_factor"] = pd.to_numeric(tmp["market_value_factor"], errors="coerce")
+            tmp = tmp.dropna(subset=["market_value_factor"])
+
+            if not tmp.empty:
+                # Prefer energy-weighted average if available
+                if "energy_sum" in tmp.columns:
+                    tmp["energy_sum"] = pd.to_numeric(tmp["energy_sum"], errors="coerce").fillna(0.0)
+                    w = tmp["energy_sum"].clip(lower=0.0)
+                    denom = float(w.sum())
+                    self.avg_mvf = float((tmp["market_value_factor"] * w).sum() / denom) if denom > 0 else float(tmp["market_value_factor"].mean())
+                else:
+                    # Fallback: simple average over reference periods
+                    self.avg_mvf = float(tmp["market_value_factor"].mean())
+
+
+        metrics_row = {
+            "npv_firm": self.npv_firm,
+            "npv_equity": self.npv_equity,
+            "irr": self.irr,
+            "lcoe": self.lcoe,
+            "avg_mvf": self.avg_mvf,
+            "total_energy_mwh": self.total_energy_mwh,   # <-- NEW
+        }
         row_df = pd.DataFrame([metrics_row])
         if not isinstance(getattr(self, "valuemetrics", None), pd.DataFrame) or self.valuemetrics.empty:
             self.valuemetrics = row_df

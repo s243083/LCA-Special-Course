@@ -1711,25 +1711,46 @@ class OPEX:
         # 5) availability_summary: weighted by window duration
         summ = new.get("availability_summary", None)
         if summ is not None:
-            # Need a duration weight. Prefer explicit window timestamps.
-            w = new.get("window", None)
+
+            # 1) determine weight
             weight_h = None
+
+            w = new.get("window", None)
             if w is not None:
                 w0, w1 = w
                 weight_h = (pd.to_datetime(w1) - pd.to_datetime(w0)).total_seconds() / 3600.0
                 if weight_h <= 0:
                     weight_h = None
 
+            # optional but HIGHLY recommended: use ops_horizon if window is None
+            if weight_h is None:
+                ops = new.get("ops_horizon", None)
+                if isinstance(ops, dict):
+                    try:
+                        weight_h = float(ops.get("T_h", None))
+                        if not (weight_h and weight_h > 0):
+                            weight_h = None
+                    except Exception:
+                        weight_h = None
+
             if dst["availability_summary"] is None:
                 dst["availability_summary"] = {"_weighted_hours": 0.0, "_farmA_x_h": 0.0, "farm_A": None}
             agg = dst["availability_summary"]
 
-            if weight_h is not None:
-                farm_A = getattr(summ, "farm_A", None)
-                if farm_A is not None:
-                    agg["_weighted_hours"] += weight_h
-                    agg["_farmA_x_h"] += float(farm_A) * float(weight_h)
-                    agg["farm_A"] = agg["_farmA_x_h"] / max(1e-12, agg["_weighted_hours"])
+            farm_A = getattr(summ, "farm_A", None)
+
+            if weight_h is not None and farm_A is not None:
+                # 2) weighted aggregation wins
+                agg["_weighted_hours"] += weight_h
+                agg["_farmA_x_h"] += float(farm_A) * float(weight_h)
+                agg["farm_A"] = agg["_farmA_x_h"] / max(1e-12, agg["_weighted_hours"])
+            else:
+                # 3) no weight -> last-known fallback ALWAYS updates
+                try:
+                    agg["farm_A"] = float(farm_A)
+                except Exception:
+                    pass
+
 
             # (Optional extension: merge component_A/turbine_A/downtime_h similarly if you need)
             # For now we preserve detailed per-window summaries in dst["windows"].

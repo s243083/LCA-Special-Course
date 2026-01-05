@@ -30,4 +30,5 @@ Revenue:
     one_sided: true # if true, negative differences are set to zero
   Market:
     settling_freq: "hourly" # [hourly, daily, monthly]  
+    reference_freq: "monthly" # [hourly, daily, monthly] % only used for calculating market averages (MVF)  
 

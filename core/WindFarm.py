@@ -37,26 +37,64 @@ class WindFarm:
         apply_overrides(self, getattr(self.config, "WindFarm_overrides", {}))
 
     def start(self):
-        """Starts the wind farm simulation process."""
-        # get mode from config
         mode = get_input_parameter(self.wind_farm_input, 'WindFarm', 'mode')
 
         if mode == "external":
-        # load external response (eg.from VP framework)
             self.load_external()
-        elif mode== "PyWake":
+        elif mode == "PyWake":
             self.power_records = self.calculate_windfarm_response()
         elif mode == "fixed":
             self.power_records = self.create_fixed_power_timeseries()
         else:
             raise ValueError(f"WindFarm Response mode '{mode}' not recognized.")
 
+        # Ensure _energy exists for all modes
+        self.power_records = self._add_energy_column(self.power_records)
+
+
+    def _add_energy_column(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Ensure df has _energy (MWh) computed from Total_Power (MW) and timestamp deltas.
+        Assumes Total_Power is instantaneous/average power over the interval starting at timestamp.
+        """
+        if df is None or df.empty:
+            return df
+
+        if "timestamp" not in df.columns:
+            raise KeyError("power_records must contain 'timestamp'")
+        if "Total_Power" not in df.columns:
+            raise KeyError("power_records must contain 'Total_Power'")
+
+        out = df.copy()
+        out["timestamp"] = pd.to_datetime(out["timestamp"], errors="raise")
+        out["Total_Power"] = pd.to_numeric(out["Total_Power"], errors="raise")
+
+        out = out.sort_values("timestamp").reset_index(drop=True)
+
+        # dt (hours) between samples
+        dt_h = out["timestamp"].diff().dt.total_seconds() / 3600.0
+
+        # Fill first dt with median step (robust default)
+        step = float(np.nanmedian(dt_h.to_numpy()))
+        if not np.isfinite(step) or step <= 0:
+            step = 1.0
+        dt_h = dt_h.fillna(step)
+
+        out["_energy"] = out["Total_Power"] * dt_h
+        return out
+
+
+
 
     def load_external(self):
         # reference response
         
         self.external_response_path = get_input_parameter(self.wind_farm_input, 'WindFarm','external_response', 'WF_external_response_path')
+        self.metrics_file = get_input_parameter(self.wind_farm_input, 'WindFarm','external_response', 'metrics_file')
+        apply_overrides(self, getattr(self.config, "WindFarm_overrides", {}))
+
         path = self.external_response_path
+        metrics_file = self.metrics_file
 
         duration = get_input_parameter(self.wind_farm_input, 'WindFarm','external_response', 'target_duration')
 
@@ -80,7 +118,8 @@ class WindFarm:
         power_ref_df = power_ref_df.loc[:, [("timestamp", ""), ("Total_Production", "")]]
 
         # rename columns to remove MultiIndex
-        power_ref_df.columns = ["timestamp", "Total_Production"]
+        power_ref_df.columns = ["timestamp", "Total_Power"]
+        power_ref_df["Total_Power"] = power_ref_df["Total_Power"] *6 # convert MWh to MW assuming 10-min intervals. This is inputfile specific hardcoded. 
 
         # 1) Remove gaps and rebuild a continuous timeline (no interpolation)
         power_ref_df = remove_gaps_rebuild_timestamps(
@@ -109,8 +148,7 @@ class WindFarm:
 
         # -------------- load metrics data --------------------
 
-        path = self.external_response_path
-        file_path = Path(path) / "relative_farm_lifetime.parquet"
+        file_path = Path(path, metrics_file)
 
         if file_path.exists():
             metrics_df = pd.read_parquet(file_path)
@@ -148,7 +186,7 @@ class WindFarm:
 
         if rf.power_timeseries is not None:
             power_ts = rf.power_timeseries[["timestamp", "FarmPower"]].rename(
-                columns={"FarmPower": "Total_Production"}
+                columns={"FarmPower": "Total_Power"}
             )
             self.power_records = power_ts
             return power_ts
@@ -219,7 +257,7 @@ class WindFarm:
         # Create DataFrame in same format as other options
         power_df = pd.DataFrame({
             "timestamp": timestamps,
-            "Total_Production": fixed_power,  # broadcast scalar to all rows
+            "Total_Power": fixed_power,  # broadcast scalar to all rows
         })
 
         return power_df

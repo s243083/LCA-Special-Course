@@ -38,12 +38,15 @@ import matplotlib.pyplot as plt
 TABLE_NAME = "valuation_metrics"
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]  # adjust if needed
-RESULTS_FOLDER = PROJECT_ROOT / "results" / "OPEX_efficiency"
+# RESULTS_FOLDER still points to results/LTE_Experiment
+RESULTS_FOLDER = PROJECT_ROOT / "results" / "LTE_Experiment"
 RESULTS_FOLDER = Path(RESULTS_FOLDER)
 assert RESULTS_FOLDER.exists(), f"Results folder not found: {RESULTS_FOLDER}"
 
-RESULTS_FOLDER_FIG = RESULTS_FOLDER / "Figures" / "OPEX_efficiency"
+# NEW: figures go to results/Figures/Experiment
+RESULTS_FOLDER_FIG = PROJECT_ROOT / "results" / "Figures" / "LTE_Experiment"
 RESULTS_FOLDER_FIG.mkdir(parents=True, exist_ok=True)
+
 
 SCENARIOS_PATH = RESULTS_FOLDER / "scenarios.json"
 if not SCENARIOS_PATH.is_file():

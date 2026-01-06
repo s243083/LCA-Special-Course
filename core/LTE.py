@@ -229,13 +229,11 @@ class LifetimeExtension:
         # Expected to return a parsed dict-like structure
         self.lte_input = load_LTEData(self.config)
         self.lte_input = get_input_parameter(self.lte_input, "LTE")
-
-        # ---- Enable flag from YAML ----
-        self.lte_enabled = bool(get_input_parameter(self.lte_input, "LTE", "apply_lte"))
-
         
         # ---- Apply scenario overrides ----
         apply_overrides(self, getattr(self.config, "LTE_overrides", {}))
+        # Enable Flag
+        self.lte_enabled = bool(get_input_parameter(self.lte_input, "LTE", "apply_lte"))
 
 
         # ---- Build LTEConfig from YAML (unless explicitly provided) ----

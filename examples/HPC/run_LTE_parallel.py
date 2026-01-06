@@ -166,13 +166,13 @@ def main() -> int:
         ],
         "LTE_overrides.lte_input.LTE.costs.refurb_uplift.mu": [
             0.0,        # baseline (unused if dist=fixed, but safe)
-            1_000_000,  # moderate uplift
-            2_500_000,  # substantial uplift
+            1_500_000,  # moderate uplift
+            3_000_000,  # substantial uplift
         ],
         "LTE_overrides.lte_input.LTE.costs.refurb_uplift.sigma": [
             0.0,
-            200_000,
-            600_000,
+            500_000,
+            1_000_000,
         ],
         "LTE_overrides.lte_input.LTE.costs.refurb_uplift.min": [
             0.0,

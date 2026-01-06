@@ -148,8 +148,8 @@ class ValueWindEnv():
                     "opex_mode_cost_breakdown": "opex.opex_mode_cost_breakdown_df",
                     "opex_component_cost_breakdown": "opex.opex_component_cost_breakdown_df",
                     # stitched frames already exist in extras container if you prefer:
-                    "opex_availability_profile": "opex.OPEX_records_extras.availability_profile",  # only works if it's an attribute; see note below
-                    "opex_activity_log": "opex.OPEX_records_extras.activity_log",
+                    "opex_availability_profile": "opex.availability_profile", 
+                    "opex_activity_log": "opex.activity_log",
 
 
                 }

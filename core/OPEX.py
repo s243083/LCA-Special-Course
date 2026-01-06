@@ -34,6 +34,8 @@ import copy
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+from dataclasses import asdict, is_dataclass
+
 
 
 
@@ -1769,6 +1771,7 @@ class OPEX:
 
     # --------------------------- Extras to df ---------------------------#
 
+    @staticmethod
     def _asdict_safe(x):
         if x is None:
             return None
@@ -1783,18 +1786,24 @@ class OPEX:
             self.opex_breakdown_df = pd.DataFrame()
             self.opex_mode_cost_breakdown_df = pd.DataFrame()
             self.opex_component_cost_breakdown_df = pd.DataFrame()
+            self.opex_availability_profile_df = pd.DataFrame()
+            self.opex_activity_log_df = pd.DataFrame()
             return
 
         windows = ex.get("windows", []) or []
 
-        # --- 1) windows overview table (1 row per window) ---
+        # --- 1) windows overview table ---
         rows = []
         for w in windows:
-            w0, w1 = None, None
-            if w.get("window") is not None:
-                w0, w1 = w["window"]
-            summ = _asdict_safe(w.get("availability_summary"))
-            bd   = _asdict_safe(w.get("OpEx_breakdown"))
+            # window parsing
+            ww = w.get("window", None)
+            if isinstance(ww, (list, tuple)) and len(ww) == 2:
+                w0, w1 = ww
+            else:
+                w0, w1 = None, None
+
+            summ = self._asdict_safe(w.get("availability_summary"))
+            bd   = self._asdict_safe(w.get("OpEx_breakdown"))
 
             rows.append({
                 "mode": w.get("mode"),
@@ -1811,36 +1820,49 @@ class OPEX:
             })
         self.opex_windows_df = pd.DataFrame(rows)
 
-        # --- 2) breakdown per window (same info, sometimes you want it separately) ---
-        self.opex_breakdown_df = self.opex_windows_df[
-            ["mode","window_label","window_start","window_end",
-            "fixed_OM_eur","CM_cost_eur","PM_cost_eur","transport_eur","labour_eur","spares_eur"]
-        ].copy()
+        # --- 2) breakdown per window ---
+        if not self.opex_windows_df.empty:
+            self.opex_breakdown_df = self.opex_windows_df[
+                ["mode","window_label","window_start","window_end",
+                "fixed_OM_eur","CM_cost_eur","PM_cost_eur","transport_eur","labour_eur","spares_eur"]
+            ].copy()
+        else:
+            self.opex_breakdown_df = pd.DataFrame()
 
-        # --- 3) mode_cost_breakdown (list of dict rows per window) ---
+        # --- 3) mode_cost_breakdown: rows tagged by window ---
         mcb_rows = []
         for w in windows:
             mcb = w.get("mode_cost_breakdown")
-            if isinstance(mcb, list) and mcb:
+            if isinstance(mcb, list):
                 for r in mcb:
+                    if not isinstance(r, dict):
+                        continue
                     rr = dict(r)
                     rr["window_label"] = w.get("window_label")
                     rr["mode"] = w.get("mode")
                     mcb_rows.append(rr)
         self.opex_mode_cost_breakdown_df = pd.DataFrame(mcb_rows)
 
-        # --- 4) component_cost_breakdown (dict-of-dicts) ---
+        # --- 4) component_cost_breakdown: dict-of-dicts ---
         ccb_rows = []
         for w in windows:
             ccb = w.get("component_cost_breakdown")
-            if isinstance(ccb, dict) and ccb:
+            if isinstance(ccb, dict):
                 for comp, d in ccb.items():
+                    if not isinstance(d, dict):
+                        continue
                     rr = dict(d)
                     rr["component"] = comp
                     rr["window_label"] = w.get("window_label")
                     rr["mode"] = w.get("mode")
                     ccb_rows.append(rr)
         self.opex_component_cost_breakdown_df = pd.DataFrame(ccb_rows)
+
+        # --- 5) stitched frames for saving ---
+        ap = ex.get("availability_profile")
+        al = ex.get("activity_log")
+        self.opex_availability_profile_df = ap.copy(deep=True) if isinstance(ap, pd.DataFrame) else pd.DataFrame()
+        self.opex_activity_log_df = al.copy(deep=True) if isinstance(al, pd.DataFrame) else pd.DataFrame()
 
 
 

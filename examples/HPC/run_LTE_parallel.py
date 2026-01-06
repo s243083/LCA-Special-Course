@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """
-HPC sweep script for the LTE case study:
-- Varies LTE_overrides.lte_input.lambda_factor over [1.00, 0.90, 0.70]
-- Runs Lifetime Extension + downstream modules (revenue/valuation) as configured
-- Uses process-based parallelism (n_jobs from SLURM_CPUS_PER_TASK if available)
+HPC sweep script for LTE scenario study (Baseline / EOL1 / EOL2):
+
+- Baseline: no lifetime extension (LTE runs as no-op via apply_lte=false)
+- EOL1: moderate reliability degradation + moderate AEP haircut + moderate refurb uplift
+- EOL2: substantial reliability degradation + larger AEP haircut + larger refurb uplift
+
+Runs Lifetime Extension + downstream modules (revenue/valuation) as configured.
+Uses process-based parallelism (n_jobs from SLURM_CPUS_PER_TASK if available).
 """
 
 from __future__ import annotations
@@ -17,14 +21,12 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
 )
-log = logging.getLogger("run_lte_lambda_factor_sweep")
+log = logging.getLogger("run_lte_scenario_sweep")
 
 
 def main() -> int:
     # ---------------------------------------------------------------------
     # Resolve repository root robustly for HPC execution
-    # Assumes this script lives somewhere under the repo; adjust parents[] if needed.
-    # Example: <repo>/examples/HPC/<this_script>.py  -> parents[2] == <repo>
     # ---------------------------------------------------------------------
     PROJECT_ROOT = Path(__file__).resolve().parents[2]
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -43,7 +45,7 @@ def main() -> int:
     RESULT_DIR.mkdir(parents=True, exist_ok=True)
 
     # ---------------------------------------------------------------------
-    # Simulation config (mirrors your local script)
+    # Simulation config
     # ---------------------------------------------------------------------
     sim_cfg = {
         "run_marketenv": True,
@@ -52,34 +54,141 @@ def main() -> int:
         "capex_dashboard": False,
         "run_opex": True,
         "opex_dashboard": False,
-        "run_lifetime_extension": True,
+        "run_lifetime_extension": True,  # keep TRUE; baseline becomes no-op via apply_lte=false
         "run_revenue": True,
         "run_valuation": True,
-        "valuation_dashboard": True,
+        "valuation_dashboard": False,
         "collect_results": True,
     }
 
     # ---------------------------------------------------------------------
-    # Parameter sweep (LTE lambda_factor scenarios)
+    # Scenario definitions (zipped together)
+    #
+    # NOTE on units:
+    # - LTE.py expects AEP haircut in *fractions* (e.g., -0.036 = -3.6%).
+    # - Refurb uplift is €/turbine and then multiplied by n_turbines in LTE.py.
     # ---------------------------------------------------------------------
     parameter_space = {
-        "LTE_overrides.lte_input.lambda_factor": [
-            1.00,  # S0 – Reference
-            0.90,  # S1 – reduced failure rates
-            0.70,  # S2 – more reduced failure rates
-        ],
+        # Human-readable label
         "Scenario.name": [
-            "S0 – Reference",
-            "S1 – reduced failure rates",
-            "S2 – more reduced failure rates",
+            "Baseline – No LTE",
+            "EOL1 – Moderate degradation",
+            "EOL2 – Substantial degradation",
+        ],
+
+        # Enable / disable LTE
+        "LTE_overrides.lte_input.LTE.apply_lte": [
+            False,
+            True,
+            True,
+        ],
+
+        # Extension horizon (hours)
+        # Baseline: keep extension_h=0 to avoid any accidental extension logic
+        "LTE_overrides.lte_input.LTE.extension_h": [
+            0,
+            43000,
+            43000,
+        ],
+
+        # ----------------------------
+        # AEP haircut distribution (fractional)
+        # ----------------------------
+        "LTE_overrides.lte_input.LTE.aep_haircut.mu": [
+            0.0,
+            -0.020,   # moderate AEP loss (=-2.0%)
+            -0.040,   # substantial AEP loss (=-4.0%)
+        ],
+        "LTE_overrides.lte_input.LTE.aep_haircut.sigma": [
+            0.0,
+            0.010,
+            0.015,
+        ],
+        # Keep bounds conservative and code-consistent
+        "LTE_overrides.lte_input.LTE.aep_haircut.min": [
+            0.0,     # irrelevant when sigma=0, but keep consistent
+            -0.30,
+            -0.30,
+        ],
+        "LTE_overrides.lte_input.LTE.aep_haircut.max": [
+            0.0,
+            0.0,
+            0.0,
+        ],
+
+        # ----------------------------
+        # Reliability / OPEX mean-shift factors (extension regime only)
+        # ----------------------------
+        "LTE_overrides.lte_input.LTE.opex_extension.analytic_ctmc.mean_shift.flag_apply": [
+            False,
+            True,
+            True,
+        ],
+        "LTE_overrides.lte_input.LTE.opex_extension.analytic_ctmc.mean_shift.lambda_factor": [
+            1.00,
+            1.20,
+            1.35,
+        ],
+        "LTE_overrides.lte_input.LTE.opex_extension.analytic_ctmc.mean_shift.mttr_factor": [
+            1.00,
+            1.10,
+            1.20,
+        ],
+        "LTE_overrides.lte_input.LTE.opex_extension.analytic_ctmc.mean_shift.mttwL_factor": [
+            1.00,
+            1.10,
+            1.20,
+        ],
+        "LTE_overrides.lte_input.LTE.opex_extension.analytic_ctmc.mean_shift.tau_factor": [
+            1.00,
+            1.00,
+            1.00,
+        ],
+        "LTE_overrides.lte_input.LTE.opex_extension.analytic_ctmc.mean_shift.p_access_factor": [
+            1.00,
+            0.90,
+            0.80,
+        ],
+
+        # ----------------------------
+        # Refurbishment uplift distribution (€/turbine)
+        # NOTE: LTE.py samples refurb_uplift and multiplies by n_turbines
+        # ----------------------------
+        "LTE_overrides.lte_input.LTE.costs.refurb_uplift.dist": [
+            "fixed",        # baseline
+            "normal_trunc",  # EOL1
+            "normal_trunc",  # EOL2
+        ],
+        "LTE_overrides.lte_input.LTE.costs.refurb_uplift.value": [
+            0.0,    # only used when dist=fixed
+            None,
+            None,
+        ],
+        "LTE_overrides.lte_input.LTE.costs.refurb_uplift.mu": [
+            0.0,        # baseline (unused if dist=fixed, but safe)
+            1_000_000,  # moderate uplift
+            2_500_000,  # substantial uplift
+        ],
+        "LTE_overrides.lte_input.LTE.costs.refurb_uplift.sigma": [
+            0.0,
+            200_000,
+            600_000,
+        ],
+        "LTE_overrides.lte_input.LTE.costs.refurb_uplift.min": [
+            0.0,
+            0.0,
+            0.0,
+        ],
+        "LTE_overrides.lte_input.LTE.costs.refurb_uplift.max": [
+            0.0,     # baseline (unused if fixed)
+            None,    # let it float or set a cap if you prefer
+            None,
         ],
     }
 
+    # Zip everything so we get exactly 3 coherent scenarios (not a Cartesian product)
     zip_groups = {
-        "lte_lambda_factor_scenarios": [
-            "LTE_overrides.lte_input.lambda_factor",
-            "Scenario.name",
-        ]
+        "lte_scenarios": list(parameter_space.keys())
     }
 
     # ---------------------------------------------------------------------
@@ -103,8 +212,8 @@ def main() -> int:
         simulation_config=sim_cfg,
         parameter_space=parameter_space,
         base_seed=42,
-        replicates=10,
-        name="LTE_LambdaFactor_Sweep",
+        replicates=100,
+        name="LTE_Scenario_Experiment",
         result_directory=str(RESULT_DIR),
         zip_groups=zip_groups,
         execution={"backend": "process", "n_jobs": n_jobs},
@@ -116,7 +225,7 @@ def main() -> int:
     print(f"Completed {len(df)} runs")
     print(f"Results written to: {RESULT_DIR}")
 
-    # Optional quick failure summary (if these columns exist)
+    # Optional quick failure summary
     if hasattr(df, "columns") and all(c in df.columns for c in ("status", "scenario_id")):
         failures = df[df["status"].astype(str).str.lower().ne("success")]
         if len(failures) > 0:

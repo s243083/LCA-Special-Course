@@ -1,10 +1,9 @@
 #!/bin/bash
 #SBATCH --job-name=delete_folder
-#SBATCH --partition=short
 #SBATCH --time=00:10:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
-#SBATCH --mem=1G
+
 
 set -euo pipefail
 

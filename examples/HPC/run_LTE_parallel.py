@@ -87,8 +87,8 @@ def main() -> int:
         # Baseline: keep extension_h=0 to avoid any accidental extension logic
         "LTE_overrides.lte_input.LTE.extension_h": [
             0,
-            43000,
-            43000,
+            70080,
+            48000,
         ],
 
         # ----------------------------
@@ -126,8 +126,8 @@ def main() -> int:
         ],
         "LTE_overrides.lte_input.LTE.opex_extension.analytic_ctmc.mean_shift.lambda_factor": [
             1.00,
-            1.20,
-            1.35,
+            1.50,
+            2.00,
         ],
         "LTE_overrides.lte_input.LTE.opex_extension.analytic_ctmc.mean_shift.mttr_factor": [
             1.00,

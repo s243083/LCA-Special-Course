@@ -212,7 +212,7 @@ def main() -> int:
         simulation_config=sim_cfg,
         parameter_space=parameter_space,
         base_seed=42,
-        replicates=100,
+        replicates=500,
         name="LTE_Scenario_Experiment",
         result_directory=str(RESULT_DIR),
         zip_groups=zip_groups,

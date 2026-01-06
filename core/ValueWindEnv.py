@@ -141,7 +141,17 @@ class ValueWindEnv():
                 attr_map={
                     "valuation_metrics": "valuation.valuemetrics",
                     "capex": "capex.cost_records",
-                    "opex": "opex.OPEX_records",
+
+                    "opex_records": "opex.OPEX_records",
+                    "opex_windows": "opex.opex_windows_df",
+                    "opex_breakdown": "opex.opex_breakdown_df",
+                    "opex_mode_cost_breakdown": "opex.opex_mode_cost_breakdown_df",
+                    "opex_component_cost_breakdown": "opex.opex_component_cost_breakdown_df",
+                    # stitched frames already exist in extras container if you prefer:
+                    "opex_availability_profile": "opex.OPEX_records_extras.availability_profile",  # only works if it's an attribute; see note below
+                    "opex_activity_log": "opex.OPEX_records_extras.activity_log",
+
+
                 }
             )
 

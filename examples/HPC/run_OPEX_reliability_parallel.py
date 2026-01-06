@@ -85,9 +85,9 @@ def main() -> int:
         # Gamma CV for lambda (matches your YAML key used by OPEX.py)
         "OPEX_overrides.parameters.analytic_ctmc.uncertainty.lambda_gamma_cv": [
             0.00,  # Reference
-            0.15,  # R1 -- Low epistemic uncertainty
-            0.30,  # R2 -- Mid epistemic uncertainty
-            0.60,  # R3 -- High epistemic uncertainty
+            0.20,  # R1 -- Low epistemic uncertainty
+            0.50,  # R2 -- Mid epistemic uncertainty
+            0.80,  # R3 -- High epistemic uncertainty
         ],
 
         # Ensure process uncertainty is OFF for this experiment (optional but keeps it “pure”)
@@ -146,9 +146,9 @@ def main() -> int:
 
         # “replicates” here is what drives repeated draws of the uncertain lambda
         # (i.e., repeated epistemic realisations).
-        replicates=5000,
+        replicates=500,
 
-        name="OPEX_Reliabilty_Uncertainty",
+        name="OPEX_Reliability",
         result_directory=str(RESULT_DIR),
         zip_groups=zip_groups,
 

@@ -270,6 +270,8 @@ class OPEX:
             self.OPEX_records = self._accumulate_opex_records(self.OPEX_records, opex_df)
             self._merge_extras_inplace(self.OPEX_records_extras, extras)
 
+        self.build_extras_tables()
+
         # keep the “latest window” artefacts for convenience (optional, preserves old UX)
         self.availability_summary = extras.get("availability_summary")
         self.availability_profile = extras.get("availability_profile")
@@ -1764,6 +1766,86 @@ class OPEX:
                 if isinstance(dst["mode_cost_breakdown"], list) and isinstance(mcb, list):
                     dst["mode_cost_breakdown"].extend(mcb)
 
+
+    # --------------------------- Extras to df ---------------------------#
+
+    def _asdict_safe(x):
+        if x is None:
+            return None
+        if is_dataclass(x):
+            return asdict(x)
+        return x
+
+    def build_extras_tables(self) -> None:
+        ex = getattr(self, "OPEX_records_extras", None)
+        if not isinstance(ex, dict):
+            self.opex_windows_df = pd.DataFrame()
+            self.opex_breakdown_df = pd.DataFrame()
+            self.opex_mode_cost_breakdown_df = pd.DataFrame()
+            self.opex_component_cost_breakdown_df = pd.DataFrame()
+            return
+
+        windows = ex.get("windows", []) or []
+
+        # --- 1) windows overview table (1 row per window) ---
+        rows = []
+        for w in windows:
+            w0, w1 = None, None
+            if w.get("window") is not None:
+                w0, w1 = w["window"]
+            summ = _asdict_safe(w.get("availability_summary"))
+            bd   = _asdict_safe(w.get("OpEx_breakdown"))
+
+            rows.append({
+                "mode": w.get("mode"),
+                "window_label": w.get("window_label"),
+                "window_start": pd.to_datetime(w0) if w0 is not None else pd.NaT,
+                "window_end":   pd.to_datetime(w1) if w1 is not None else pd.NaT,
+                "farm_A": (summ or {}).get("farm_A", np.nan),
+                "fixed_OM_eur": (bd or {}).get("fixed_OM_eur", np.nan),
+                "CM_cost_eur":  (bd or {}).get("CM_cost_eur", np.nan),
+                "PM_cost_eur":  (bd or {}).get("PM_cost_eur", np.nan),
+                "transport_eur":(bd or {}).get("transport_eur", np.nan),
+                "labour_eur":   (bd or {}).get("labour_eur", np.nan),
+                "spares_eur":   (bd or {}).get("spares_eur", np.nan),
+            })
+        self.opex_windows_df = pd.DataFrame(rows)
+
+        # --- 2) breakdown per window (same info, sometimes you want it separately) ---
+        self.opex_breakdown_df = self.opex_windows_df[
+            ["mode","window_label","window_start","window_end",
+            "fixed_OM_eur","CM_cost_eur","PM_cost_eur","transport_eur","labour_eur","spares_eur"]
+        ].copy()
+
+        # --- 3) mode_cost_breakdown (list of dict rows per window) ---
+        mcb_rows = []
+        for w in windows:
+            mcb = w.get("mode_cost_breakdown")
+            if isinstance(mcb, list) and mcb:
+                for r in mcb:
+                    rr = dict(r)
+                    rr["window_label"] = w.get("window_label")
+                    rr["mode"] = w.get("mode")
+                    mcb_rows.append(rr)
+        self.opex_mode_cost_breakdown_df = pd.DataFrame(mcb_rows)
+
+        # --- 4) component_cost_breakdown (dict-of-dicts) ---
+        ccb_rows = []
+        for w in windows:
+            ccb = w.get("component_cost_breakdown")
+            if isinstance(ccb, dict) and ccb:
+                for comp, d in ccb.items():
+                    rr = dict(d)
+                    rr["component"] = comp
+                    rr["window_label"] = w.get("window_label")
+                    rr["mode"] = w.get("mode")
+                    ccb_rows.append(rr)
+        self.opex_component_cost_breakdown_df = pd.DataFrame(ccb_rows)
+
+
+
+
+    # OPEX Dashboard
     def opex_dashboard(self, drop_zeros: bool = True, show: bool = True):
         """
         OPEX dashboard (CTMC only).

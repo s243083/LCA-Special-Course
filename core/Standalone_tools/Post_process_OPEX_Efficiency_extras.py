@@ -140,7 +140,6 @@ macro_names = sorted(macro_to_sids.keys())
 # --------------------------------------------------------------------
 farmA_by_macro = {m: [] for m in macro_names}
 L_by_macro = {m: [] for m in macro_names}  # logistics waiting hours
-W_by_macro = {m: [] for m in macro_names}  # weather waiting hours
 R_by_macro = {m: [] for m in macro_names}  # repair hours
 
 for macro, sids in macro_to_sids.items():
@@ -155,8 +154,6 @@ for macro, sids in macro_to_sids.items():
             farmA_by_macro[macro].append(farm_A)
         if np.isfinite(tot_L):
             L_by_macro[macro].append(tot_L)
-        if np.isfinite(tot_W):
-            W_by_macro[macro].append(tot_W)
         if np.isfinite(tot_R):
             R_by_macro[macro].append(tot_R)
 
@@ -166,6 +163,17 @@ for macro, sids in macro_to_sids.items():
 # --------------------------------------------------------------------
 MM_TO_INCH = 1.0 / 25.4
 FIGSIZE_IN = (200 * MM_TO_INCH, 80 * MM_TO_INCH)
+
+# Explicit, user-editable x tick labels (order must match macro_names)
+xtick_labels = [
+    "P0",
+    "P1",
+    "P2",
+    "P3",
+    "P4",
+]
+
+
 
 fig, (ax1, ax2) = plt.subplots(
     1, 2,
@@ -193,9 +201,9 @@ ax1.violinplot(
     showmedians=False,
     showextrema=True,
 )
-ax1.set_ylabel("Farm availability", fontsize=10)
+ax1.set_ylabel("Farm availability [%]", fontsize=10)
 ax1.set_xticks(pos_A)
-ax1.set_xticklabels(macro_names, fontsize=8, rotation=20, ha="right")
+ax1.set_xticklabels(xtick_labels, fontsize=8, rotation=20, ha="right")
 ax1.tick_params(axis="y", labelsize=8)
 ax1.grid(True, linestyle="--", linewidth=0.6, alpha=0.35)
 ax1.spines["top"].set_visible(False)
@@ -203,45 +211,80 @@ ax1.spines["right"].set_visible(False)
 
 # ---------------------------------------------
 # (b) Grouped violins: downtime split (hours)
+#     Logistics vs Repair only
 # ---------------------------------------------
-# For each scenario group at x=i, plot 3 violins:
-#   logistics at i - dx, weather at i, repair at i + dx
-dx = 0.22
+dx = 0.18
 positions_L = pos_A - dx
-positions_W = pos_A
 positions_R = pos_A + dx
 
 data_L = [L_by_macro[m] for m in macro_names]
-data_W = [W_by_macro[m] for m in macro_names]
 data_R = [R_by_macro[m] for m in macro_names]
 
-vL = ax2.violinplot(data_L, positions=positions_L, widths=0.18, showmeans=True, showmedians=False, showextrema=True)
-vW = ax2.violinplot(data_W, positions=positions_W, widths=0.18, showmeans=True, showmedians=False, showextrema=True)
-vR = ax2.violinplot(data_R, positions=positions_R, widths=0.18, showmeans=True, showmedians=False, showextrema=True)
+# Matplotlib default colors
+colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+color_L = colors[0]
+color_R = colors[1]
 
-# Make the three categories distinguishable without manually setting colors:
-# - Different edge styles
+vL = ax2.violinplot(
+    data_L,
+    positions=positions_L,
+    widths=0.22,
+    showmeans=True,
+    showmedians=False,
+    showextrema=True,
+)
+
+vR = ax2.violinplot(
+    data_R,
+    positions=positions_R,
+    widths=0.22,
+    showmeans=True,
+    showmedians=False,
+    showextrema=True,
+)
+
+# Style bodies
 for body in vL.get("bodies", []):
-    body.set_alpha(0.35)
-    body.set_linewidth(0.8)
-for body in vW.get("bodies", []):
-    body.set_alpha(0.35)
-    body.set_linewidth(0.8)
-for body in vR.get("bodies", []):
-    body.set_alpha(0.35)
+    body.set_facecolor(color_L)
+    body.set_edgecolor(color_L)
+    body.set_alpha(0.40)
     body.set_linewidth(0.8)
 
-ax2.set_ylabel("Total downtime [h]\n(farm-level, summed over components)", fontsize=10)
+for body in vR.get("bodies", []):
+    body.set_facecolor(color_R)
+    body.set_edgecolor(color_R)
+    body.set_alpha(0.40)
+    body.set_linewidth(0.8)
+
+ax2.set_ylabel(
+    "Total downtime [h]",
+    fontsize=10,
+)
 ax2.set_xticks(pos_A)
-ax2.set_xticklabels(macro_names, fontsize=8, rotation=20, ha="right")
+ax2.set_xticklabels(xtick_labels, fontsize=8, rotation=20, ha="right")
 ax2.tick_params(axis="y", labelsize=8)
 ax2.grid(True, linestyle="--", linewidth=0.6, alpha=0.35)
 ax2.spines["top"].set_visible(False)
 ax2.spines["right"].set_visible(False)
 
-# Simple legend (text-only, no colors assumed)
-ax2.text(0.02, 0.98, "Grouped violins:\nL = Logistics\nW = Weather\nR = Repair",
-         transform=ax2.transAxes, va="top", ha="left", fontsize=8)
+from matplotlib.patches import Patch
+
+legend_handles = [
+    Patch(facecolor=color_L, edgecolor=color_L, alpha=0.5, label="Logistics waiting"),
+    Patch(facecolor=color_R, edgecolor=color_R, alpha=0.5, label="Repair time"),
+]
+
+ax2.legend(
+    handles=legend_handles,
+    loc="upper right",
+    fontsize=8,
+    frameon=True,
+    borderpad=0.3,
+    handletextpad=0.5,
+    labelspacing=0.4,
+)
+
+
 
 # --------------------------------------------------------------------
 # 6) Save

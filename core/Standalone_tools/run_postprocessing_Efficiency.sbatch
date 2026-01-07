@@ -27,4 +27,6 @@ export OPENBLAS_NUM_THREADS=1
 export NUMEXPR_NUM_THREADS=1
 
 python -u core/Standalone_tools/Post_process_OPEX_Efficiency.py
+python -u core/Standalone_tools/Post_process_OPEX_Efficiency_extras.py
+
 

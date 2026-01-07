@@ -68,9 +68,23 @@ FILL_ALPHA = 0.20          # transparency of filled histogram
 EDGE_LW = 1.6              # outline width
 DRAW_OUTLINE = True        # outline over the fill
 USE_DENSITY = True         # True -> density; False -> counts
-FIGSIZE = (10, 6)
 DPI = 200
 
+# Plot styling
+FILL_ALPHA = 0.20
+EDGE_LW = 1.6
+DRAW_OUTLINE = True
+USE_DENSITY = True
+DPI = 200
+# --- Print layout: 100 mm x 50 mm ---
+MM_TO_INCH = 1.0 / 25.4
+FIGSIZE_100x50 = (100 * MM_TO_INCH, 50 * MM_TO_INCH)
+
+# --- Font sizes tuned for 100x50 mm ---
+FS_TITLE = 8
+FS_LABEL = 7
+FS_TICK = 6
+FS_LEGEND = 6
 
 # --------------------------------------------------------------------
 # 2) Load scenarios.json
@@ -120,9 +134,8 @@ def _scale_factor_for(values_list: List[np.ndarray], extra_points: Optional[List
     vmax = float(np.nanmax(np.array(maxima, dtype=float)))
     return 1e6 if vmax >= 1e6 else 1.0
 
-
 def _set_x_label(ax, base_label: str, scale: float) -> None:
-    ax.set_xlabel(base_label + (" [million]" if scale == 1e6 else ""))
+    ax.set_xlabel(base_label + (" [million]" if scale == 1e6 else ""), fontsize=FS_LABEL)
 
 
 def _plot_fit_curve(
@@ -310,7 +323,6 @@ equity_arrays = [macro_data[m]["npv_equity"] for m in macro_names]
 firm_arrays = [macro_data[m]["npv_firm"] for m in macro_names]
 color_cycle = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 
-
 def plot_combined(
     arrays: List[np.ndarray],
     title: str,
@@ -325,15 +337,16 @@ def plot_combined(
 
     scale = _scale_factor_for([a for _, a in nondet], extra_points=[v for _, v in det])
 
-    plt.figure(figsize=FIGSIZE)
-    ax = plt.gca()
-    _set_x_label(ax, xlabel, scale)
-    ax.set_ylabel("Density" if USE_DENSITY else "Frequency")
-    ax.set_title(title)
-    ax.grid(True, linestyle="--", alpha=0.3)
+    fig, ax = plt.subplots(figsize=FIGSIZE_100x50, dpi=DPI, constrained_layout=True)
 
+    _set_x_label(ax, xlabel, scale)
+    ax.set_ylabel("Density" if USE_DENSITY else "Frequency", fontsize=FS_LABEL)
+    #ax.set_title(title, fontsize=FS_TITLE)
+
+    ax.grid(True, linestyle="--", alpha=0.3, linewidth=0.5)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
+    ax.tick_params(axis="both", labelsize=FS_TICK)
 
     if nondet:
         pooled = np.concatenate([arr for _, arr in nondet]) / scale
@@ -343,7 +356,6 @@ def plot_combined(
             arr = arr_raw / scale
             color = color_cycle[i % len(color_cycle)]
 
-            # Filled histogram
             ax.hist(
                 arr,
                 bins=bin_edges,
@@ -354,7 +366,6 @@ def plot_combined(
                 label=macro_name,
             )
 
-            # Crisp outline
             if DRAW_OUTLINE:
                 ax.hist(
                     arr,
@@ -365,7 +376,6 @@ def plot_combined(
                     color=color,
                 )
 
-            # Optional fit curve
             if show_fits:
                 _plot_fit_curve(
                     ax=ax,
@@ -399,13 +409,21 @@ def plot_combined(
             pad = 0.05 * (x_max - x_min)
             ax.set_xlim(x_min - pad, x_max + pad)
 
+
     n_items = len(nondet) + len(det)
-    ax.legend(frameon=False, fontsize=9, ncol=2 if n_items > 6 else 1)
+    ax.legend(
+        frameon=False,
+        fontsize=FS_LEGEND,
+        ncol=2 if n_items > 6 else 1,
+        loc="upper left",
+    )
+
+
 
     out_path = RESULTS_FOLDER_FIG / out_name
-    plt.tight_layout()
-    plt.savefig(out_path, dpi=DPI)
-    plt.close()
+    fig.savefig(out_path, dpi=DPI, bbox_inches="tight")
+
+    plt.close(fig)
     print(f"Saved: {out_path}")
 
 
@@ -437,8 +455,8 @@ plot_combined(
 
 plot_combined(
     arrays=firm_arrays,
-    title="NPV (Firm)\n(all macro scenarios) — no fit",
-    xlabel="NPV (Firm) [currency]",
+    title="",
+    xlabel="NPV [€]",
     out_name="histogram_npv_firm_all_scenarios_nofit.png",
     show_fits=False,
 )

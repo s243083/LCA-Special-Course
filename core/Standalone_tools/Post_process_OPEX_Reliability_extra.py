@@ -40,12 +40,12 @@ TABLE_NAME = "valuation_metrics"
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]  # adjust if needed
 # RESULTS_FOLDER still points to results/LTE_Experiment
-RESULTS_FOLDER = PROJECT_ROOT / "results" / "OPEX_Reliability_Uncertainty"
+RESULTS_FOLDER = PROJECT_ROOT / "results" / "OPEX_Reliability"
 RESULTS_FOLDER = Path(RESULTS_FOLDER)
 assert RESULTS_FOLDER.exists(), f"Results folder not found: {RESULTS_FOLDER}"
 
 # NEW: figures go to results/Figures/Experiment
-FIG_FOLDER = PROJECT_ROOT / "results" / "Figures" / "OPEX_Reliability_Uncertainty"
+FIG_FOLDER = PROJECT_ROOT / "results" / "Figures" / "OPEX_Reliability"
 FIG_FOLDER.mkdir(parents=True, exist_ok=True)
 
 
@@ -170,64 +170,186 @@ for macro, sids in macro_to_sids.items():
 
 df_scatter = pd.DataFrame(scatter_rows)
 
+# -----------------------------
+# A4-like landscape strip: two violins side-by-side
+# Target size: 200 mm x 80 mm
+# -----------------------------
 
-# -----------------------------
-# Plot 1: Violin farm availability
-# -----------------------------
+MM_TO_INCH = 1.0 / 25.4
+FIGSIZE_IN = (200 * MM_TO_INCH, 80 * MM_TO_INCH)
+
 data1 = [farmA_by_macro[m] for m in macro_names]
-plt.figure(figsize=(11, 5), dpi=200)
-ax = plt.gca()
-parts = ax.violinplot(data1, showmeans=True, showmedians=False, showextrema=True)
-ax.set_title("Farm availability by macro scenario (violin)")
-ax.set_ylabel("Farm availability (farm_A)")
-ax.set_xticks(np.arange(1, len(macro_names) + 1))
-ax.set_xticklabels(macro_names, rotation=20, ha="right")
-ax.grid(True, linestyle="--", alpha=0.3)
-plt.tight_layout()
-plt.savefig(FIG_FOLDER / "violin_farm_availability.png")
-plt.close()
-
-
-# -----------------------------
-# Plot 2: Violin CM interventions
-# -----------------------------
 data2 = [cmint_by_macro[m] for m in macro_names]
-plt.figure(figsize=(11, 5), dpi=200)
-ax = plt.gca()
-parts = ax.violinplot(data2, showmeans=True, showmedians=False, showextrema=True)
-ax.set_title("Corrective maintenance interventions by macro scenario (violin)")
-ax.set_ylabel("CM interventions (sum N_interventions where task_type=='CM')")
-ax.set_xticks(np.arange(1, len(macro_names) + 1))
-ax.set_xticklabels(macro_names, rotation=20, ha="right")
-ax.grid(True, linestyle="--", alpha=0.3)
-plt.tight_layout()
-plt.savefig(FIG_FOLDER / "violin_cm_interventions.png")
+
+# Explicit, user-editable x tick labels
+xtick_labels = [
+    "R1",
+    "R2",
+    "R3",
+    "R0",
+]
+
+fig, (ax1, ax2) = plt.subplots(
+    1, 2,
+    figsize=FIGSIZE_IN,
+    dpi=300,
+    gridspec_kw={
+        "left": 0.08,
+        "right": 0.98,
+        "top": 0.90,
+        "bottom": 0.28,  # extra room for labels in short figure
+        "wspace": 0.30,
+    },
+)
+
+# -----------------------------
+# (a) Farm availability
+# -----------------------------
+ax1.violinplot(
+    data1,
+    showmeans=True,
+    showmedians=False,
+    showextrema=True,
+)
+
+ax1.set_ylabel("Farm availability", fontsize=10)
+ax1.set_xticks(np.arange(1, len(xtick_labels) + 1))
+ax1.set_xticklabels(xtick_labels, fontsize=9)
+ax1.tick_params(axis="y", labelsize=8)
+
+ax1.grid(True, linestyle="--", linewidth=0.6, alpha=0.35)
+ax1.spines["top"].set_visible(False)
+ax1.spines["right"].set_visible(False)
+
+# -----------------------------
+# (b) CM interventions
+# -----------------------------
+ax2.violinplot(
+    data2,
+    showmeans=True,
+    showmedians=False,
+    showextrema=True,
+)
+
+ax2.set_ylabel("CM interventions", fontsize=10)
+ax2.set_xticks(np.arange(1, len(xtick_labels) + 1))
+ax2.set_xticklabels(xtick_labels, fontsize=9)
+ax2.tick_params(axis="y", labelsize=8)
+
+ax2.grid(True, linestyle="--", linewidth=0.6, alpha=0.35)
+ax2.spines["top"].set_visible(False)
+ax2.spines["right"].set_visible(False)
+
+plt.savefig(
+    FIG_FOLDER / "violin_availability_and_cm_interventions_200x80mm.png",
+    dpi=300,
+)
 plt.close()
 
-
 # -----------------------------
-# Plot 4: Scatter NPV_firm vs total interventions (colored by macro)
+# Compact scatter: 100 x 50 mm
+#   - explicit plot order (plot_order)
+#   - independent legend order + labels (legend_order, legend_labels)
+#   - controllable dot transparency (DOT_ALPHA)
+#   - NO median annotations
 # -----------------------------
-plt.figure(figsize=(10, 6), dpi=200)
-ax = plt.gca()
+MM_TO_INCH = 1.0 / 25.4
+FIGSIZE_IN = (100 * MM_TO_INCH, 50 * MM_TO_INCH)
 
-# use matplotlib default color cycle
+DOT_ALPHA = 0.75  # <-- control transparency here (0.0..1.0)
+
+fig, ax = plt.subplots(
+    1, 1,
+    figsize=FIGSIZE_IN,
+    dpi=300,
+    gridspec_kw={
+        "left": 0.16,
+        "right": 0.98,
+        "top": 0.92,
+        "bottom": 0.32,
+    },
+)
+
+# Matplotlib default color cycle
 colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+
+# Canonical mapping: macro_names is already sorted earlier
+macro_to_r = {m: f"R{i}" for i, m in enumerate(macro_names)}  # R0, R1, ...
+r_to_macro = {r: m for m, r in macro_to_r.items()}
 macro_to_color = {m: colors[i % len(colors)] for i, m in enumerate(macro_names)}
 
-for macro in macro_names:
+# ---- USER CONTROL ----
+plot_order = ["R2", "R1", "R0", "R3"]      # controls draw order
+legend_order = [ "R0", "R1", "R2", "R3"]    # controls legend order
+
+legend_labels = {
+    "R0": "R1",
+    "R1": "R2",
+    "R2": "R3",
+    "R3": "R0",
+}
+# ----------------------
+
+# Plot points in explicit order; keep a handle per scenario for legend
+handles_by_r = {}
+
+for r_id in plot_order:
+    macro = r_to_macro.get(r_id)
+    if macro is None:
+        continue
+
     dd = df_scatter.loc[df_scatter["macro"] == macro]
     if dd.empty:
         continue
-    ax.scatter(dd["total_interventions"], dd["npv_firm"], label=macro, alpha=0.75)
 
-ax.set_title("NPV (firm) vs total interventions")
-ax.set_xlabel("Total interventions (sum N_interventions)")
-ax.set_ylabel("NPV_firm [currency]")
-ax.grid(True, linestyle="--", alpha=0.3)
-ax.legend(frameon=False, fontsize=9, ncol=2 if len(macro_names) > 6 else 1)
-plt.tight_layout()
-plt.savefig(FIG_FOLDER / "scatter_npv_firm_vs_total_interventions.png")
+    h = ax.scatter(
+        dd["total_interventions"],
+        dd["npv_firm"],
+        s=18,
+        alpha=DOT_ALPHA,
+        color=macro_to_color[macro],
+        edgecolors="none",
+        zorder=10,
+    )
+    handles_by_r[r_id] = h
+
+ax.set_xlabel("Total interventions", fontsize=8)
+ax.set_ylabel("NPV_firm [€]", fontsize=8)
+
+ax.tick_params(axis="both", labelsize=7)
+ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.35)
+
+ax.spines["top"].set_visible(False)
+ax.spines["right"].set_visible(False)
+
+# Legend in explicit order, with explicit labels
+legend_handles = []
+legend_texts = []
+for r_id in legend_order:
+    h = handles_by_r.get(r_id)
+    if h is None:
+        continue
+    legend_handles.append(h)
+    legend_texts.append(legend_labels.get(r_id, r_id))
+
+ax.legend(
+    handles=legend_handles,
+    labels=legend_texts,
+    loc="upper right",
+    fontsize=7,
+    frameon=True,
+    borderpad=0.3,
+    handletextpad=0.4,
+    labelspacing=0.3,
+)
+
+plt.savefig(
+    FIG_FOLDER / "scatter_npv_firm_vs_total_interventions_100x50mm.png",
+    dpi=300,
+)
 plt.close()
 
-print("Saved plots to:", FIG_FOLDER)
+
+
+
+print("Saved plot to:", FIG_FOLDER)

@@ -87,7 +87,7 @@ def main() -> int:
             0.00,  # Reference
             0.20,  # R1 -- Low epistemic uncertainty
             0.50,  # R2 -- Mid epistemic uncertainty
-            0.80,  # R3 -- High epistemic uncertainty
+            1.40,  # R3 -- High epistemic uncertainty
         ],
 
         # Ensure process uncertainty is OFF for this experiment (optional but keeps it “pure”)
@@ -103,10 +103,10 @@ def main() -> int:
 
         # Labels
         "Scenario.name": [
-            "Reference (CV=0.00)",
-            "R1 – Low epistemic (CV=0.15)",
-            "R2 – Mid epistemic (CV=0.30)",
-            "R3 – High epistemic (CV=0.60)",
+            "Reference",
+            "R1",
+            "R2",
+            "R3",
         ],
     }
 
@@ -146,7 +146,7 @@ def main() -> int:
 
         # “replicates” here is what drives repeated draws of the uncertain lambda
         # (i.e., repeated epistemic realisations).
-        replicates=500,
+        replicates=1000,
 
         name="OPEX_Reliability",
         result_directory=str(RESULT_DIR),

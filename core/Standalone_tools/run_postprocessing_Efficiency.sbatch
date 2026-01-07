@@ -4,7 +4,7 @@
 #SBATCH --time=24:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=32
+#SBATCH --cpus-per-task=8
 #SBATCH --mem=0
 #SBATCH --chdir=/work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact
 #SBATCH --output=/work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/logs/%x_%j.out

@@ -1,0 +1,4 @@
+Running on sn059.hpc.ait.dtu.dk
+Target: /work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/results/OPEX_Efficiency
+Deleting...
+rm: cannot remove ‘/work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/results/OPEX_Efficiency’: Directory not empty

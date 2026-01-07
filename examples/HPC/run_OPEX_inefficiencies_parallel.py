@@ -83,6 +83,11 @@ def main() -> int:
             1.00, 0.90, 1.00, 1.05, 1.10
         ],
 
+        "OPEX_overrides.parameters.analytic_ctmc.uncertainty.flag_apply_process": [
+            False, True, True, True, True
+        ],  
+
+
         # Uncertainty
         # Failure-rate uncertainty disabled (fixed baseline failure rates)
         "OPEX_overrides.parameters.analytic_ctmc.uncertainty.lamda_sigma": [
@@ -114,6 +119,7 @@ def main() -> int:
             "OPEX_overrides.parameters.analytic_ctmc.mean_shift.mttr_factor",
             "OPEX_overrides.parameters.analytic_ctmc.mean_shift.mttwL_factor",
             "OPEX_overrides.parameters.analytic_ctmc.mean_shift.p_access_factor",
+            "OPEX_overrides.parameters.analytic_ctmc.uncertainty.flag_apply_process",
             # uncertainties
             "OPEX_overrides.parameters.analytic_ctmc.uncertainty.lamda_sigma",
             "OPEX_overrides.parameters.analytic_ctmc.uncertainty.mttr_sigma",

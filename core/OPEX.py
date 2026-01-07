@@ -1075,11 +1075,28 @@ class OPEX:
         component_A: Dict[str, float] = {}
         downtime_h: Dict[str, float] = {}
 
+        # NEW: downtime split containers (define ONCE, outside loop)
+        downtime_logistics_h: Dict[str, float] = {}
+        downtime_weather_h: Dict[str, float] = {}
+        downtime_repair_h: Dict[str, float] = {}
+
+        downtime_logistics_fraction: Dict[str, float] = {}
+        downtime_weather_fraction: Dict[str, float] = {}
+        downtime_repair_fraction: Dict[str, float] = {}
+
         for comp, specs_list in comp_to_specs.items():
             n_modes = len(specs_list)
             if n_modes == 0:
                 component_A[comp] = 1.0
                 downtime_h[comp] = 0.0
+
+                downtime_logistics_fraction[comp] = 0.0
+                downtime_weather_fraction[comp] = 0.0
+                downtime_repair_fraction[comp] = 0.0
+
+                downtime_logistics_h[comp] = 0.0
+                downtime_weather_h[comp] = 0.0
+                downtime_repair_h[comp] = 0.0
                 continue
 
             # Explicit CTMC structure (with separate logistics & weather waiting):
@@ -1088,12 +1105,6 @@ class OPEX:
             #   state 3*k+1    = WL_k  (waiting for logistics for mode k)
             #   state 3*k+2    = WW_k  (logistics ready, waiting for weather)
             #   state 3*k+3    = R_k   (under repair / service)
-            #
-            # Transitions per mode i:
-            #   0      --lambda_i--> WL_i
-            #   WL_i   --mu_L(i)-->  WW_i
-            #   WW_i   --mu_A(i)-->  R_i
-            #   R_i    --mu_R(i)-->  0
             #
             n_states = 1 + 3 * n_modes
             Q = np.zeros((n_states, n_states), dtype=float)
@@ -1104,19 +1115,14 @@ class OPEX:
             mu_Rs: List[float] = []
 
             for local_idx, s in enumerate(specs_list):
-                # indices for WL, WW and R states of this mode
-                iWL = 3 * local_idx + 1  # logistic waiting
-                iWW = 3 * local_idx + 2  # weather waiting
-                iR  = 3 * local_idx + 3  # repair
+                iWL = 3 * local_idx + 1
+                iWW = 3 * local_idx + 2
+                iR  = 3 * local_idx + 3
 
                 key = (s.component, str(s.mode_id))
                 ap = access.get(key)
 
-                # default: no dynamics if profile missing
-                lam = 0.0
-                mu_L = 0.0
-                mu_A = 0.0
-                mu_R = 0.0
+                lam = mu_L = mu_A = mu_R = 0.0
 
                 if ap is not None:
                     # failure / PM rate from UP to WL
@@ -1127,10 +1133,8 @@ class OPEX:
 
                     # logistics rate from WL to WW
                     mu_L = ap.mu_L_per_h if ap.mu_L_per_h > 0 else 0.0
-
                     # access rate from WW to R (weather window)
                     mu_A = ap.mu_A_per_h if ap.mu_A_per_h > 0 else 0.0
-
                     # repair rate from R to UP
                     mu_R = ap.mu_R_per_h if ap.mu_R_per_h > 0 else 0.0
 
@@ -1139,25 +1143,25 @@ class OPEX:
                 mu_As.append(mu_A)
                 mu_Rs.append(mu_R)
 
-                # 0 -> iWL (UP to logistic waiting)
+                # 0 -> WL
                 Q[0, iWL] += lam
                 Q[0, 0]   -= lam
 
-                # iWL -> iWW (logistics to weather waiting)
+                # WL -> WW
                 Q[iWL, iWW] += mu_L
                 Q[iWL, iWL] -= mu_L
 
-                # iWW -> iR (weather waiting to repair)
+                # WW -> R
                 Q[iWW, iR] += mu_A
                 Q[iWW, iWW] -= mu_A
 
-                # iR -> 0 (repair to UP)
+                # R -> 0
                 Q[iR, 0] += mu_R
                 Q[iR, iR] -= mu_R
 
             total_lambda = sum(lambdas)
 
-            # handle degenerate case: no failures and no progress
+            # degenerate case: no failures / PM and no progress
             if (
                 total_lambda == 0.0
                 and all(mu == 0.0 for mu in mu_Ls)
@@ -1165,30 +1169,70 @@ class OPEX:
                 and all(mu == 0.0 for mu in mu_Rs)
             ):
                 A_comp = 1.0
+
+                downtime_logistics_fraction[comp] = 0.0
+                downtime_weather_fraction[comp] = 0.0
+                downtime_repair_fraction[comp] = 0.0
+
+                downtime_logistics_h[comp] = 0.0
+                downtime_weather_h[comp] = 0.0
+                downtime_repair_h[comp] = 0.0
+
             else:
                 # solve steady state: pi Q = 0, sum(pi) = 1
                 A_mat = Q.T.copy()
                 b_vec = np.zeros(n_states)
-                # replace last equation by normalization
                 A_mat[-1, :] = 1.0
                 b_vec[-1] = 1.0
+
                 try:
                     pi = np.linalg.solve(A_mat, b_vec)
-                    # numerical guard
                     pi = np.maximum(pi, 0.0)
                     s_sum = pi.sum()
                     if s_sum > 0:
                         pi /= s_sum
-                    # availability = probability of being in UP state (0)
+
+                    # availability
                     A_comp = float(pi[0])
+
+                    # downtime fractions by state group
+                    wl_idx = []
+                    ww_idx = []
+                    r_idx  = []
+
+                    for local_idx in range(n_modes):
+                        iWL = 3 * local_idx + 1
+                        iWW = 3 * local_idx + 2
+                        iR  = 3 * local_idx + 3
+                        if iWL < len(pi): wl_idx.append(iWL)
+                        if iWW < len(pi): ww_idx.append(iWW)
+                        if iR  < len(pi): r_idx.append(iR)
+
+                    wl_frac = float(pi[wl_idx].sum()) if wl_idx else 0.0
+                    ww_frac = float(pi[ww_idx].sum()) if ww_idx else 0.0
+                    r_frac  = float(pi[r_idx].sum())  if r_idx  else 0.0
+
+                    downtime_logistics_fraction[comp] = wl_frac
+                    downtime_weather_fraction[comp]   = ww_frac
+                    downtime_repair_fraction[comp]    = r_frac
+
+                    downtime_logistics_h[comp] = wl_frac * T_h * n_turbines
+                    downtime_weather_h[comp]   = ww_frac * T_h * n_turbines
+                    downtime_repair_h[comp]    = r_frac  * T_h * n_turbines
+
                 except np.linalg.LinAlgError:
-                    # fallback if something goes wrong
                     A_comp = 1.0
+
+                    downtime_logistics_fraction[comp] = 0.0
+                    downtime_weather_fraction[comp] = 0.0
+                    downtime_repair_fraction[comp] = 0.0
+
+                    downtime_logistics_h[comp] = 0.0
+                    downtime_weather_h[comp] = 0.0
+                    downtime_repair_h[comp] = 0.0
 
             component_A[comp] = A_comp
             downtime_h[comp] = (1.0 - A_comp) * T_h * n_turbines
-
-
 
         # --------------------------------------------------------------------------
         # 3) TURBINE / FARM AVAILABILITY (still series over components)
@@ -1279,6 +1323,15 @@ class OPEX:
                 "op_end_ts": op_end_ts,
                 "n_months": len(idx),
             },
+        }
+
+        extras["downtime_breakdown"] = {
+            "logistics_h": downtime_logistics_h,
+            "weather_h": downtime_weather_h,
+            "repair_h": downtime_repair_h,
+            "logistics_fraction": downtime_logistics_fraction,
+            "weather_fraction": downtime_weather_fraction,
+            "repair_fraction": downtime_repair_fraction,
         }
 
         return opex_df, extras
@@ -1788,6 +1841,7 @@ class OPEX:
             self.opex_component_cost_breakdown_df = pd.DataFrame()
             self.opex_availability_profile_df = pd.DataFrame()
             self.opex_activity_log_df = pd.DataFrame()
+            self.opex_downtime_breakdown_df = pd.DataFrame()
             return
 
         windows = ex.get("windows", []) or []
@@ -1857,6 +1911,58 @@ class OPEX:
                     rr["mode"] = w.get("mode")
                     ccb_rows.append(rr)
         self.opex_component_cost_breakdown_df = pd.DataFrame(ccb_rows)
+
+        # --- 4b) downtime_breakdown: dict-of-dicts-of-floats (per component) ---
+        db_rows = []
+        for w in windows:
+            db = w.get("downtime_breakdown")
+            if not isinstance(db, dict):
+                continue
+
+            # window parsing (same pattern as above)
+            ww = w.get("window", None)
+            if isinstance(ww, (list, tuple)) and len(ww) == 2:
+                w0, w1 = ww
+            else:
+                w0, w1 = None, None
+
+            # pull maps (may be missing)
+            Lh = db.get("logistics_h", {}) or {}
+            Wh = db.get("weather_h", {}) or {}
+            Rh = db.get("repair_h", {}) or {}
+
+            Lf = db.get("logistics_fraction", {}) or {}
+            Wf = db.get("weather_fraction", {}) or {}
+            Rf = db.get("repair_fraction", {}) or {}
+
+            # union of components present in any map
+            comps = set()
+            for m in (Lh, Wh, Rh, Lf, Wf, Rf):
+                if isinstance(m, dict):
+                    comps.update(m.keys())
+
+            for comp in sorted(comps):
+                db_rows.append({
+                    "mode": w.get("mode"),
+                    "window_label": w.get("window_label"),
+                    "window_start": pd.to_datetime(w0) if w0 is not None else pd.NaT,
+                    "window_end":   pd.to_datetime(w1) if w1 is not None else pd.NaT,
+                    "component": comp,
+
+                    "logistics_h": float(Lh.get(comp, np.nan)) if isinstance(Lh, dict) else np.nan,
+                    "weather_h":   float(Wh.get(comp, np.nan)) if isinstance(Wh, dict) else np.nan,
+                    "repair_h":    float(Rh.get(comp, np.nan)) if isinstance(Rh, dict) else np.nan,
+
+                    "logistics_fraction": float(Lf.get(comp, np.nan)) if isinstance(Lf, dict) else np.nan,
+                    "weather_fraction":   float(Wf.get(comp, np.nan)) if isinstance(Wf, dict) else np.nan,
+                    "repair_fraction":    float(Rf.get(comp, np.nan)) if isinstance(Rf, dict) else np.nan,
+                })
+
+        self.opex_downtime_breakdown_df = pd.DataFrame(db_rows)
+
+
+
+
 
         # --- 5) stitched frames for saving ---
         ap = ex.get("availability_profile")

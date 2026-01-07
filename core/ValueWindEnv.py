@@ -147,9 +147,11 @@ class ValueWindEnv():
                     "opex_breakdown": "opex.opex_breakdown_df",
                     "opex_mode_cost_breakdown": "opex.opex_mode_cost_breakdown_df",
                     "opex_component_cost_breakdown": "opex.opex_component_cost_breakdown_df",
+                    "opex_component_downtime_breakdown": "opex.opex_downtime_breakdown_df",
                     # stitched frames already exist in extras container if you prefer:
                     "opex_availability_profile": "opex.availability_profile", 
                     "opex_activity_log": "opex.activity_log",
+
 
 
                 }

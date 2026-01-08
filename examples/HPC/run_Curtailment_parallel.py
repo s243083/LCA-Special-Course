@@ -47,44 +47,57 @@ def main() -> int:
     # Toggle which modules to run, dashboards, result collection, etc.
     # (Adjust flags / keys to match your setup if they differ.)
     sim_cfg = {
-        "run_marketenv": True,
-        "run_metenv": False,
-        "run_capex": True,
-        "capex_dashboard": False,
-        "run_curtailment": True,
-        "run_opex": True,
-        "opex_dashboard": False,
-        "run_lifetime_extension": False,
-        "run_revenue": True,
-        "run_valuation": True,
-        "valuation_dashboard": False,
-        "collect_results": True,
-    }
+            "run_marketenv": True,
+            "run_metenv": False,
+            "run_capex": True,
+            "capex_dashboard": False,
+            "run_curtailment": True,
+            "run_opex": True,
+            "opex_dashboard": False,
+            "run_lifetime_extension": False,
+            "run_revenue": True,
+            "run_valuation": True,
+            "valuation_dashboard": False,
+            "collect_results": True,
+        }
 
     parameter_space = {
-        # Explicit uncertainty activation (no implicit defaults)
-        # If you'd prefer C0 (no curtailment) to be fully deterministic, set the first entries to False.
-        "Curtailment_overrides.curt_input.Curtailment.reduceProduction.apply_epistemic_uncertainty": (
-            False,  # C0
-            True,  # C1
-            True,  # C2
-            True,  # C3
-            True,  # C4
-            True,  # C5
-        ),
-        "Curtailment_overrides.curt_input.Curtailment.reduceProduction.apply_aleatory_uncertainty": (
-            False,  # C0
-            True,  # C1
-            True,  # C2
-            True,  # C3
-            True,  # C4
-            True,  # C5
+        # -------------------------------
+        # High-level curtailment switch
+        # -------------------------------
+        "Curtailment_overrides.curt_input.Curtailment.apply_curtailment": (
+            False,  # C0 — Reference (no curtailment at all)
+            True,   # C1
+            True,   # C2
+            True,   # C3
+            True,   # C4
+            True,   # C5
         ),
 
-        # IMPORTANT: use tuples (hashable), not lists (unhashable)
-        # Table mapping:
-        # - gamma_shape  -> alpha range [min, max]
-        # - gamma_scale  -> theta range [min, max]
+        # -------------------------------
+        # Explicit uncertainty activation
+        # -------------------------------
+        "Curtailment_overrides.curt_input.Curtailment.reduceProduction.apply_epistemic_uncertainty": (
+            False,  # C0
+            True,   # C1
+            True,   # C2
+            True,   # C3
+            True,   # C4
+            True,   # C5
+        ),
+
+        "Curtailment_overrides.curt_input.Curtailment.reduceProduction.apply_aleatory_uncertainty": (
+            False,  # C0
+            True,   # C1
+            True,   # C2
+            True,   # C3
+            True,   # C4
+            True,   # C5
+        ),
+
+        # -------------------------------
+        # Gamma parameters (fractions)
+        # -------------------------------
         "Curtailment_overrides.curt_input.Curtailment.reduceProduction.gamma_shape": (
             (1.0, 1.0),        # C0 — Reference
             (0.414, 0.506),    # C1 — Low transmission constraints
@@ -102,6 +115,10 @@ def main() -> int:
             (0.04653, 0.05687),             # C4 — 4.653–5.687 %
             (0.01620, 0.01980),             # C5 — 1.62–1.98 %
         ),
+
+        # -------------------------------
+        # Scenario names
+        # -------------------------------
         "Scenario.name": (
             "C0 — Reference (no curtailment)",
             "C1 — Low transmission constraints",
@@ -114,6 +131,7 @@ def main() -> int:
 
     zip_groups = {
         "curtailment_scenarios": [
+            "Curtailment_overrides.curt_input.Curtailment.apply_curtailment",
             "Curtailment_overrides.curt_input.Curtailment.reduceProduction.apply_epistemic_uncertainty",
             "Curtailment_overrides.curt_input.Curtailment.reduceProduction.apply_aleatory_uncertainty",
             "Curtailment_overrides.curt_input.Curtailment.reduceProduction.gamma_shape",

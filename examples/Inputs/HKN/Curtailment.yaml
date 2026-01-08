@@ -1,6 +1,7 @@
 Curtailment:
   mode: reduceProduction
   timestamp_col: timestamp
+  apply_Curtailment: True
 
   reduceProduction:
     apply_epistemic_uncertainty: True

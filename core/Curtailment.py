@@ -68,6 +68,23 @@ class Curtailment:
         """
         Apply curtailment according to YAML mode. Mutates env.windFarm.power_records in-place.
         """
+
+        # -----------------------------
+        # High-level bypass flag
+        # -----------------------------
+        apply_curtailment = bool(
+            get_input_parameter(self.curt_input, "Curtailment", "apply_curtailment")
+            if get_input_parameter(self.curt_input, "Curtailment", "apply_curtailment") is not None
+            else False
+        )
+
+        if not apply_curtailment:
+            # Explicitly record "no curtailment applied" and exit
+            self.curtailment_records = pd.DataFrame(
+                columns=["month", "curtailment_fraction", "multiplier"]
+            )
+            return
+
         mode = str(get_input_parameter(self.curt_input, "Curtailment", "mode") or "").strip()
 
         if mode == "" or mode.lower() == "none":

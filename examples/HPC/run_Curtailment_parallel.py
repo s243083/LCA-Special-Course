@@ -54,7 +54,7 @@ def main() -> int:
         "run_curtailment": True,
         "run_opex": True,
         "opex_dashboard": False,
-        "run_lifetime_extension": True,
+        "run_lifetime_extension": False,
         "run_revenue": True,
         "run_valuation": True,
         "valuation_dashboard": False,

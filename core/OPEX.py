@@ -551,12 +551,21 @@ class OPEX:
 
     def _apply_process_uncertainty_lognormal(self, specs, rng):
         cfg = get_input_parameter(self.parameters, "analytic_ctmc", "uncertainty") or {}
-        mttr_sigma = float(cfg.get("mttr_sigma", 0.0))
+        mttr_sigma  = float(cfg.get("mttr_sigma", 0.0))
         mttwL_sigma = float(cfg.get("mttwL_sigma", 0.0))
+        anchor = str(cfg.get("process_anchor", "mean")).lower()
+
+        def mu_for_anchor(sig: float) -> float:
+            if anchor == "mean":
+                return -0.5 * sig * sig   # E[f]=1
+            elif anchor == "median":
+                return 0.0                # median(f)=1
+            else:
+                raise ValueError(f"Unknown process_anchor={anchor!r}")
 
         for s in specs:
             if mttr_sigma > 0.0 and s.MTTR_h > 0.0:
-                mu = -0.5 * (mttr_sigma ** 2)
+                mu = mu_for_anchor(mttr_sigma)
                 f = rng.lognormal(mean=mu, sigma=mttr_sigma)
                 s.MTTR_h *= f
                 if s.labour_h > 0.0:
@@ -568,21 +577,26 @@ class OPEX:
                 and math.isfinite(s.MTTW_L_h)
                 and s.MTTW_L_h > 0.0
             ):
-                mu = -0.5 * (mttwL_sigma ** 2)
+                mu = mu_for_anchor(mttwL_sigma)
                 f = rng.lognormal(mean=mu, sigma=mttwL_sigma)
                 s.MTTW_L_h *= f
 
 
+    @staticmethod
+    def _gamma_unit_median_approx(k: float) -> float:
+        # Wilson–Hilferty-like approximation
+        k = max(k, 1e-9)
+        return k * (1.0 - 1.0/(9.0*k))**3
+
     def _apply_epistemic_uncertainty_failure_rates_gamma(self, specs, rng):
         cfg = get_input_parameter(self.parameters, "analytic_ctmc", "uncertainty") or {}
-        # new config key (example): lambda_gamma_cv
         cv = float(cfg.get("lambda_gamma_cv", 0.0))
+        anchor = str(cfg.get("process_anchor", "mean")).lower()
 
         if cv <= 0.0:
             return
 
-        cv = max(1e-6, cv)
-        k = 1.0 / (cv * cv)  # shape
+        k = 1.0 / max(1e-12, cv*cv)
 
         for s in specs:
             if s.task_type != "CM":
@@ -591,7 +605,14 @@ class OPEX:
             if lam0 <= 0.0:
                 continue
 
-            theta = lam0 / k  # scale so mean is lam0
+            if anchor == "mean":
+                theta = lam0 / k
+            elif anchor == "median":
+                m1 = self._gamma_unit_median_approx(k)
+                theta = lam0 / max(m1, 1e-18)
+            else:
+                raise ValueError(f"Unknown lambda_gamma_anchor={anchor!r}")
+
             s.lambda_per_h = rng.gamma(shape=k, scale=theta)
 
 

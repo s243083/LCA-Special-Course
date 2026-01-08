@@ -15,10 +15,12 @@ OM_Process:
     uncertainty:
       # --- Epistemic uncertainty on failure rates (CM only) ---
       flag_apply_epistemic_lambda: false
+      process_anchor: "median"  # "median" or "mean", this controls if the mean or median of the gamma is preserved when applying lambda_gamma_cv
       lambda_gamma_cv: 0.30   # coefficient of variation of λ
 
       # --- Process uncertainty on durations / waits ---
       flag_apply_process: false
+      process_anchor: "median"  # "median" or "mean", this controls if the mean or median of the lognormal is preserved when applying the sigmas
       mttr_sigma: 0.20        # lognormal sigma for MTTR
       mttwL_sigma: 0.20       # lognormal sigma for MTTW_L
 

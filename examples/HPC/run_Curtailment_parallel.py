@@ -44,48 +44,71 @@ def main() -> int:
 
     RESULT_DIR.mkdir(parents=True, exist_ok=True)
 
-    # ---------------------------------------------------------------------
-    # Simulation config (as provided)
-    # ---------------------------------------------------------------------
+    # Toggle which modules to run, dashboards, result collection, etc.
+    # (Adjust flags / keys to match your setup if they differ.)
     sim_cfg = {
         "run_marketenv": True,
         "run_metenv": False,
         "run_capex": True,
         "capex_dashboard": False,
+        "run_curtailment": True,
         "run_opex": True,
         "opex_dashboard": False,
         "run_lifetime_extension": True,
         "run_revenue": True,
         "run_valuation": True,
-        "valuation_dashboard": True,
+        "valuation_dashboard": False,
         "collect_results": True,
     }
 
-    # ---------------------------------------------------------------------
-    # Parameter sweep (Curtailment uncertainty scenarios)
-    # NOTE: keep tuples (hashable) for gamma_shape/gamma_scale as in your script
-    # ---------------------------------------------------------------------
     parameter_space = {
+        # Explicit uncertainty activation (no implicit defaults)
+        # If you'd prefer C0 (no curtailment) to be fully deterministic, set the first entries to False.
         "Curtailment_overrides.curt_input.Curtailment.reduceProduction.apply_epistemic_uncertainty": (
-            True, True, True
+            False,  # C0
+            True,  # C1
+            True,  # C2
+            True,  # C3
+            True,  # C4
+            True,  # C5
         ),
         "Curtailment_overrides.curt_input.Curtailment.reduceProduction.apply_aleatory_uncertainty": (
-            True, True, True
+            False,  # C0
+            True,  # C1
+            True,  # C2
+            True,  # C3
+            True,  # C4
+            True,  # C5
         ),
+
+        # IMPORTANT: use tuples (hashable), not lists (unhashable)
+        # Table mapping:
+        # - gamma_shape  -> alpha range [min, max]
+        # - gamma_scale  -> theta range [min, max]
         "Curtailment_overrides.curt_input.Curtailment.reduceProduction.gamma_shape": (
-            (0.3, 1.0),   # C0 – Low
-            (1.5, 3.5),   # C1 – Mid
-            (4.5, 7.0),   # C2 – High
+            (1.0, 1.0),        # C0 — Reference
+            (0.414, 0.506),    # C1 — Low transmission constraints
+            (0.747, 0.913),    # C2 — Medium transmission constraints
+            (1.395, 1.705),    # C3 — High transmission constraints
+            (0.567, 0.693),    # C4 — Very high market curtailment
+            (0.351, 0.429),    # C5 — Storage solutions
         ),
+
         "Curtailment_overrides.curt_input.Curtailment.reduceProduction.gamma_scale": (
-            (0.02, 0.08),   # C0 – Low
-            (0.015, 0.05),  # C1 – Mid
-            (0.008, 0.025), # C2 – High
+            (0.0, 0.0),                    # C0 — Reference
+            (0.01503, 0.01837),             # C1 — 1.503–1.837 %
+            (0.04014, 0.04906),             # C2 — 4.014–4.906 %
+            (0.05994, 0.07326),             # C3 — 5.994–7.326 %
+            (0.04653, 0.05687),             # C4 — 4.653–5.687 %
+            (0.01620, 0.01980),             # C5 — 1.62–1.98 %
         ),
         "Scenario.name": (
-            "C0 – Low curtailment (integrated grid)",
-            "C1 – Mid curtailment (reference)",
-            "C2 – High curtailment (bottlenecked grid)",
+            "C0 — Reference (no curtailment)",
+            "C1 — Low transmission constraints",
+            "C2 — Medium transmission constraints",
+            "C3 — High transmission constraints",
+            "C4 — Very high market curtailment occurrence",
+            "C5 — Storage solutions development",
         ),
     }
 
@@ -120,8 +143,8 @@ def main() -> int:
         simulation_config=sim_cfg,
         parameter_space=parameter_space,
         base_seed=42,
-        replicates=10,
-        name="Curtailment_Uncertainty",
+        replicates=1000,
+        name="Curtailment",
         result_directory=str(RESULT_DIR),
         zip_groups=zip_groups,
         execution={"backend": "process", "n_jobs": n_jobs},

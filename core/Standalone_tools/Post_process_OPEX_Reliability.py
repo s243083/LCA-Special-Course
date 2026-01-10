@@ -63,7 +63,7 @@ DET_ATOL = 1e-12
 DET_RTOL = 1e-10
 
 # Histogram binning
-N_BINS = 90        # increase for finer bins (e.g. 50–150)
+N_BINS = 90      # increase for finer bins (e.g. 50–150)
 MIN_BINS = 10      # minimum bin count when there are enough samples
 
 # Plot styling
@@ -404,6 +404,9 @@ def plot_two_panel(
 
     axL.set_title(left_title, fontsize=FS_TITLE)
     axR.set_title(right_title, fontsize=FS_TITLE)
+
+    axL.set_xlim(-500, 1500)   # million €
+    axR.set_xlim(0.0, 3000)    # million €
 
     # ---------------- Left panel ----------------
     scale_L = _scale_factor_for([a for _, a in nondet_L], extra_points=[v for _, v in det_L])

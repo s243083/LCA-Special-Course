@@ -36,7 +36,7 @@ from plotly.subplots import make_subplots
 
 from dataclasses import asdict, is_dataclass
 
-
+from scipy.stats import gamma as gamma_dist
 
 
 # -----------------------------------------------------------------------------
@@ -543,7 +543,8 @@ class OPEX:
         cfg = get_input_parameter(self.parameters, "analytic_ctmc", "uncertainty") or {}
 
         if bool(cfg.get("flag_apply_epistemic_lambda", False)):
-            self._apply_epistemic_uncertainty_failure_rates_gamma(specs, rng)
+            #self._apply_epistemic_uncertainty_failure_rates_gamma(specs, rng)
+            self._apply_epistemic_uncertainty_failure_rates_gamma_shared(specs, rng)
 
         if bool(cfg.get("flag_apply_process", False)):
             self._apply_process_uncertainty_lognormal(specs, rng)
@@ -583,10 +584,9 @@ class OPEX:
 
 
     @staticmethod
-    def _gamma_unit_median_approx(k: float) -> float:
-        # Wilson–Hilferty-like approximation
-        k = max(k, 1e-9)
-        return k * (1.0 - 1.0/(9.0*k))**3
+    def _gamma_unit_median(k: float) -> float:
+        k = max(float(k), 1e-12)
+        return float(gamma_dist.ppf(0.5, a=k, scale=1.0))
 
     def _apply_epistemic_uncertainty_failure_rates_gamma(self, specs, rng):
         cfg = get_input_parameter(self.parameters, "analytic_ctmc", "uncertainty") or {}
@@ -608,12 +608,65 @@ class OPEX:
             if anchor == "mean":
                 theta = lam0 / k
             elif anchor == "median":
-                m1 = self._gamma_unit_median_approx(k)
+                m1 = self._gamma_unit_median(k)
                 theta = lam0 / max(m1, 1e-18)
             else:
                 raise ValueError(f"Unknown lambda_gamma_anchor={anchor!r}")
 
             s.lambda_per_h = rng.gamma(shape=k, scale=theta)
+
+    def _apply_epistemic_uncertainty_failure_rates_gamma_shared(self, specs, rng):
+        """
+        Apply a SINGLE shared epistemic Gamma factor F to all CM failure rates.
+
+        If a cap quantile is used (here 0.90), we do NOT winsorize (min),
+        but instead sample from the Gamma distribution CONDITIONED on F <= F_cap,
+        i.e. a truncated/conditioned Gamma. This avoids a point-mass spike at the cap.
+        """
+        cfg = get_input_parameter(self.parameters, "analytic_ctmc", "uncertainty") or {}
+        cv = float(cfg.get("lambda_gamma_cv", 0.0))
+        anchor = str(cfg.get("process_anchor", "mean")).lower()
+
+        if cv <= 0.0:
+            return
+
+        # Gamma shape from CV
+        k = 1.0 / max(1e-12, cv * cv)
+
+        # Determine scale so anchor statistic = 1 for the *unconditioned* Gamma
+        if anchor == "mean":
+            theta = 1.0 / k                      # mean(F)=1
+        elif anchor == "median":
+            m1 = gamma_dist.ppf(0.5, a=k, scale=1.0)
+            theta = 1.0 / max(m1, 1e-18)         # median(F)=1
+        else:
+            raise ValueError(f"Unknown lambda_gamma_anchor={anchor!r}")
+
+        # --- CONDITIONED / TRUNCATED GAMMA SAMPLING ---
+        # Cap quantile (90% here; rename var if you prefer)
+        q_cap = 0.90
+        F_cap = float(gamma_dist.ppf(q_cap, a=k, scale=theta))
+
+        # Rejection sampling: draw from Gamma until F <= F_cap
+        # Acceptance probability is q_cap (e.g. 0.90), so this is fast.
+        max_tries = 10_000  # safety guard (should never hit for reasonable q_cap)
+        F = None
+        for _ in range(max_tries):
+            x = float(rng.gamma(shape=k, scale=theta))
+            if x <= F_cap:
+                F = x
+                break
+        if F is None:
+            # Extremely unlikely fallback: just use the cap (but this should never happen)
+            F = F_cap
+
+        # Apply to all CM failure rates
+        for s in specs:
+            if s.task_type != "CM":
+                continue
+            if s.lambda_per_h <= 0.0:
+                continue
+            s.lambda_per_h *= F
 
 
 

@@ -146,7 +146,7 @@ def main() -> int:
 
         # “replicates” here is what drives repeated draws of the uncertain lambda
         # (i.e., repeated epistemic realisations).
-        replicates=1000,
+        replicates=5000,
 
         name="OPEX_Reliability",
         result_directory=str(RESULT_DIR),

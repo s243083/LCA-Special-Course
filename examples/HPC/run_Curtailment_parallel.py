@@ -103,8 +103,8 @@ def main() -> int:
             (0.414, 0.506),    # C1 — Low transmission constraints
             (0.747, 0.913),    # C2 — Medium transmission constraints
             (1.395, 1.705),    # C3 — High transmission constraints
-            (0.567, 0.693),    # C4 — Very high market curtailment
-            (0.351, 0.429),    # C5 — Storage solutions
+            (1.438, 1.758),    # C4 — Very high market curtailment
+            (2.331, 2.850),    # C5 — Storage solutions
         ),
 
         "Curtailment_overrides.curt_input.Curtailment.reduceProduction.gamma_scale": (
@@ -112,8 +112,8 @@ def main() -> int:
             (0.01503, 0.01837),             # C1 — 1.503–1.837 %
             (0.04014, 0.04906),             # C2 — 4.014–4.906 %
             (0.05994, 0.07326),             # C3 — 5.994–7.326 %
-            (0.04653, 0.05687),             # C4 — 4.653–5.687 %
-            (0.01620, 0.01980),             # C5 — 1.62–1.98 %
+            (0.04648, 0.05681),             # C4 — 4.653–5.687 %
+            (0.01623, 0.01984),             # C5 — 1.62–1.98 %
         ),
 
         # -------------------------------

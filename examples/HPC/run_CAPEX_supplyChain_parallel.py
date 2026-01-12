@@ -93,21 +93,21 @@ def main() -> int:
             "Global Escalation",
         ],
 
-        "FINEX_overrides.WACC.flag_fixed_WACC": [False, True, True, True, True],
-        "FINEX_overrides.WACC.WACC_annual":     [0.072, 0.072, 0.072, 0.072, 0.072],
+        "FINEX_overrides.finex_input.FINEX.WACC.flag_fixed_WACC": [False, True, True, True, True],
+        "FINEX_overrides.finex_input.FINEX.WACC.WACC_annual":     [0.034, 0.034, 0.034, 0.034, 0.034],
     }
 
 
 
-    # --- zip groups: bind CAPEX + Material (+ Scenario.name) together ------------
+        # --- zip groups: bind CAPEX + Material (+ Scenario.name) together ------------
 
     zip_groups = {
         "macro_scenarios": [
             "CAPEX_overrides.Capex_inputFiles.PA",
             "CAPEX_overrides.Material_inputFiles.MD",
             "Scenario.name",
-            "FINEX_overrides.WACC.flag_fixed_WACC",
-            "FINEX_overrides.WACC.WACC_annual",
+            "FINEX_overrides.finex_input.FINEX.WACC.flag_fixed_WACC",
+            "FINEX_overrides.finex_input.FINEX.WACC.WACC_annual",
         ]
     }
     # ---------------------------------------------------------------------

@@ -304,7 +304,8 @@ for macro_name, entries_by_sid in macro_to_entries.items():
             missing_files.append((macro_name, sid, f"{VAL_TABLE_NAME}_df_{sid}.parquet", f"Valuation read error: {e}"))
 
     npv = np.array(npv_list, dtype=float)
-    capex = np.array(capex_list, dtype=float)
+    capex = np.abs(np.array(capex_list, dtype=float))
+
 
     if npv.size or capex.size:
         macro_data[macro_name] = {"npv_firm": npv, "total_capex_undisc": capex}

@@ -50,7 +50,7 @@ class Valuation:
         # 1) FINEX
         finex_df = self.env.finex.calc_FINEX()
         self.wacc_annual = self.env.finex.WACC_annual
-        self.tax_rate = self.env.finex.tax_rate or 0.0  # fraction (e.g., 0.22)
+        self.tax_rate = self.env.finex.cfg.tax_rate or 0.0  # fraction (e.g., 0.22)
 
         # cost of equity (annual)
         self.cost_of_equity_annual = self.env.finex.equity_annual

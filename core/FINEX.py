@@ -1,222 +1,271 @@
+"""
+FINEX.py — Financing & Depreciation module (LTE-style overrides, no extra helpers)
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any, Optional, Dict
+
 import pandas as pd
-import numpy as np
+
 from core.File_Handling import load_yaml, process_duration_fields
+from core.utils import get_input_parameter, apply_overrides
+
+
+# -----------------------------
+# Normalized config (resolved)
+# -----------------------------
+@dataclass(frozen=True)
+class FinexConfig:
+    # Debt
+    debt_share: float                 # fraction (0..1)
+    interest_rate: float              # annual fraction (0..1)
+    n_yearly_payments: int
+    n_total_payments: int
+    start_debt_service_h: int
+
+    # Equity
+    E: float                          # annual fraction (0..1)
+    flag_CAPM: bool
+    rf: float                         # annual fraction (0..1)
+    rm: float                         # annual fraction (0..1)
+    beta: float
+
+    # Tax (used for WACC only)
+    tax_rate: float                   # fraction (0..1)
+
+    # Depreciation
+    depreciation_method: str          # "SL"
+    depreciation_period: float        # years
+    depreciation_salvage_value: float # fraction of CAPEX (0..1)
+
 
 class FINEX:
-    def __init__(self, env, capex):
-        self.env = env  # Access to the environment for scheduling
-        self.capex = capex  # Access to CAPEX instance for cost data
-        self.project_start = pd.to_datetime(self.env.config.Project_StartDate, format="%d.%m.%Y")
-        self.finex_inputs= load_finex_inputs(self.env.config)
-        self.debt_share= get_finex_parameter(self.finex_inputs, 'FI', 'Debt', 'debt_share') /100
-        self.interest_rate= get_finex_parameter(self.finex_inputs, 'FI', 'Debt', 'interest_rate') /100
-        self.n_yearly_payments= get_finex_parameter(self.finex_inputs, 'FI', 'Debt', 'n_yearly_payments')
-        self.n_total_payments = get_finex_parameter(self.finex_inputs, 'FI', 'Debt', 'n_total_payments')
-        self.start_debt_service = get_finex_parameter(self.finex_inputs, 'FI', 'Debt', 'start_debt_service_h')
+    def __init__(self, env: Any, capex: Any, cfg: Optional[FinexConfig] = None):
+        """
+        FINEX parameters are read from YAML via load_finex_inputs(config),
+        not directly from env.config. Scenario overrides may then modify the instance.
 
-        self.E= get_finex_parameter(self.finex_inputs, 'FI', 'Equity', 'E')/100
-        self.flag_CAPM= get_finex_parameter(self.finex_inputs, 'FI', 'Equity', 'equity_costModel', 'flag_CAPM')
-        self.rf= get_finex_parameter(self.finex_inputs, 'FI', 'Equity', 'equity_costModel', 'rf')/100
-        self.rm= get_finex_parameter(self.finex_inputs, 'FI', 'Equity', 'equity_costModel', 'rm')/100
-        self.beta= get_finex_parameter(self.finex_inputs, 'FI', 'Equity', 'equity_costModel', 'beta')
-        
-        # tax parameters (not yet implemented in calculations)
-        self.tax_rate = get_finex_parameter(self.finex_inputs, 'FI', 'Tax', 'tax_rate')/100
+        Notes:
+        - `cfg` can be provided explicitly for testing; if provided it wins.
+        - Overrides are applied *after* YAML load to support scenario variations.
+        """
+        self.env = env
+        self.config = env.config
+        self.capex = capex
 
-        # depreciation parameters
-        self.depreciation_method = get_finex_parameter(self.finex_inputs, 'FI', 'Depreciation', 'method') # ["SL"]
-        self.depreciation_period = get_finex_parameter(self.finex_inputs, 'FI', 'Depreciation', 'period') # [years]
-        self.depreciation_salvage_value = get_finex_parameter(self.finex_inputs, 'FI', 'Depreciation', 'salvage_value') / 100 # [% of initial CAPEX]
+        # ---- Load FINEX inputs from YAML ----
+        self.finex_input = load_finex_inputs(self.config)
+        self.finex_input = get_input_parameter(self.finex_input, "FI")
 
-        self.finex_records = pd.DataFrame(columns=["timestamp", "debt_payment"])
+        # ---- Apply scenario overrides ----
+        apply_overrides(self, getattr(self.config, "FINEX_overrides", {}))
 
-    def calc_FINEX(self):
-            """
-            Orchestrates FINEX: computes WACC (for valuation only), builds
-            debt amortization schedule (cost_of_debt, not WACC), and depreciation.
-            Populates:
-                self.finex_records : DataFrame with columns
-                    timestamp, payment, interest, principal, outstanding, depreciation
-                self.WACC_annual  : float
-            Returns self.finex_records for convenience.
-            """
-            # 1) parameters & timing
-            total_cost = float(self.capex.total_cost)
-            periods_per_year = int(self.n_yearly_payments)
-            n_periods = int(self.n_total_payments)
-            start_ts = pd.to_datetime(self.env.config.Project_StartDate, format="%d.%m.%Y")
-            first_pay_ts = start_ts + pd.Timedelta(hours=self.start_debt_service)
+        # ---- Build FinexConfig from YAML (unless explicitly provided) ----
+        if cfg is not None:
+            self.cfg = cfg
+        else:
+            self.cfg = self._cfg_from_finex_input(self.finex_input)
 
-            # 2) capital structure
-            D0 = total_cost * self.debt_share
-            E0 = total_cost - D0
-            self.D0 = D0
-            self.E0 = E0
+        # ---- Derived / outputs ----
+        self.project_start = pd.to_datetime(self.config.Project_StartDate, format="%d.%m.%Y")
 
-            i_per = (1 + self.interest_rate) ** (1/periods_per_year) - 1  # periodic cost of debt  # 
+        self.D0: float = 0.0
+        self.E0: float = 0.0
+        self.WACC_annual: float = 0.0
+        self.equity_annual: float = 0.0
 
-            # equity rate (CAPM or fixed), then periodic
-            self.equity_annual = (self.rf + self.beta * (self.rm - self.rf)) if self.flag_CAPM else self.E
-            re_per = (1 + self.equity_annual) ** (1/periods_per_year) - 1
+        self.finex_records = pd.DataFrame(
+            columns=[
+                "timestamp",
+                "payment",
+                "interest",
+                "principal",
+                "outstanding",
+                "depreciation",
+                "debt_payment",  # legacy alias
+            ]
+        )
 
-            # 3) WACC (for discounting; do not use for debt payments)
-            Re_annual = self.equity_annual                 # already annual fraction
-            Rd_annual = self.interest_rate            # already annual fraction
+    def _cfg_from_finex_input(self, finex_input: Dict[str, Any]) -> FinexConfig:
+        """
+        Map YAML -> FinexConfig (normalized only; no extra coercion/validation).
+        """
+        debt_share = get_input_parameter(finex_input, "FINEX", "Debt", "debt_share") / 100.0
+        interest_rate = get_input_parameter(finex_input, "FINEX", "Debt", "interest_rate") / 100.0
+        n_yearly_payments = int(get_input_parameter(finex_input, "FINEX", "Debt", "n_yearly_payments"))
+        n_total_payments = int(get_input_parameter(finex_input, "FINEX", "Debt", "n_total_payments"))
+        start_debt_service_h = int(get_input_parameter(finex_input, "FINEX", "Debt", "start_debt_service_h"))
+
+        E = get_input_parameter(finex_input, "FINEX", "Equity", "E") / 100.0
+        flag_CAPM = bool(get_input_parameter(finex_input, "FINEX", "Equity", "equity_costModel", "flag_CAPM"))
+        rf = get_input_parameter(finex_input, "FINEX", "Equity", "equity_costModel", "rf") / 100.0
+        rm = get_input_parameter(finex_input, "FINEX", "Equity", "equity_costModel", "rm") / 100.0
+        beta = get_input_parameter(finex_input, "FINEX", "Equity", "equity_costModel", "beta")
+
+
+        flag_fixed_wacc = bool(get_input_parameter(finex_input, "FINEX", "WACC", "flag_fixed_WACC"))
+        WACC_annual_input = get_input_parameter(finex_input, "FINEX", "WACC", "WACC_annual")
+
+
+        tax_rate = get_input_parameter(finex_input, "FINEX", "Tax", "tax_rate") / 100.0
+
+        depreciation_method = get_input_parameter(finex_input, "FINEX", "Depreciation", "method")
+        depreciation_period = get_input_parameter(finex_input, "FINEX", "Depreciation", "period")
+        depreciation_salvage_value = get_input_parameter(finex_input, "FINEX", "Depreciation", "salvage_value") / 100.0
+
+        return FinexConfig(
+            debt_share=float(debt_share),
+            interest_rate=float(interest_rate),
+            n_yearly_payments=int(n_yearly_payments),
+            n_total_payments=int(n_total_payments),
+            start_debt_service_h=int(start_debt_service_h),
+            E=float(E),
+            flag_CAPM=bool(flag_CAPM),
+            rf=float(rf),
+            rm=float(rm),
+            beta=float(beta),
+            tax_rate=float(tax_rate),
+            depreciation_method=str(depreciation_method),
+            depreciation_period=float(depreciation_period),
+            depreciation_salvage_value=float(depreciation_salvage_value),
+            flag_fixed_wacc=flag_fixed_wacc,
+            WACC_annual_input=WACC_annual_input,
+        )
+
+    def calc_FINEX(self) -> pd.DataFrame:
+        """
+        Computes WACC (for valuation), debt amortization schedule, and depreciation schedule.
+        Populates self.finex_records and self.WACC_annual.
+        """
+        cfg = self.cfg
+
+        total_cost = float(self.capex.total_cost)
+        periods_per_year = int(cfg.n_yearly_payments)
+        n_periods = int(cfg.n_total_payments)
+
+        start_ts = pd.to_datetime(self.env.config.Project_StartDate, format="%d.%m.%Y")
+        first_pay_ts = start_ts + pd.Timedelta(hours=int(cfg.start_debt_service_h))
+
+        # capital structure
+        D0 = total_cost * float(cfg.debt_share)
+        E0 = total_cost - D0
+        self.D0 = D0
+        self.E0 = E0
+
+        # periodic cost of debt
+        i_per = (1.0 + float(cfg.interest_rate)) ** (1.0 / periods_per_year) - 1.0
+
+        # equity annual rate
+        self.equity_annual = (float(cfg.rf) + float(cfg.beta) * (float(cfg.rm) - float(cfg.rf))) if cfg.flag_CAPM else float(cfg.E)
+
+        # WACC annual (used for discounting)
+        if cfg.flag_fixed_wacc:
+            self.WACC_annual = float(cfg.WACC_annual_input)
+        else:
+            Re_annual = float(self.equity_annual)
+            Rd_annual = float(cfg.interest_rate)
             V = D0 + E0
-            self.WACC_annual = (E0/V)*Re_annual + (D0/V)*Rd_annual*(1 - self.tax_rate)
-
-            # 4) amortization table (annuity by default; can extend to bullet/sculpted)
-            payment = self._annuity_payment(D0, i_per, n_periods)  # uses cost_of_debt
-            sched = []
-            outstanding = D0
-            period_delta = pd.to_timedelta(8760/periods_per_year, unit="h")
-            for k in range(n_periods):
-                ts = first_pay_ts + k*period_delta
-                interest = outstanding * i_per
-                principal = payment - interest
-                outstanding = max(0.0, outstanding - principal)
-                sched.append({"timestamp": ts,
-                            "payment": -(payment),        # outflow
-                            "interest": -(interest),
-                            "principal": -(principal),
-                            "outstanding": outstanding})
-
-            debt_df = pd.DataFrame(sched)
-
-            # 5) depreciation schedule (you already have this; reuse/extend)
-            dep_df = self._build_depreciation_schedule(first_pay_ts, periods_per_year)
-
-            # 6) merge and maintain backward compatibility (debt_payment column)
-            finex = (debt_df.merge(dep_df, on="timestamp", how="outer")
-                            .sort_values("timestamp")
-                            .fillna({"payment":0,"interest":0,"principal":0,"outstanding":0,"depreciation":0}))
+            self.WACC_annual = (E0 / V) * Re_annual + (D0 / V) * Rd_annual * (1.0 - float(cfg.tax_rate))
 
 
-            self.finex_records = finex
-            return self.finex_records
+        # amortization
+        payment = self._annuity_payment(D0, i_per, n_periods)
+        sched = []
+        outstanding = float(D0)
+        period_delta = pd.to_timedelta(8760 / periods_per_year, unit="h")
 
+        for k in range(n_periods):
+            ts = first_pay_ts + k * period_delta
+            interest = outstanding * i_per
+            principal = payment - interest
+            outstanding = max(0.0, outstanding - principal)
+            sched.append(
+                {
+                    "timestamp": ts,
+                    "payment": -float(payment),
+                    "interest": -float(interest),
+                    "principal": -float(principal),
+                    "outstanding": float(outstanding),
+                }
+            )
+
+        debt_df = pd.DataFrame(sched)
+
+        # depreciation
+        dep_df = self._build_depreciation_schedule(first_pay_ts, periods_per_year)
+
+        finex = (
+            debt_df.merge(dep_df, on="timestamp", how="outer")
+            .sort_values("timestamp")
+            .fillna(
+                {
+                    "payment": 0.0,
+                    "interest": 0.0,
+                    "principal": 0.0,
+                    "outstanding": 0.0,
+                    "depreciation": 0.0,
+                }
+            )
+        )
+
+        # legacy alias
+        finex["debt_payment"] = finex["payment"]
+
+        self.finex_records = finex
+        return self.finex_records
 
     def _build_depreciation_schedule(self, first_pay_ts: pd.Timestamp, periods_per_year: int) -> pd.DataFrame:
         """
-        Build a straight-line (SL) depreciation schedule as a standalone DataFrame.
-
-        Returns
-        -------
-        pd.DataFrame
-            Columns: ["timestamp", "depreciation"]
-            - 'timestamp': period endpoints spaced evenly by 8760/periods_per_year hours from start_ts
-            - 'depreciation': constant per-period charge (negative cashflow convention not applied here
-                            since depreciation is non-cash; caller decides sign handling)
-
-        Notes
-        -----
-        - Pure function: does NOT read or write self.finex_records.
-        - Uses inputs from FINEX config:
-            * self.depreciation_method  (only "SL" supported)
-            * self.depreciation_period  (years, > 0)
-            * self.depreciation_salvage_value (fraction of CAPEX, e.g. 0.05)
-            * self.capex.total_cost
-        - If CAPEX <= 0, returns an empty DataFrame with the expected columns.
+        Straight-line depreciation schedule.
+        Returns DataFrame columns: ["timestamp", "depreciation"].
         """
-        # ---- Validate base inputs ----
-        if periods_per_year is None or int(periods_per_year) <= 0:
-            raise ValueError("periods_per_year must be a positive integer.")
-        periods_per_year = int(periods_per_year)
-
-        if not isinstance(first_pay_ts, pd.Timestamp):
-            first_pay_ts = pd.to_datetime(first_pay_ts, errors="coerce")
-        if pd.isna(first_pay_ts):
-            raise ValueError("first_pay_ts must be a valid timestamp.")
+        cfg = self.cfg
 
         capex_total = float(getattr(self.capex, "total_cost", 0.0))
         if capex_total <= 0.0:
-            # Nothing to depreciate → empty schedule with correct columns
             return pd.DataFrame(columns=["timestamp", "depreciation"])
 
-        method = (self.depreciation_method or "SL").upper()
+        method = (cfg.depreciation_method or "SL").upper()
         if method != "SL":
-            raise NotImplementedError(
-                f"Depreciation method '{self.depreciation_method}' not supported (only 'SL')."
-            )
+            raise NotImplementedError(f"Depreciation method '{cfg.depreciation_method}' not supported (only 'SL').")
 
-        life_years = float(self.depreciation_period)
-        if life_years <= 0.0:
-            raise ValueError("depreciation_period must be > 0 years.")
+        life_years = float(cfg.depreciation_period)
+        salvage_ratio = float(cfg.depreciation_salvage_value or 0.0)
 
-        salvage_ratio = float(self.depreciation_salvage_value or 0.0)  # already a fraction (e.g., 0.05)
         salvage_value = max(0.0, capex_total * salvage_ratio)
         depreciable_base = max(0.0, capex_total - salvage_value)
 
         n_periods = int(round(life_years * periods_per_year))
-        if n_periods <= 0:
-            raise ValueError("Computed number of depreciation periods must be > 0.")
-
         per_period_dep = depreciable_base / n_periods
 
-        # ---- Build schedule (evenly spaced hours; matches your current convention) ----
         period_delta = pd.to_timedelta(8760 / periods_per_year, unit="h")
-        dep_rows = (
-            {"timestamp": first_pay_ts + i * period_delta, "depreciation": per_period_dep}
-            for i in range(n_periods)
-        )
+        dep_rows = ({"timestamp": first_pay_ts + i * period_delta, "depreciation": per_period_dep} for i in range(n_periods))
         dep_df = pd.DataFrame(dep_rows, columns=["timestamp", "depreciation"])
 
-        # Ensure proper dtypes
         dep_df["timestamp"] = pd.to_datetime(dep_df["timestamp"], errors="coerce")
         dep_df["depreciation"] = dep_df["depreciation"].astype(float)
-
         return dep_df
-    
-    def _annuity_payment(self, P, i, n): return P * (i*(1+i)**n) / ((1+i)**n - 1) if n>0 else 0.0
 
+    @staticmethod
+    def _annuity_payment(P: float, i: float, n: int) -> float:
+        return P * (i * (1 + i) ** n) / ((1 + i) ** n - 1) if n > 0 else 0.0
 
-    def get_cost_dataframe(self):
-        """Converts the cost records list to a DataFrame for further analysis."""
+    def get_cost_dataframe(self) -> pd.DataFrame:
         return pd.DataFrame(self.finex_records)
 
 
-def load_finex_inputs(config):
+def load_finex_inputs(config: Any) -> Dict[str, Any]:
     """
-    Loads FINEX input parameters from configuration files, 
+    Loads FINEX input parameters from configuration files,
     converting any duration parameters to hours.
-
-    Parameters
-    ----------
-    config : Configuration
-        The configuration object containing paths to FINEX input files.
-
-    Returns
-    -------
-    dict
-        Dictionary containing FINEX data, with duration parameters converted to hours where applicable.
     """
-    finex_input = {}
+    finex_input: Dict[str, Any] = {}
 
-    # Load FINEX input files
-    if hasattr(config, 'Finex_inputFiles'):
+    if hasattr(config, "Finex_inputFiles"):
         for identifier, file_name in config.Finex_inputFiles.items():
             finex_input[identifier] = load_yaml(config.valuewind_inputFolder, file_name)
-            finex_input[identifier] = process_duration_fields(finex_input[identifier])  # Process for duration fields
-        #print("Loaded Finex data structure:", finex_input)
+            finex_input[identifier] = process_duration_fields(finex_input[identifier])
 
     return finex_input
-
-
-
-def get_finex_parameter(finex_data, identifier, entry_name, *keys):
-    try:
-        entries = finex_data[identifier]['FINEX']
-    except KeyError as e:
-        raise KeyError(f"Missing expected key: {e}")
-
-    for item in entries:
-        if item.get('name') == entry_name:
-            value = item.get('Parameters', {})
-            for key in keys:
-                if not isinstance(value, dict) or key not in value:
-                    return None
-                value = value[key]
-            return value
-    return None
-
-

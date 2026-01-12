@@ -1,16 +1,14 @@
 FINEX:
-  - name: "Debt"
-    Parameters: 
-      debt_share: 70  # share of debt [%]
-      interest_rate: 4  # cost of debt [%] 
-      n_yearly_payments: 12 # number of payment per year, 12 eqauls monthly payments
-      n_total_payments: 240 # total number of payments 
-      start_debt_service:
-        value: 3
-        unit: years
+  Debt:
+    debt_share: 70  # share of debt [%]
+    interest_rate: 4  # cost of debt [%] 
+    n_yearly_payments: 12 # number of payment per year, 12 eqauls monthly payments
+    n_total_payments: 240 # total number of payments 
+    start_debt_service:
+      value: 3
+      unit: years
 
-  - name: "Equity"
-    Parameters:
+  Equity:
       E: 10  # fixed cost of Equity [%]
       equity_costModel:
         flag_CAPM: true 
@@ -18,14 +16,17 @@ FINEX:
         beta: 0.5  # A measure of the asset’s volatility or systematic risk relative to the market (for wind energy project typically [0.4-0.7]) [-]
         rm: 8  # Expected Market Return [%]
 
-  - name: "Tax"
-    Parameters:
-      tax_rate: 21  # corporate tax rate [%]
 
-  - name: "Depreciation"
-    Parameters:
-      method: "SL"  # ["SL"]
-      period: 20  # period of depreciation [years]
-      salvage_value: 0  # salvage value at the end of the depreciation period [% of initial CAPEX]
+  WACC:
+    flag_fixed_WACC: true
+    WACC_annual: 0.072   # 7.2% as fraction
+
+  Tax:
+    tax_rate: 21  # corporate tax rate [%]
+
+  Depreciation:
+    method: "SL"  # ["SL"]
+    period: 20  # period of depreciation [years]
+    salvage_value: 0  # salvage value at the end of the depreciation period [% of initial CAPEX]
 
 

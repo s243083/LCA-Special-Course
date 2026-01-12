@@ -7,7 +7,7 @@
 
 set -euo pipefail
 
-TARGET="/work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/results/OPEX_Reliability"
+TARGET="/work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/results/CPEX_SupplyChain"
 
 echo "Running on $(hostname)"
 echo "Target: $TARGET"

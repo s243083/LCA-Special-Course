@@ -140,6 +140,7 @@ class ValueWindEnv():
             self.results_collector.collect_df(
                 attr_map={
                     "valuation_metrics": "valuation.valuemetrics",
+                    "cashlow_records": "valuation.cashflow_records",
                     "capex": "capex.cost_records",
 
                     "opex_records": "opex.OPEX_records",

@@ -1,26 +1,26 @@
 #!/usr/bin/env python3
 """
-NPV + LCOE — Combined 1x2 Subplot Histograms (LTE Scenario Experiment)
----------------------------------------------------------------------
+Combined NPV + Total CAPEX Histograms Script
+--------------------------------------------
 
-Creates 1x2 subplot figures across all macro scenarios (Scenario.name):
-
-LEFT  subplot: NPV distribution across macro scenarios (choose Equity or Firm)
-RIGHT subplot: LCOE distribution across macro scenarios (column: "lcoe")
-
-Legend is placed below both subplots.
-
-Outputs (for each NPV choice):
-1) Figure with optional fit curves on NPV (Gaussian or Lognormal)
-2) Same figure WITHOUT fit curves
+Creates combined histograms of:
+  - NPV (npv_firm)                [LEFT subplot]
+  - Total CAPEX (total_capex_undisc) [RIGHT subplot]
+across all macro scenarios (Scenario.name), overlaying each macro scenario.
 
 Assumptions:
-- scenarios.json exists in RESULTS_FOLDER
+- scenarios.json exists in RESULTS_FOLDER.
 - For each scenario_id SID there is a parquet file:
-    {TABLE_NAME}_df_{SID}.parquet
+    valuation_metrics_df_{SID}.parquet
   with columns including:
-    - npv_equity and/or npv_firm
-    - lcoe
+    - "npv_firm"
+    - "total_capex_undisc"
+
+Notes:
+- Histograms are transparent filled + crisp outlines.
+- Optional density normalization (recommended for comparing shapes).
+- Deterministic scenarios are plotted as vertical lines.
+- Uses shared bin edges per panel (per metric) to compare macro overlays.
 """
 
 from pathlib import Path
@@ -35,31 +35,32 @@ import matplotlib.pyplot as plt
 # --------------------------------------------------------------------
 # 1) Configuration
 # --------------------------------------------------------------------
-TABLE_NAME = "valuation_metrics"
+VAL_TABLE_NAME = "valuation_metrics"
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]  # adjust if needed
 
-# RESULTS folder (LTE experiment)
-RESULTS_FOLDER = PROJECT_ROOT / "results" / "LTE_Scenario_Experiment"
+# >>> Adjust this to match where your experiment actually wrote results <<<
+# Common patterns:
+#   results/CAPEX_SupplyChain
+#   results/<name_you_passed_to_build_experiment>
+RESULTS_FOLDER = PROJECT_ROOT / "results" / "CAPEX_SupplyChain"
 RESULTS_FOLDER = Path(RESULTS_FOLDER)
-assert RESULTS_FOLDER.exists(), f"Results folder not found: {RESULTS_FOLDER}"
 
-# Figures output folder
-RESULTS_FOLDER_FIG = PROJECT_ROOT / "results" / "Figures" / "LTE_Scenario_Experiment"
+if not RESULTS_FOLDER.exists():
+    raise FileNotFoundError(
+        f"Results folder not found: {RESULTS_FOLDER}\n"
+        f"Edit RESULTS_FOLDER at the top of this script to match your output folder."
+    )
+
+RESULTS_FOLDER_FIG = PROJECT_ROOT / "results" / "Figures" / "CAPEX_SupplyChain"
 RESULTS_FOLDER_FIG.mkdir(parents=True, exist_ok=True)
 
 SCENARIOS_PATH = RESULTS_FOLDER / "scenarios.json"
 if not SCENARIOS_PATH.is_file():
     raise FileNotFoundError(f"scenarios.json not found at: {SCENARIOS_PATH}")
 
-# Choose which NPV metric to plot on the LEFT panel:
-#   "npv_equity" or "npv_firm"
-NPV_COL = "npv_firm"
-
-# LCOE column on the RIGHT panel
-LCOE_COL = "lcoe"
-
-# Choose: "gaussian" or "lognormal" (fits applied ONLY to NPV subplot)
+# Optional: fit curve only on NPV (left)
+# Choose: "gaussian" or "lognormal"
 FIT_DISTRIBUTION = "lognormal"
 
 # Deterministic detection tolerance
@@ -77,21 +78,15 @@ DRAW_OUTLINE = True
 USE_DENSITY = True
 DPI = 200
 
-# --- Print layout: 200 mm x 80 mm (1x2 panels) ---
+# --- Print layout: 200 mm x 80 mm ---
 MM_TO_INCH = 1.0 / 25.4
 FIGSIZE_200x80 = (200 * MM_TO_INCH, 80 * MM_TO_INCH)
 
-# Font sizes tuned for 200x80 mm figure
+# --- Font sizes tuned for 200x80 mm ---
 FS_TITLE = 9
 FS_LABEL = 8
 FS_TICK = 7
 FS_LEGEND = 7
-
-# Optional: short legend labels (edit to match your Scenario.name values if desired)
-LEGEND_LABELS = {
-    # "Long scenario name": "Short",
-    # e.g. "C0 — Reference (no curtailment)": "C0",
-}
 
 
 # --------------------------------------------------------------------
@@ -144,32 +139,10 @@ def _scale_factor_for(values_list: List[np.ndarray], extra_points: Optional[List
 
 
 def _set_x_label(ax, base_label: str, scale: float) -> None:
-    ax.set_xlabel(base_label + (" [million]" if scale == 1e6 else ""), fontsize=FS_LABEL)
-
-
-def _make_bin_edges(values: np.ndarray) -> np.ndarray:
-    """Shared bin edges for combined plots, based on pooled data range."""
-    if values.size == 0:
-        return np.array([0.0, 1.0], dtype=float)
-
-    vmin = float(np.nanmin(values))
-    vmax = float(np.nanmax(values))
-
-    if np.isclose(vmin, vmax):
-        pad = 0.05 * (abs(vmin) + 1.0)
-        vmin -= pad
-        vmax += pad
-
-    nbins = min(N_BINS, max(MIN_BINS, int(values.size)))
-    return np.linspace(vmin, vmax, nbins + 1)
-
-
-def _style_axes(ax, ylabel: str) -> None:
-    ax.set_ylabel(ylabel, fontsize=FS_LABEL)
-    ax.grid(True, linestyle="--", alpha=0.3, linewidth=0.5)
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    ax.tick_params(axis="both", labelsize=FS_TICK)
+    ax.set_xlabel(
+        base_label + (" [million]" if scale == 1e6 else ""),
+        fontsize=FS_LABEL,
+    )
 
 
 def _plot_fit_curve(
@@ -180,11 +153,7 @@ def _plot_fit_curve(
     fit_distribution: str,
     density: bool,
 ) -> None:
-    """
-    Plot either Gaussian or Lognormal fit.
-    - If density=True, fit plotted as a PDF (area=1).
-    - If density=False, fit scaled to histogram counts (n_samples * bin_width).
-    """
+    """Plot either Gaussian or Lognormal fit."""
     if values.size <= 1 or len(bin_edges) <= 1:
         return
 
@@ -249,6 +218,50 @@ def _split_det_nondet(
     return nondet, det
 
 
+def _make_bin_edges(values: np.ndarray) -> np.ndarray:
+    """Shared bin edges for combined plots, based on pooled data range."""
+    if values.size == 0:
+        return np.array([0.0, 1.0], dtype=float)
+
+    vmin = float(np.nanmin(values))
+    vmax = float(np.nanmax(values))
+
+    if np.isclose(vmin, vmax):
+        pad = 0.05 * (abs(vmin) + 1.0)
+        vmin -= pad
+        vmax += pad
+
+    nbins = min(N_BINS, max(MIN_BINS, int(values.size)))
+    return np.linspace(vmin, vmax, nbins + 1)
+
+
+def _read_valuation_metrics(sid: str) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Return (npv_firm_values, total_capex_undisc_values).
+    Potentially multiple samples per SID (e.g., replicates).
+    """
+    parquet_path = RESULTS_FOLDER / f"{VAL_TABLE_NAME}_df_{sid}.parquet"
+    if not parquet_path.exists():
+        raise FileNotFoundError(str(parquet_path))
+
+    df = pd.read_parquet(parquet_path)
+    if not isinstance(df, pd.DataFrame) or df.empty:
+        return np.array([], dtype=float), np.array([], dtype=float)
+
+    npv = np.array([], dtype=float)
+    capex = np.array([], dtype=float)
+
+    if "npv_firm" in df.columns:
+        vals = pd.to_numeric(df["npv_firm"], errors="coerce").dropna()
+        npv = vals.to_numpy(dtype=float)
+
+    if "total_capex_undisc" in df.columns:
+        vals = pd.to_numeric(df["total_capex_undisc"], errors="coerce").dropna()
+        capex = vals.to_numpy(dtype=float)
+
+    return npv, capex
+
+
 # --------------------------------------------------------------------
 # 4) Group scenario_ids by macro scenario name
 # --------------------------------------------------------------------
@@ -278,111 +291,95 @@ missing_files: List[Any] = []
 
 for macro_name, entries_by_sid in macro_to_entries.items():
     npv_list: List[float] = []
-    lcoe_list: List[float] = []
+    capex_list: List[float] = []
 
     for sid in entries_by_sid:
-        parquet_path = RESULTS_FOLDER / f"{TABLE_NAME}_df_{sid}.parquet"
-        if not parquet_path.exists():
-            missing_files.append((macro_name, sid, str(parquet_path), "Missing file"))
-            continue
-
         try:
-            df = pd.read_parquet(parquet_path)
+            npv_arr, capex_arr = _read_valuation_metrics(sid)
+            npv_list.extend([float(v) for v in npv_arr])
+            capex_list.extend([float(v) for v in capex_arr])
+        except FileNotFoundError as e:
+            missing_files.append((macro_name, sid, str(e), "Missing valuation file"))
         except Exception as e:
-            missing_files.append((macro_name, sid, str(parquet_path), f"Read error: {e}"))
-            continue
-
-        if not isinstance(df, pd.DataFrame) or df.empty:
-            print(f"WARNING: macro '{macro_name}', scenario_id {sid} has empty {TABLE_NAME}; skipping.")
-            continue
-
-        if NPV_COL in df.columns:
-            vals = pd.to_numeric(df[NPV_COL], errors="coerce").dropna()
-            npv_list.extend(float(v) for v in vals)
-        else:
-            print(f"WARNING: macro '{macro_name}', scenario_id {sid} has no '{NPV_COL}' column.")
-
-        if LCOE_COL in df.columns:
-            vals_l = pd.to_numeric(df[LCOE_COL], errors="coerce").dropna()
-            lcoe_list.extend(float(v) for v in vals_l)
-        else:
-            print(f"WARNING: macro '{macro_name}', scenario_id {sid} has no '{LCOE_COL}' column.")
+            missing_files.append((macro_name, sid, f"{VAL_TABLE_NAME}_df_{sid}.parquet", f"Valuation read error: {e}"))
 
     npv = np.array(npv_list, dtype=float)
-    lcoe = np.array(lcoe_list, dtype=float)
+    capex = np.array(capex_list, dtype=float)
 
-    if npv.size or lcoe.size:
-        macro_data[macro_name] = {NPV_COL: npv, LCOE_COL: lcoe}
+    if npv.size or capex.size:
+        macro_data[macro_name] = {"npv_firm": npv, "total_capex_undisc": capex}
         print(
             f"\nMacro scenario '{macro_name}': "
-            f"{npv.size} {NPV_COL} sample(s), "
-            f"{lcoe.size} {LCOE_COL} sample(s)"
+            f"{npv.size} NPV sample(s), "
+            f"{capex.size} total CAPEX sample(s)"
         )
 
-print(f"\nCollected valuation metrics for {len(macro_data)} macro scenario(s).")
+print(f"\nCollected data for {len(macro_data)} macro scenario(s).")
 if missing_files:
     print("\nFiles not loaded:")
     for m in missing_files:
         print(f" - macro='{m[0]}', scenario_id={m[1]}, path={m[2]}, reason={m[3]}")
 
 if not macro_data:
-    raise RuntimeError("No usable macro scenario valuation data; cannot plot.")
+    raise RuntimeError("No usable macro scenario data; cannot plot.")
 
 
 # --------------------------------------------------------------------
-# 6) Prepare arrays for plotting
+# 6) Two-panel combined plots (NPV left, Total CAPEX right)
 # --------------------------------------------------------------------
+print("\nCreating combined two-panel plots for all macro scenarios...")
+
 macro_names = list(macro_data.keys())
-npv_arrays = [macro_data[m].get(NPV_COL, np.array([], dtype=float)) for m in macro_names]
-lcoe_arrays = [macro_data[m].get(LCOE_COL, np.array([], dtype=float)) for m in macro_names]
-
+npv_arrays = [macro_data[m].get("npv_firm", np.array([], dtype=float)) for m in macro_names]
+capex_arrays = [macro_data[m].get("total_capex_undisc", np.array([], dtype=float)) for m in macro_names]
 color_cycle = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 
 
-# --------------------------------------------------------------------
-# 7) Plotting: 1x2 figure (NPV left, LCOE right) with shared legend below
-# --------------------------------------------------------------------
 def plot_two_panel(
     arrays_left: List[np.ndarray],
-    arrays_right: List[np.ndarray],
+    left_title: str,
     left_xlabel: str,
+    arrays_right: List[np.ndarray],
+    right_title: str,
     right_xlabel: str,
     out_name: str,
     show_fits_left: bool = True,
+    show_fits_right: bool = False,
 ) -> None:
-    """
-    Creates a 1x2 subplot:
-      - Left: histogram overlay for arrays_left (NPV)
-      - Right: histogram overlay for arrays_right (LCOE)
-    Deterministic macro scenarios are drawn as vertical lines.
-    Legend appears below both subplots.
-    """
     nondet_L, det_L = _split_det_nondet(macro_names, arrays_left)
     nondet_R, det_R = _split_det_nondet(macro_names, arrays_right)
 
     if (not nondet_L and not det_L) and (not nondet_R and not det_R):
-        print(f"No data available; skipping {out_name}")
+        print(f"No data available for '{out_name}'; skipping.")
         return
 
-    # Scaling per panel (kept independent, like reference script)
-    scale_L = _scale_factor_for([a for _, a in nondet_L], extra_points=[v for _, v in det_L])
-    scale_R = _scale_factor_for([a for _, a in nondet_R], extra_points=[v for _, v in det_R])
-
     fig, (axL, axR) = plt.subplots(
-        1, 2, figsize=FIGSIZE_200x80, dpi=DPI, constrained_layout=False
+        1, 2,
+        figsize=FIGSIZE_200x80,
+        dpi=DPI,
+        gridspec_kw={
+            "left": 0.08,
+            "right": 0.98,
+            "top": 0.88,
+            "bottom": 0.35,
+            "wspace": 0.25,
+        },
     )
 
-    # Reserve space for legend below both panels
-    fig.subplots_adjust(bottom=0.24, wspace=0.25)
+    for ax in (axL, axR):
+        ax.grid(True, linestyle="--", alpha=0.3, linewidth=0.5)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.tick_params(axis="both", labelsize=FS_TICK)
+        ax.set_ylabel("Density" if USE_DENSITY else "Frequency", fontsize=FS_LABEL)
 
-    # Style + labels
+    axL.set_title(left_title, fontsize=FS_TITLE)
+    axR.set_title(right_title, fontsize=FS_TITLE)
+
+    # ---------------- Left panel (NPV) ----------------
+    scale_L = _scale_factor_for([a for _, a in nondet_L], extra_points=[v for _, v in det_L])
     _set_x_label(axL, left_xlabel, scale_L)
-    _style_axes(axL, "Density" if USE_DENSITY else "Frequency")
 
-    _set_x_label(axR, right_xlabel, scale_R)
-    _style_axes(axR, "Density" if USE_DENSITY else "Frequency")
-
-    # --- LEFT PANEL (NPV) ---
     if nondet_L:
         pooled_L = np.concatenate([arr for _, arr in nondet_L]) / scale_L
         bin_edges_L = _make_bin_edges(pooled_L)
@@ -400,7 +397,6 @@ def plot_two_panel(
                 color=color,
                 label=macro_name,
             )
-
             if DRAW_OUTLINE:
                 axL.hist(
                     arr,
@@ -410,7 +406,6 @@ def plot_two_panel(
                     density=USE_DENSITY,
                     color=color,
                 )
-
             if show_fits_left:
                 _plot_fit_curve(
                     ax=axL,
@@ -421,24 +416,15 @@ def plot_two_panel(
                     density=USE_DENSITY,
                 )
 
-    # Deterministic left as vertical lines
     base_idx_L = len(nondet_L)
     for j, (macro_name, v_raw) in enumerate(det_L):
         color = color_cycle[(base_idx_L + j) % len(color_cycle)]
         axL.axvline(v_raw / scale_L, color=color, linewidth=2.0, linestyle="--", label=macro_name)
 
-    # Sensible x-limits if only deterministic left
-    if not nondet_L and det_L:
-        xs = np.array([v / scale_L for _, v in det_L], dtype=float)
-        x_min, x_max = float(xs.min()), float(xs.max())
-        if np.isclose(x_min, x_max):
-            pad = 0.05 * (abs(x_min) + 1.0)
-            axL.set_xlim(x_min - pad, x_max + pad)
-        else:
-            pad = 0.05 * (x_max - x_min)
-            axL.set_xlim(x_min - pad, x_max + pad)
+    # ---------------- Right panel (Total CAPEX) ----------------
+    scale_R = _scale_factor_for([a for _, a in nondet_R], extra_points=[v for _, v in det_R])
+    _set_x_label(axR, right_xlabel, scale_R)
 
-    # --- RIGHT PANEL (LCOE) ---
     if nondet_R:
         pooled_R = np.concatenate([arr for _, arr in nondet_R]) / scale_R
         bin_edges_R = _make_bin_edges(pooled_R)
@@ -456,7 +442,6 @@ def plot_two_panel(
                 color=color,
                 label=macro_name,
             )
-
             if DRAW_OUTLINE:
                 axR.hist(
                     arr,
@@ -466,90 +451,73 @@ def plot_two_panel(
                     density=USE_DENSITY,
                     color=color,
                 )
+            if show_fits_right:
+                _plot_fit_curve(
+                    ax=axR,
+                    values=arr,
+                    bin_edges=bin_edges_R,
+                    color=color,
+                    fit_distribution=FIT_DISTRIBUTION,
+                    density=USE_DENSITY,
+                )
 
-    # Deterministic right as vertical lines
     base_idx_R = len(nondet_R)
     for j, (macro_name, v_raw) in enumerate(det_R):
         color = color_cycle[(base_idx_R + j) % len(color_cycle)]
         axR.axvline(v_raw / scale_R, color=color, linewidth=2.0, linestyle="--", label=macro_name)
 
-    # Sensible x-limits if only deterministic right
-    if not nondet_R and det_R:
-        xs = np.array([v / scale_R for _, v in det_R], dtype=float)
-        x_min, x_max = float(xs.min()), float(xs.max())
-        if np.isclose(x_min, x_max):
-            pad = 0.05 * (abs(x_min) + 1.0)
-            axR.set_xlim(x_min - pad, x_max + pad)
-        else:
-            pad = 0.05 * (x_max - x_min)
-            axR.set_xlim(x_min - pad, x_max + pad)
+    # ---- Combined legend (centered below both subplots) ----
+    hL, lL = axL.get_legend_handles_labels()
+    hR, lR = axR.get_legend_handles_labels()
 
-    # --- Shared legend below both plots ---
-    handles, labels = axL.get_legend_handles_labels()
-    if not handles:
-        handles, labels = axR.get_legend_handles_labels()
-
-    # Replace long macro names by short labels (if provided)
-    labels = [LEGEND_LABELS.get(lab, lab) for lab in labels]
-
-    # Deduplicate while preserving order
     seen = set()
-    handles_u = []
-    labels_u = []
-    for h, lab in zip(handles, labels):
-        if lab not in seen:
-            handles_u.append(h)
-            labels_u.append(lab)
-            seen.add(lab)
+    handles, labels = [], []
+    for h, lab in list(zip(hL, lL)) + list(zip(hR, lR)):
+        if lab in seen:
+            continue
+        seen.add(lab)
+        handles.append(h)
+        labels.append(lab)
 
-    n_items = len(labels_u)
-    ncol = min(n_items, 6)  # one row up to 6 items
-
-    fig.legend(
-        handles_u,
-        labels_u,
-        loc="lower center",
-        bbox_to_anchor=(0.5, 0.02),
-        ncol=ncol,
-        frameon=False,
-        fontsize=FS_LEGEND,
-        columnspacing=1.2,
-        handletextpad=0.6,
-    )
+    if handles:
+        fig.legend(
+            handles,
+            labels,
+            loc="lower center",
+            ncol=min(4, len(labels)),
+            fontsize=FS_LEGEND,
+            frameon=False,
+            bbox_to_anchor=(0.5, 0.02),
+        )
 
     out_path = RESULTS_FOLDER_FIG / out_name
-    fig.savefig(out_path, dpi=DPI, bbox_inches="tight")
-    plt.close(fig)
+    plt.savefig(out_path, dpi=DPI)
+    plt.close()
     print(f"Saved: {out_path}")
 
 
-# --------------------------------------------------------------------
-# 8) Generate figures (with & without fits on NPV)
-# --------------------------------------------------------------------
-print("\nCreating combined 1x2 NPV + LCOE plots for all macro scenarios...")
-
-# Labels (edit units to your convention)
-npv_xlabel = f"NPV [{ '€' }]"  # change if needed
-lcoe_xlabel = "LCOE [€/MWh]"   # change if needed
-
-# --- NPV + LCOE (with fits on NPV)
 plot_two_panel(
     arrays_left=npv_arrays,
-    arrays_right=lcoe_arrays,
-    left_xlabel=npv_xlabel,
-    right_xlabel=lcoe_xlabel,
-    out_name=f"{NPV_COL}_and_lcoe_all_scenarios.png",
+    left_title="NPV\n(all macro scenarios)",
+    left_xlabel="NPV [€]",
+    arrays_right=capex_arrays,
+    right_title="Total CAPEX\n(all macro scenarios)",
+    right_xlabel="Total CAPEX [€]",
+    out_name="histogram_npv_and_total_capex_all_scenarios.png",
     show_fits_left=True,
+    show_fits_right=False,
 )
 
-# --- NPV + LCOE (no fits)
 plot_two_panel(
     arrays_left=npv_arrays,
-    arrays_right=lcoe_arrays,
-    left_xlabel=npv_xlabel,
-    right_xlabel=lcoe_xlabel,
-    out_name=f"{NPV_COL}_and_lcoe_all_scenarios_nofit.png",
+    left_title="NPV\n(all macro scenarios) — no fit",
+    left_xlabel="NPV [€]",
+    arrays_right=capex_arrays,
+    right_title="Total CAPEX\n(all macro scenarios)",
+    right_xlabel="Total CAPEX [€]",
+    out_name="histogram_npv_and_total_capex_all_scenarios_nofit.png",
     show_fits_left=False,
+    show_fits_right=False,
 )
 
 print("\nDone.")

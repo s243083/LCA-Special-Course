@@ -68,7 +68,7 @@ def main() -> int:
     parameter_space = {
     # Flattened: CAPEX_overrides -> Capex_inputFiles -> PA
         "CAPEX_overrides.Capex_inputFiles.PA": [
-            "CAPEX"
+            "CAPEX.yaml",
             "CAPEX_OpenDoor.yaml",
             "CAPEX_IncreasedBarriers.yaml",
             "CAPEX_EconomicDownturn.yaml",
@@ -77,7 +77,7 @@ def main() -> int:
 
         # Same for materials
         "CAPEX_overrides.Material_inputFiles.MD": [
-            "Commoditz_Params"
+            "Commodity_Params.yaml",
             "Commodity_Params_OpenDoor.yaml",
             "Commodity_Params_IncreasedBarriers.yaml",
             "Commodity_Params_EconomicDownturn.yaml",
@@ -86,14 +86,15 @@ def main() -> int:
 
         # Optional scenario label                                                                                               
         "Scenario.name": [
+            "Baseline CAPEX",
             "Open Door",
             "Increased Barriers",
             "Economic Downturn",
             "Global Escalation",
         ],
 
-        "FINEX_overrides.WACC.flag_fixed_WACC": [True, True, True, True],
-        "FINEX_overrides.WACC.WACC_annual":     [0.072, 0.072, 0.072, 0.072],
+        "FINEX_overrides.WACC.flag_fixed_WACC": [False, True, True, True, True],
+        "FINEX_overrides.WACC.WACC_annual":     [0.072, 0.072, 0.072, 0.072, 0.072],
     }
 
 
@@ -133,7 +134,7 @@ def main() -> int:
 
         # “replicates” here is what drives repeated draws of the uncertain lambda
         # (i.e., repeated epistemic realisations).
-        replicates=5000,
+        replicates=500,
 
         name="CAPEX_SupplyChain",
         result_directory=str(RESULT_DIR),

@@ -248,12 +248,14 @@ class Valuation:
     def valuation(self):
         """
         KPIs:
-          - NPV (discounted Equity_CF)
-          - IRR (undiscounted Equity_CF series)
-          - LCOE (if power records provided) using PV(capex+opex) / PV(energy)
+        - NPV (discounted Equity_CF)
+        - IRR (undiscounted Equity_CF series)
+        - LCOE (if power records provided) using PV(capex+opex) / PV(energy)
+        - NEW: total capex/opex/debt service (undiscounted) + PV totals (discounted at WACC)
         """
         cf_disc = self.cashflow_discounted_records
         cf_undisc = self.cashflow_records
+
         # ---- NPVs ----
         self.npv_equity = (
             float(cf_disc["discounted_equity_cf"].sum())
@@ -265,8 +267,6 @@ class Valuation:
             if isinstance(cf_disc, pd.DataFrame) and "discounted_fcff" in cf_disc.columns
             else None
         )
-        #print(f"NPV_equity: {self.npv_equity}")
-        #print(f"NPV_firm:   {self.npv_firm}")
 
         # ---- IRR (Equity) ----
         self.irr = None
@@ -277,7 +277,45 @@ class Valuation:
                 .to_numpy()
             )
             self.irr = self._compute_irr(irr_series)
-        #print(f"IRR (Equity_CF): {self.irr}")
+
+        # ---- NEW: Totals (undiscounted) + PV totals (WACC) ----
+        self.total_capex_undisc = None
+        self.total_opex_undisc = None
+        self.total_debt_service_undisc = None
+
+        self.pv_capex_wacc = None
+        self.pv_opex_wacc = None
+        self.pv_debt_service_wacc = None
+
+        if isinstance(cf_undisc, pd.DataFrame) and not cf_undisc.empty:
+            if "capex" in cf_undisc.columns:
+                self.total_capex_undisc = float(
+                    pd.to_numeric(cf_undisc["capex"], errors="coerce").fillna(0.0).sum()
+                )
+            if "opex" in cf_undisc.columns:
+                self.total_opex_undisc = float(
+                    pd.to_numeric(cf_undisc["opex"], errors="coerce").fillna(0.0).sum()
+                )
+            if "DS" in cf_undisc.columns:
+                self.total_debt_service_undisc = float(
+                    pd.to_numeric(cf_undisc["DS"], errors="coerce").fillna(0.0).sum()
+                )
+
+        if isinstance(cf_disc, pd.DataFrame) and not cf_disc.empty and "df_wacc" in cf_disc.columns:
+            dfw = pd.to_numeric(cf_disc["df_wacc"], errors="coerce").fillna(0.0)
+
+            if "capex" in cf_disc.columns:
+                cap = pd.to_numeric(cf_disc["capex"], errors="coerce").fillna(0.0)
+                self.pv_capex_wacc = float((cap * dfw).sum())
+
+            if "opex" in cf_disc.columns:
+                op = pd.to_numeric(cf_disc["opex"], errors="coerce").fillna(0.0)
+                self.pv_opex_wacc = float((op * dfw).sum())
+
+            if "DS" in cf_disc.columns:
+                ds = pd.to_numeric(cf_disc["DS"], errors="coerce").fillna(0.0)
+                self.pv_debt_service_wacc = float((ds * dfw).sum())
+
         # ---- LCOE (optional; excludes financing) ----
         self.lcoe = None
         if isinstance(getattr(self, "power_records", None), pd.DataFrame):
@@ -331,8 +369,6 @@ class Valuation:
                 denom = float(lcoe_df["pv_energy"].sum())
                 self.lcoe = float(lcoe_df["pv_costs"].sum() / denom) if denom > 0 else None
 
-                #print(f"LCOE: {self.lcoe}")
-
         # ---- Total energy (lifetime, MWh) ----
         self.total_energy_mwh = self._total_energy_mwh()
 
@@ -361,20 +397,30 @@ class Valuation:
                     # Fallback: simple average over reference periods
                     self.avg_mvf = float(tmp["market_value_factor"].mean())
 
-
+        # ---- Write metrics row ----
         metrics_row = {
             "npv_firm": self.npv_firm,
             "npv_equity": self.npv_equity,
             "irr": self.irr,
             "lcoe": self.lcoe,
             "avg_mvf": self.avg_mvf,
-            "total_energy_mwh": self.total_energy_mwh,   # <-- NEW
+            "total_energy_mwh": self.total_energy_mwh,
+
+            # NEW totals
+            "total_capex_undisc": self.total_capex_undisc,
+            "total_opex_undisc": self.total_opex_undisc,
+            "total_debt_service_undisc": self.total_debt_service_undisc,
+            "pv_capex_wacc": self.pv_capex_wacc,
+            "pv_opex_wacc": self.pv_opex_wacc,
+            "pv_debt_service_wacc": self.pv_debt_service_wacc,
         }
+
         row_df = pd.DataFrame([metrics_row])
         if not isinstance(getattr(self, "valuemetrics", None), pd.DataFrame) or self.valuemetrics.empty:
             self.valuemetrics = row_df
         else:
             self.valuemetrics = pd.concat([self.valuemetrics, row_df], ignore_index=True)
+
 
     # ------------------------------ IRR helpers ------------------------------
     def _compute_irr(self, cashflows):

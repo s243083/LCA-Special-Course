@@ -41,6 +41,10 @@ class FinexConfig:
     depreciation_salvage_value: float # fraction of CAPEX (0..1)
 
 
+    flag_fixed_wacc: bool
+    WACC_annual_input: float
+
+
 class FINEX:
     def __init__(self, env: Any, capex: Any, cfg: Optional[FinexConfig] = None):
         """

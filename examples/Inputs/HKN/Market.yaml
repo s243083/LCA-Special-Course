@@ -20,11 +20,11 @@ Revenue:
   index_strike_price: true # if true, strike price is indexed annually by inflation_rate
   marketscheme: "FiT"
   FiT:
-    strike_price: 87
+    strike_price: 100
     settling_freq: "monthly" # [hourly, daily, monthly]
     reference_freq: "monthly" # [hourly, daily, monthly]
   CfD:  
-    strike_price: 87
+    strike_price: 100
     settling_freq: "monthly" # [hourly, daily, monthly]
     reference_freq: "monthly" # [hourly, daily, monthly]
     one_sided: true # if true, negative differences are set to zero

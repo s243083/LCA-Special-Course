@@ -1,0 +1,209 @@
+Scenario:
+  name: OpenDoor
+  capex_markup_wind_specific: 0.00  # 0%
+
+MaterialCorrelation:
+  materials: [Steel, Copper, Iron, NdFeB, Glass_fiber, Uniax_GlassFiber, Carbon_fiber, Foam_core, Gelcoat_resin, Electrical_steel]
+  matrix:
+    #           St    Cu    Fe   NdFeB  Gf    UGf   Cf    Foam  Gel   ESt
+    - [  1.0,  0.85, 0.90, 0.80, 0.75, 0.75, 0.78, 0.70, 0.72, 0.88 ]
+    - [  0.85, 1.0,  0.80, 0.82, 0.75, 0.75, 0.78, 0.70, 0.72, 0.80 ]
+    - [  0.90, 0.80, 1.0,  0.78, 0.72, 0.72, 0.75, 0.68, 0.70, 0.85 ]
+    - [  0.80, 0.82, 0.78, 1.0,  0.75, 0.75, 0.80, 0.70, 0.72, 0.78 ]
+    - [  0.75, 0.75, 0.72, 0.75, 1.0,  0.95, 0.80, 0.78, 0.80, 0.75 ]
+    - [  0.75, 0.75, 0.72, 0.75, 0.95, 1.0,  0.82, 0.78, 0.80, 0.75 ]
+    - [  0.78, 0.78, 0.75, 0.80, 0.80, 0.82, 1.0,  0.75, 0.78, 0.78 ]
+    - [  0.70, 0.70, 0.68, 0.70, 0.78, 0.78, 0.75, 1.0,  0.76, 0.70 ]
+    - [  0.72, 0.72, 0.70, 0.72, 0.80, 0.80, 0.78, 0.76, 1.0,  0.72 ]
+    - [  0.88, 0.80, 0.85, 0.78, 0.75, 0.75, 0.78, 0.70, 0.72, 1.0  ]
+
+Commodity:
+  Steel:
+    CostParameters:
+      prediction_horizon:
+        value: 12
+        unit: months
+      material_cost: 1500
+      flag_GBM: true
+      flag_JumpDif: false
+      flag_OU: false
+
+      mu: 0.032     # 0.8 * 0.04
+      sigma: 0.144  # 0.8 * 0.18
+
+      mu_jump: 0.0
+      lambda_jump: 0.008   # 0.8 * 0.01
+      sigma_jump: 0.10
+    LCAParameters:
+      co2eq: 2.0
+
+  Copper:
+    CostParameters:
+      prediction_horizon:
+        value: 12
+        unit: months
+      material_cost: 8000
+      flag_GBM: true
+      flag_JumpDif: false
+      flag_OU: false
+
+      mu: 0.040     # 0.8 * 0.05
+      sigma: 0.200  # 0.8 * 0.25
+
+      mu_jump: 0.0
+      lambda_jump: 0.016   # 0.8 * 0.02
+      sigma_jump: 0.15
+    LCAParameters:
+      co2eq: 4.0
+
+  Iron:
+    CostParameters:
+      prediction_horizon:
+        value: 12
+        unit: months
+      material_cost: 500
+      flag_GBM: true
+      flag_JumpDif: false
+      flag_OU: false
+
+      mu: 0.024     # 0.8 * 0.03
+      sigma: 0.120  # 0.8 * 0.15
+
+      mu_jump: 0.0
+      lambda_jump: 0.008   # 0.8 * 0.01
+      sigma_jump: 0.08
+    LCAParameters:
+      co2eq: 1.8
+
+  NdFeB:
+    CostParameters:
+      prediction_horizon:
+        value: 12
+        unit: months
+      material_cost: 90000
+      flag_GBM: false
+      flag_JumpDif: true
+      flag_OU: false
+
+      mu: 0.064     # 0.8 * 0.08
+      sigma: 0.320  # 0.8 * 0.40
+
+      mu_jump: 0.70
+      lambda_jump: 0.064   # 0.8 * 0.08
+      sigma_jump: 0.25
+    LCAParameters:
+      co2eq: 70.0
+
+  Glass_fiber:
+    CostParameters:
+      prediction_horizon:
+        value: 12
+        unit: months
+      material_cost: 3000
+      flag_GBM: true
+      flag_JumpDif: false
+      flag_OU: false
+
+      mu: 0.024     # 0.8 * 0.03
+      sigma: 0.096  # 0.8 * 0.12
+
+      mu_jump: 0.0
+      lambda_jump: 0.008   # 0.8 * 0.01
+      sigma_jump: 0.08
+    LCAParameters:
+      co2eq: 2.5
+
+  Uniax_GlassFiber:
+    CostParameters:
+      prediction_horizon:
+        value: 12
+        unit: months
+      material_cost: 3500
+      flag_GBM: true
+      flag_JumpDif: false
+      flag_OU: false
+
+      mu: 0.024     # 0.8 * 0.03
+      sigma: 0.096  # 0.8 * 0.12
+
+      mu_jump: 0.0
+      lambda_jump: 0.008   # 0.8 * 0.01
+      sigma_jump: 0.08
+    LCAParameters:
+      co2eq: 2.8
+
+  Carbon_fiber:
+    CostParameters:
+      prediction_horizon:
+        value: 12
+        unit: months
+      material_cost: 24000
+      flag_GBM: false
+      flag_JumpDif: true
+      flag_OU: false
+
+      mu: 0.040     # 0.8 * 0.05
+      sigma: 0.240  # 0.8 * 0.30
+
+      mu_jump: 0.0
+      lambda_jump: 0.040   # 0.8 * 0.05
+      sigma_jump: 0.20
+    LCAParameters:
+      co2eq: 29.0
+
+  Foam_core:
+    CostParameters:
+      prediction_horizon:
+        value: 12
+        unit: months
+      material_cost: 3500
+      flag_GBM: true
+      flag_JumpDif: false
+      flag_OU: false
+
+      mu: 0.016     # 0.8 * 0.02
+      sigma: 0.080  # 0.8 * 0.10
+
+      mu_jump: 0.0
+      lambda_jump: 0.008   # 0.8 * 0.01
+      sigma_jump: 0.08
+    LCAParameters:
+      co2eq: 3.5
+
+  Gelcoat_resin:
+    CostParameters:
+      prediction_horizon:
+        value: 12
+        unit: months
+      material_cost: 4500
+      flag_GBM: true
+      flag_JumpDif: false
+      flag_OU: false
+
+      mu: 0.024     # 0.8 * 0.03
+      sigma: 0.120  # 0.8 * 0.15
+
+      mu_jump: 0.0
+      lambda_jump: 0.008   # 0.8 * 0.01
+      sigma_jump: 0.10
+    LCAParameters:
+      co2eq: 6.0
+
+  Electrical_steel:
+    CostParameters:
+      prediction_horizon:
+        value: 12
+        unit: months
+      material_cost: 2000
+      flag_GBM: true
+      flag_JumpDif: false
+      flag_OU: false
+
+      mu: 0.032     # 0.8 * 0.04
+      sigma: 0.160  # 0.8 * 0.20
+
+      mu_jump: 0.0
+      lambda_jump: 0.016   # 0.8 * 0.02
+      sigma_jump: 0.12
+    LCAParameters:
+      co2eq: 2.2

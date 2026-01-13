@@ -64,37 +64,34 @@ def main() -> int:
 
     # ---------------------------------------------------------------------
     # Design of Experiments: Failure-rate epistemic Gamma(CV) scenarios
-    # ---------------------------------------------------------------------
+        # ---------------------------------------------------------------------
     parameter_space = {
     # Flattened: CAPEX_overrides -> Capex_inputFiles -> PA
         "CAPEX_overrides.Capex_inputFiles.PA": [
             "CAPEX.yaml",
-            "CAPEX_OpenDoor.yaml",
-            "CAPEX_IncreasedBarriers.yaml",
-            "CAPEX_EconomicDownturn.yaml",
-            "CAPEX_GlobalEscalation.yaml",
+            "CAPEX.yaml",
+            "CAPEX.yaml",
+            "CAPEX.yaml",
         ],
 
         # Same for materials
         "CAPEX_overrides.Material_inputFiles.MD": [
             "Commodity_Params.yaml",
-            "Commodity_Params_OpenDoor.yaml",
-            "Commodity_Params_IncreasedBarriers.yaml",
-            "Commodity_Params_EconomicDownturn.yaml",
-            "Commodity_Params_GlobalEscalation.yaml",
+            "Commodity_Params_Minimum.yaml",
+            "Commodity_Params_Moderate.yaml",
+            "Commodity_Params_Substantial.yaml",
         ],
 
         # Optional scenario label                                                                                               
         "Scenario.name": [
-            "Baseline CAPEX",
-            "Open Door",
-            "Increased Barriers",
-            "Economic Downturn",
-            "Global Escalation",
+            "Baseline",
+            "SC1 Minimal Risk",
+            "SC2 Moderate Risk",
+            "SC3 Substantial Risk",
         ],
 
-        "FINEX_overrides.finex_input.FINEX.WACC.flag_fixed_WACC": [False, True, True, True, True],
-        "FINEX_overrides.finex_input.FINEX.WACC.WACC_annual":     [0.034, 0.034, 0.034, 0.034, 0.034],
+        "FINEX_overrides.finex_input.FINEX.WACC.flag_fixed_WACC": [False, True, True, True],
+        "FINEX_overrides.finex_input.FINEX.WACC.WACC_annual":     [0.052, 0.038, 0.052, 0.067]
     }
 
 

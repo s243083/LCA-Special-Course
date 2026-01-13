@@ -1,6 +1,6 @@
 Scenario:
-  name: EconomicDownturn
-  capex_markup_wind_specific: 0.025  # midpoint of 0–5%
+  name: ModerateRisk
+  capex_markup_wind_specific: 0.075  # midpoint of +5–10%
 
 MaterialCorrelation:
   materials: [Steel, Copper, Iron, NdFeB, Glass_fiber, Uniax_GlassFiber, Carbon_fiber, Foam_core, Gelcoat_resin, Electrical_steel]
@@ -28,11 +28,11 @@ Commodity:
       flag_JumpDif: false
       flag_OU: false
 
-      mu: 0.04      # unchanged
-      sigma: 0.234  # 1.3 * 0.18
+      mu: 0.048     # 1.2 * 0.04
+      sigma: 0.216  # 1.2 * 0.18
 
       mu_jump: 0.0
-      lambda_jump: 0.015   # 1.5 * 0.01
+      lambda_jump: 0.012   # 1.2 * 0.01
       sigma_jump: 0.10
     LCAParameters:
       co2eq: 2.0
@@ -47,11 +47,11 @@ Commodity:
       flag_JumpDif: false
       flag_OU: false
 
-      mu: 0.05
-      sigma: 0.325  # 1.3 * 0.25
+      mu: 0.060     # 1.2 * 0.05
+      sigma: 0.300  # 1.2 * 0.25
 
       mu_jump: 0.0
-      lambda_jump: 0.030   # 1.5 * 0.02
+      lambda_jump: 0.024   # 1.2 * 0.02
       sigma_jump: 0.15
     LCAParameters:
       co2eq: 4.0
@@ -66,11 +66,11 @@ Commodity:
       flag_JumpDif: false
       flag_OU: false
 
-      mu: 0.03
-      sigma: 0.195  # 1.3 * 0.15
+      mu: 0.036     # 1.2 * 0.03
+      sigma: 0.180  # 1.2 * 0.15
 
       mu_jump: 0.0
-      lambda_jump: 0.015   # 1.5 * 0.01
+      lambda_jump: 0.012   # 1.2 * 0.01
       sigma_jump: 0.08
     LCAParameters:
       co2eq: 1.8
@@ -85,11 +85,11 @@ Commodity:
       flag_JumpDif: true
       flag_OU: false
 
-      mu: 0.08
-      sigma: 0.520  # 1.3 * 0.40
+      mu: 0.096     # 1.2 * 0.08
+      sigma: 0.480  # 1.2 * 0.40
 
       mu_jump: 0.70
-      lambda_jump: 0.120   # 1.5 * 0.08
+      lambda_jump: 0.096   # 1.2 * 0.08
       sigma_jump: 0.25
     LCAParameters:
       co2eq: 70.0
@@ -104,11 +104,11 @@ Commodity:
       flag_JumpDif: false
       flag_OU: false
 
-      mu: 0.03
-      sigma: 0.156  # 1.3 * 0.12
+      mu: 0.036     # 1.2 * 0.03
+      sigma: 0.144  # 1.2 * 0.12
 
       mu_jump: 0.0
-      lambda_jump: 0.015   # 1.5 * 0.01
+      lambda_jump: 0.012   # 1.2 * 0.01
       sigma_jump: 0.08
     LCAParameters:
       co2eq: 2.5
@@ -123,11 +123,11 @@ Commodity:
       flag_JumpDif: false
       flag_OU: false
 
-      mu: 0.03
-      sigma: 0.156
+      mu: 0.036     # 1.2 * 0.03
+      sigma: 0.144  # 1.2 * 0.12
 
       mu_jump: 0.0
-      lambda_jump: 0.015
+      lambda_jump: 0.012   # 1.2 * 0.01
       sigma_jump: 0.08
     LCAParameters:
       co2eq: 2.8
@@ -142,11 +142,11 @@ Commodity:
       flag_JumpDif: true
       flag_OU: false
 
-      mu: 0.05
-      sigma: 0.390  # 1.3 * 0.30
+      mu: 0.060     # 1.2 * 0.05
+      sigma: 0.360  # 1.2 * 0.30
 
       mu_jump: 0.0
-      lambda_jump: 0.075   # 1.5 * 0.05
+      lambda_jump: 0.060   # 1.2 * 0.05
       sigma_jump: 0.20
     LCAParameters:
       co2eq: 29.0
@@ -161,11 +161,11 @@ Commodity:
       flag_JumpDif: false
       flag_OU: false
 
-      mu: 0.02
-      sigma: 0.130  # 1.3 * 0.10
+      mu: 0.024     # 1.2 * 0.02
+      sigma: 0.120  # 1.2 * 0.10
 
       mu_jump: 0.0
-      lambda_jump: 0.015   # 1.5 * 0.01
+      lambda_jump: 0.012   # 1.2 * 0.01
       sigma_jump: 0.08
     LCAParameters:
       co2eq: 3.5
@@ -180,11 +180,11 @@ Commodity:
       flag_JumpDif: false
       flag_OU: false
 
-      mu: 0.03
-      sigma: 0.195  # 1.3 * 0.15
+      mu: 0.036     # 1.2 * 0.03
+      sigma: 0.180  # 1.2 * 0.15
 
       mu_jump: 0.0
-      lambda_jump: 0.015   # 1.5 * 0.01
+      lambda_jump: 0.012   # 1.2 * 0.01
       sigma_jump: 0.10
     LCAParameters:
       co2eq: 6.0
@@ -199,11 +199,11 @@ Commodity:
       flag_JumpDif: false
       flag_OU: false
 
-      mu: 0.04
-      sigma: 0.300  # 1.5 * 0.20
+      mu: 0.048     # 1.2 * 0.04
+      sigma: 0.240  # 1.2 * 0.20
 
       mu_jump: 0.0
-      lambda_jump: 0.030   # 1.5 * 0.02
+      lambda_jump: 0.024   # 1.2 * 0.02
       sigma_jump: 0.12
     LCAParameters:
       co2eq: 2.2
@@ -402,4 +402,3 @@ Commodity:
       sigma_jump: 0
     LCAParameters:
       co2eq: 2.5                # tCO2e/t (polymer foam, moderate embodied energy)
-

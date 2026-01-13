@@ -1,7 +1,7 @@
 FINEX:
   Debt:
     debt_share: 70  # share of debt [%]
-    interest_rate: 4  # cost of debt [%] 
+    interest_rate: 6  # cost of debt [%] 
     n_yearly_payments: 12 # number of payment per year, 12 eqauls monthly payments
     n_total_payments: 240 # total number of payments 
     start_debt_service:
@@ -13,13 +13,13 @@ FINEX:
       equity_costModel:
         flag_CAPM: true 
         rf: 0.5  # risk free rate [%]
-        beta: 0.5  # A measure of the asset’s volatility or systematic risk relative to the market (for wind energy project typically [0.4-0.7]) [-]
+        beta: 0.6  # A measure of the asset’s volatility or systematic risk relative to the market (for wind energy project typically [0.4-0.7]) [-]
         rm: 8  # Expected Market Return [%]
 
 
   WACC:
-    flag_fixed_WACC: true
-    WACC_annual: 0.072   # 7.2% as fraction
+    flag_fixed_WACC: false
+    WACC_annual: None   # 7.2% as fraction
 
   Tax:
     tax_rate: 21  # corporate tax rate [%]

@@ -15,8 +15,13 @@ OM_Process:
     uncertainty:
       # --- Epistemic uncertainty on failure rates (CM only) ---
       flag_apply_epistemic_lambda: false
-      process_anchor: "median"  # "median" or "mean", this controls if the mean or median of the gamma is preserved when applying lambda_gamma_cv
-      lambda_gamma_cv: 0.30   # coefficient of variation of λ
+      lambda_gamma_cv: 1.40              # CV_target (scenario)
+      lambda_gamma_budget_share: 0.5    # r = fraction of variance that is shared (0..1)
+      lambda_gamma_budget_mode: "lambda" # weights basis: "lambda"
+      process_anchor: "mean"           # existing: mean/median anchoring for factors
+      lambda_gamma_cap_quantile: 0.90    # optional; applies to shared+ind (see note)
+
+
 
       # --- Process uncertainty on durations / waits ---
       flag_apply_process: false

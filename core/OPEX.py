@@ -545,6 +545,7 @@ class OPEX:
         if bool(cfg.get("flag_apply_epistemic_lambda", False)):
             #self._apply_epistemic_uncertainty_failure_rates_gamma(specs, rng)
             self._apply_epistemic_uncertainty_failure_rates_gamma_shared(specs, rng)
+            self._apply_epistemic_uncertainty_failure_rates_gamma_hierarchical_budgeted(specs, rng)
 
         if bool(cfg.get("flag_apply_process", False)):
             self._apply_process_uncertainty_lognormal(specs, rng)
@@ -667,6 +668,96 @@ class OPEX:
             if s.lambda_per_h <= 0.0:
                 continue
             s.lambda_per_h *= F
+
+    def _apply_epistemic_uncertainty_failure_rates_gamma_hierarchical_budgeted(self, specs, rng):
+        """
+        Option B: Split a target aggregate CV into:
+        - shared/systemic factor F_shared
+        - independent factors F_i per CM mode
+        such that the aggregate turbine-level CV of sum(lambda_i) matches lambda_gamma_cv (approximately).
+
+        Model: lambda_i = lambda_i0 * F_shared * F_i
+        """
+        cfg = get_input_parameter(self.parameters, "analytic_ctmc", "uncertainty") or {}
+
+        cv_target = float(cfg.get("lambda_gamma_cv", 0.0))
+        if cv_target <= 0.0:
+            return
+
+        r = float(cfg.get("lambda_gamma_budget_share", 1.0))  # default: all shared (backwards compatible)
+        r = float(np.clip(r, 0.0, 1.0))
+
+        anchor = str(cfg.get("process_anchor", "mean")).lower()
+
+        # Optional cap quantile (None/<=0 disables)
+        q_cap = float(cfg.get("lambda_gamma_cap_quantile", 0.0))
+        if not (0.0 < q_cap < 1.0):
+            q_cap = None
+
+        # ---- collect baseline lambdas for weighting (CM only) ----
+        cm_specs = [s for s in specs if s.task_type == "CM" and (s.lambda_per_h or 0.0) > 0.0]
+        if not cm_specs:
+            return
+
+        lam0 = np.array([float(s.lambda_per_h) for s in cm_specs], dtype=float)
+        Lam0 = float(lam0.sum())
+        if Lam0 <= 0.0:
+            return
+
+        p = lam0 / Lam0
+        sum_p2 = float(np.sum(p * p))
+        sum_p2 = max(sum_p2, 1e-18)
+
+        # ---- compute CV split (Option B) ----
+        cv_shared = cv_target * math.sqrt(r)
+
+        # If r==1 => no independent part
+        if r >= 1.0:
+            cv_ind = 0.0
+        else:
+            cv_ind = cv_target * math.sqrt(max(0.0, 1.0 - r)) / math.sqrt(sum_p2)
+
+    # ---- helper: build Gamma factor distribution from CV + anchor ----
+        def sample_gamma_factor(cv: float) -> float:
+            if cv <= 0.0:
+                return 1.0
+
+            k = 1.0 / max(1e-12, cv * cv)
+
+            # Choose scale so anchor statistic = 1 for the *unconditioned* gamma
+            if anchor == "mean":
+                theta = 1.0 / k                       # mean = 1
+            elif anchor == "median":
+                m1 = float(gamma_dist.ppf(0.5, a=k, scale=1.0))
+                theta = 1.0 / max(m1, 1e-18)          # median = 1
+            else:
+                raise ValueError(f"Unknown process_anchor={anchor!r}")
+
+            # Optional truncation to avoid point-mass spike: draw conditioned on <= cap
+            if q_cap is not None:
+                cap = float(gamma_dist.ppf(q_cap, a=k, scale=theta))
+                # rejection sampling (acceptance prob = q_cap)
+                for _ in range(10_000):
+                    x = float(rng.gamma(shape=k, scale=theta))
+                    if x <= cap:
+                        return x
+                return cap  # extremely unlikely fallback
+
+            return float(rng.gamma(shape=k, scale=theta))
+
+        # ---- sample shared factor once ----
+        F_shared = sample_gamma_factor(cv_shared)
+
+        # ---- sample independent factors and apply ----
+        if cv_ind <= 0.0:
+            # only shared
+            for s in cm_specs:
+                s.lambda_per_h *= F_shared
+        else:
+            for s in cm_specs:
+                F_i = sample_gamma_factor(cv_ind)
+                s.lambda_per_h *= (F_shared * F_i)
+
 
 
 

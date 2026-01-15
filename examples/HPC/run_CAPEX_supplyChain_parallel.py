@@ -131,7 +131,7 @@ def main() -> int:
 
         # “replicates” here is what drives repeated draws of the uncertain lambda
         # (i.e., repeated epistemic realisations).
-        replicates=500,
+        replicates=1000,
 
         name="CAPEX_SupplyChain",
         result_directory=str(RESULT_DIR),

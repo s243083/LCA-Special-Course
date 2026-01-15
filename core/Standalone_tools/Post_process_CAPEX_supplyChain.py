@@ -89,6 +89,16 @@ FS_TICK = 7
 FS_LEGEND = 7
 
 
+# --- Print layout: 100 mm x 80 mm (for LCOE) ---
+FIGSIZE_100x40 = (110 * MM_TO_INCH, 70 * MM_TO_INCH)
+
+# Font sizes tuned for 100x40 mm
+FS_TITLE_SMALL = 8
+FS_LABEL_SMALL = 7
+FS_TICK_SMALL = 6
+FS_LEGEND_SMALL = 6
+
+
 # --------------------------------------------------------------------
 # 2) Load scenarios.json
 # --------------------------------------------------------------------
@@ -234,10 +244,9 @@ def _make_bin_edges(values: np.ndarray) -> np.ndarray:
     nbins = min(N_BINS, max(MIN_BINS, int(values.size)))
     return np.linspace(vmin, vmax, nbins + 1)
 
-
-def _read_valuation_metrics(sid: str) -> Tuple[np.ndarray, np.ndarray]:
+def _read_valuation_metrics(sid: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    Return (npv_firm_values, total_capex_undisc_values).
+    Return (npv_firm_values, total_capex_undisc_values, lcoe_values).
     Potentially multiple samples per SID (e.g., replicates).
     """
     parquet_path = RESULTS_FOLDER / f"{VAL_TABLE_NAME}_df_{sid}.parquet"
@@ -246,10 +255,11 @@ def _read_valuation_metrics(sid: str) -> Tuple[np.ndarray, np.ndarray]:
 
     df = pd.read_parquet(parquet_path)
     if not isinstance(df, pd.DataFrame) or df.empty:
-        return np.array([], dtype=float), np.array([], dtype=float)
+        return np.array([], dtype=float), np.array([], dtype=float), np.array([], dtype=float)
 
     npv = np.array([], dtype=float)
     capex = np.array([], dtype=float)
+    lcoe = np.array([], dtype=float)
 
     if "npv_firm" in df.columns:
         vals = pd.to_numeric(df["npv_firm"], errors="coerce").dropna()
@@ -259,7 +269,11 @@ def _read_valuation_metrics(sid: str) -> Tuple[np.ndarray, np.ndarray]:
         vals = pd.to_numeric(df["total_capex_undisc"], errors="coerce").dropna()
         capex = vals.to_numpy(dtype=float)
 
-    return npv, capex
+    if "lcoe" in df.columns:
+        vals = pd.to_numeric(df["lcoe"], errors="coerce").dropna()
+        lcoe = vals.to_numpy(dtype=float)
+
+    return npv, capex, lcoe
 
 
 # --------------------------------------------------------------------
@@ -292,28 +306,30 @@ missing_files: List[Any] = []
 for macro_name, entries_by_sid in macro_to_entries.items():
     npv_list: List[float] = []
     capex_list: List[float] = []
+    lcoe_list: List[float] = []
 
     for sid in entries_by_sid:
         try:
-            npv_arr, capex_arr = _read_valuation_metrics(sid)
+            npv_arr, capex_arr, lcoe_arr = _read_valuation_metrics(sid)
             npv_list.extend([float(v) for v in npv_arr])
             capex_list.extend([float(v) for v in capex_arr])
+            lcoe_list.extend([float(v) for v in lcoe_arr])
         except FileNotFoundError as e:
             missing_files.append((macro_name, sid, str(e), "Missing valuation file"))
         except Exception as e:
             missing_files.append((macro_name, sid, f"{VAL_TABLE_NAME}_df_{sid}.parquet", f"Valuation read error: {e}"))
 
     npv = np.array(npv_list, dtype=float)
-    capex = np.abs(np.array(capex_list, dtype=float))
+    capex = np.abs(np.array(capex_list, dtype=float))  # keep your positive CAPEX for plotting
+    lcoe = np.array(lcoe_list, dtype=float)
 
+    if npv.size or capex.size or lcoe.size:
+        macro_data[macro_name] = {
+            "npv_firm": npv,
+            "total_capex_undisc": capex,
+            "lcoe": lcoe,
+        }
 
-    if npv.size or capex.size:
-        macro_data[macro_name] = {"npv_firm": npv, "total_capex_undisc": capex}
-        print(
-            f"\nMacro scenario '{macro_name}': "
-            f"{npv.size} NPV sample(s), "
-            f"{capex.size} total CAPEX sample(s)"
-        )
 
 print(f"\nCollected data for {len(macro_data)} macro scenario(s).")
 if missing_files:
@@ -333,6 +349,7 @@ print("\nCreating combined two-panel plots for all macro scenarios...")
 macro_names = list(macro_data.keys())
 npv_arrays = [macro_data[m].get("npv_firm", np.array([], dtype=float)) for m in macro_names]
 capex_arrays = [macro_data[m].get("total_capex_undisc", np.array([], dtype=float)) for m in macro_names]
+lcoe_arrays = [macro_data[m].get("lcoe", np.array([], dtype=float)) for m in macro_names]
 color_cycle = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 
 
@@ -374,8 +391,8 @@ def plot_two_panel(
         ax.tick_params(axis="both", labelsize=FS_TICK)
         ax.set_ylabel("Density" if USE_DENSITY else "Frequency", fontsize=FS_LABEL)
 
-    axL.set_title(left_title, fontsize=FS_TITLE)
-    axR.set_title(right_title, fontsize=FS_TITLE)
+    #axL.set_title(left_title, fontsize=FS_TITLE)
+    #axR.set_title(right_title, fontsize=FS_TITLE)
 
     # ---------------- Left panel (NPV) ----------------
     scale_L = _scale_factor_for([a for _, a in nondet_L], extra_points=[v for _, v in det_L])
@@ -497,6 +514,91 @@ def plot_two_panel(
     print(f"Saved: {out_path}")
 
 
+def plot_single_panel(
+    arrays: List[np.ndarray],
+    xlabel: str,
+    out_name: str,
+    figsize: Tuple[float, float] = FIGSIZE_100x40,
+) -> None:
+    nondet, det = _split_det_nondet(macro_names, arrays)
+
+    if not nondet and not det:
+        print(f"No data available for '{out_name}'; skipping.")
+        return
+
+    fig, ax = plt.subplots(
+        1, 1,
+        figsize=figsize,
+        dpi=DPI,
+        gridspec_kw={
+            "left": 0.10,
+            "right": 0.98,
+            "top": 0.90,
+            "bottom": 0.35,
+        },
+    )
+
+    ax.grid(True, linestyle="--", alpha=0.3, linewidth=0.5)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.tick_params(axis="both", labelsize=FS_TICK_SMALL)
+    ax.set_ylabel("Density" if USE_DENSITY else "Frequency", fontsize=FS_LABEL_SMALL)
+
+    scale = _scale_factor_for([a for _, a in nondet], extra_points=[v for _, v in det])
+    ax.set_xlabel(xlabel + (" [million]" if scale == 1e6 else ""), fontsize=FS_LABEL_SMALL)
+
+    if nondet:
+        pooled = np.concatenate([arr for _, arr in nondet]) / scale
+        bin_edges = _make_bin_edges(pooled)
+
+        for i, (macro_name, arr_raw) in enumerate(nondet):
+            arr = arr_raw / scale
+            color = color_cycle[i % len(color_cycle)]
+
+            ax.hist(
+                arr,
+                bins=bin_edges,
+                histtype="stepfilled",
+                alpha=FILL_ALPHA,
+                density=USE_DENSITY,
+                color=color,
+                label=macro_name,
+            )
+            if DRAW_OUTLINE:
+                ax.hist(
+                    arr,
+                    bins=bin_edges,
+                    histtype="step",
+                    linewidth=EDGE_LW,
+                    density=USE_DENSITY,
+                    color=color,
+                )
+
+    base_idx = len(nondet)
+    for j, (macro_name, v_raw) in enumerate(det):
+        color = color_cycle[(base_idx + j) % len(color_cycle)]
+        ax.axvline(v_raw / scale, color=color, linewidth=2.0, linestyle="--", label=macro_name)
+
+    # legend below
+    handles, labels = ax.get_legend_handles_labels()
+    if handles:
+        fig.legend(
+            handles,
+            labels,
+            loc="lower center",
+            ncol=min(3, len(labels)),
+            fontsize=FS_LEGEND_SMALL,
+            frameon=False,
+            bbox_to_anchor=(0.5, 0.02),
+        )
+
+    out_path = RESULTS_FOLDER_FIG / out_name
+    plt.savefig(out_path, dpi=DPI)
+    plt.close()
+    print(f"Saved: {out_path}")
+
+
+
 plot_two_panel(
     arrays_left=npv_arrays,
     left_title="NPV\n(all macro scenarios)",
@@ -519,6 +621,14 @@ plot_two_panel(
     out_name="histogram_npv_and_total_capex_all_scenarios_nofit.png",
     show_fits_left=False,
     show_fits_right=False,
+)
+
+
+plot_single_panel(
+    arrays=lcoe_arrays,
+    xlabel="LCOE [€ / MWh]",
+    out_name="histogram_lcoe_all_scenarios.png",
+    figsize=FIGSIZE_100x40,
 )
 
 print("\nDone.")

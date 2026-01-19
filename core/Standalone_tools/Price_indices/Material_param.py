@@ -20,6 +20,7 @@ import sys
 import csv
 import numpy as np
 import pandas as pd
+from scipy import stats
 
 
 def detect_delimiter(csv_path: str) -> str:
@@ -281,6 +282,294 @@ def calibrate_jump_diffusion(prices: pd.Series, dt_years: float, threshold_std: 
     }
 
 
+def compute_log_returns(df: pd.DataFrame, price_cols: list) -> pd.DataFrame:
+    """
+    Compute log returns for multiple commodity price series.
+    
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame with date column and price columns
+    price_cols : list
+        Names of price/index columns
+    
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with log returns for each commodity (normalized, NaN values removed)
+    """
+    log_returns = pd.DataFrame()
+    
+    for col in price_cols:
+        if col not in df.columns:
+            print(f"Price column '{col}' not found in DataFrame, skipping.", file=sys.stderr)
+            continue
+        
+        # Normalize prices (handle European format numbers)
+        prices = df[col].apply(normalize_number).astype(float)
+        returns = np.log(prices / prices.shift(1)).dropna()
+        
+        if len(returns) > 0:
+            log_returns[col] = returns
+    
+    # Drop any rows with NaN (align all series)
+    log_returns = log_returns.dropna()
+    
+    return log_returns
+
+
+def calculate_pearson_correlation(log_returns: pd.DataFrame) -> dict:
+    """
+    Calculate Pearson correlation matrix of log returns.
+    
+    Parameters
+    ----------
+    log_returns : pd.DataFrame
+        DataFrame with log returns for each commodity
+    
+    Returns
+    -------
+    dict
+        Dictionary containing:
+        - 'correlation_matrix': Pearson correlation matrix
+        - 'p_values': p-values for each correlation pair
+        - 'n_observations': number of observations used
+    """
+    if log_returns.shape[1] < 2:
+        raise ValueError("Need at least 2 commodities to compute correlation matrix.")
+    
+    n_obs = len(log_returns)
+    
+    # Compute Pearson correlation matrix
+    pearson_corr = log_returns.corr(method='pearson')
+    
+    # Compute p-values for each pair
+    p_values = pd.DataFrame(
+        np.ones((len(log_returns.columns), len(log_returns.columns))),
+        index=log_returns.columns,
+        columns=log_returns.columns
+    )
+    
+    for i, col1 in enumerate(log_returns.columns):
+        for j, col2 in enumerate(log_returns.columns):
+            if i != j:
+                # Pearson correlation t-statistic p-value
+                corr_coef = pearson_corr.iloc[i, j]
+                t_stat = corr_coef * np.sqrt(n_obs - 2) / np.sqrt(1 - corr_coef**2)
+                p_values.iloc[i, j] = 2 * (1 - stats.t.cdf(np.abs(t_stat), n_obs - 2))
+    
+    return {
+        'correlation_matrix': pearson_corr,
+        'p_values': p_values,
+        'n_observations': n_obs,
+        'method': 'Pearson'
+    }
+
+
+def calculate_spearman_correlation(log_returns: pd.DataFrame) -> dict:
+    """
+    Calculate Spearman rank correlation matrix of log returns.
+    
+    Parameters
+    ----------
+    log_returns : pd.DataFrame
+        DataFrame with log returns for each commodity
+    
+    Returns
+    -------
+    dict
+        Dictionary containing:
+        - 'correlation_matrix': Spearman rank correlation matrix
+        - 'p_values': p-values for each correlation pair
+        - 'n_observations': number of observations used
+    """
+    if log_returns.shape[1] < 2:
+        raise ValueError("Need at least 2 commodities to compute correlation matrix.")
+    
+    n_obs = len(log_returns)
+    
+    # Compute Spearman rank correlation matrix
+    spearman_corr = log_returns.corr(method='spearman')
+    
+    # Compute p-values for each pair
+    p_values = pd.DataFrame(
+        np.ones((len(log_returns.columns), len(log_returns.columns))),
+        index=log_returns.columns,
+        columns=log_returns.columns
+    )
+    
+    for i, col1 in enumerate(log_returns.columns):
+        for j, col2 in enumerate(log_returns.columns):
+            if i != j:
+                # Use scipy.stats.spearmanr for p-values
+                _, p_val = stats.spearmanr(log_returns.iloc[:, i], log_returns.iloc[:, j])
+                p_values.iloc[i, j] = p_val
+    
+    return {
+        'correlation_matrix': spearman_corr,
+        'p_values': p_values,
+        'n_observations': n_obs,
+        'method': 'Spearman'
+    }
+
+
+def compare_correlation_matrices(pearson_results: dict, spearman_results: dict) -> dict:
+    """
+    Compare Pearson and Spearman correlation matrices for robustness.
+    
+    Parameters
+    ----------
+    pearson_results : dict
+        Results from calculate_pearson_correlation()
+    spearman_results : dict
+        Results from calculate_spearman_correlation()
+    
+    Returns
+    -------
+    dict
+        Dictionary containing:
+        - 'difference_matrix': Absolute difference between matrices
+        - 'max_difference': Maximum absolute difference
+        - 'mean_difference': Mean absolute difference
+        - 'agreement_pct': Percentage of highly agreeing pairs (diff < 0.1)
+        - 'discordant_pairs': List of pairs with largest differences
+    """
+    pearson_corr = pearson_results['correlation_matrix']
+    spearman_corr = spearman_results['correlation_matrix']
+    
+    # Calculate difference matrix (off-diagonal only)
+    diff_matrix = np.abs(pearson_corr.values - spearman_corr.values)
+    
+    # Set diagonal to 0 for analysis (exclude self-correlations)
+    np.fill_diagonal(diff_matrix, 0)
+    
+    # Get off-diagonal values
+    n_pairs = pearson_corr.shape[0]
+    off_diag_diffs = diff_matrix[np.triu_indices(n_pairs, k=1)]
+    
+    max_diff = np.max(off_diag_diffs) if len(off_diag_diffs) > 0 else 0
+    mean_diff = np.mean(off_diag_diffs) if len(off_diag_diffs) > 0 else 0
+    
+    # Calculate agreement percentage (correlations within 0.1 of each other)
+    agreement = np.sum(off_diag_diffs < 0.1) / len(off_diag_diffs) * 100 if len(off_diag_diffs) > 0 else 0
+    
+    # Identify discordant pairs (largest differences)
+    discordant_pairs = []
+    for i in range(n_pairs):
+        for j in range(i + 1, n_pairs):
+            diff = diff_matrix[i, j]
+            col_i = pearson_corr.columns[i]
+            col_j = pearson_corr.columns[j]
+            discordant_pairs.append({
+                'pair': (col_i, col_j),
+                'pearson': float(pearson_corr.iloc[i, j]),
+                'spearman': float(spearman_corr.iloc[i, j]),
+                'difference': float(diff)
+            })
+    
+    discordant_pairs.sort(key=lambda x: x['difference'], reverse=True)
+    
+    return {
+        'difference_matrix': pd.DataFrame(diff_matrix, 
+                                         index=pearson_corr.index,
+                                         columns=pearson_corr.columns),
+        'max_difference': float(max_diff),
+        'mean_difference': float(mean_diff),
+        'agreement_pct': float(agreement),
+        'discordant_pairs': discordant_pairs[:5]  # Top 5 most discordant pairs
+    }
+
+
+def analyze_commodity_correlations(df: pd.DataFrame, date_col: str, price_cols: list) -> None:
+    """
+    Analyze correlations between multiple commodities using both Pearson and Spearman methods.
+    
+    Computes log returns, calculates both correlation matrices, and compares them for robustness.
+    
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame with date column and price columns
+    date_col : str
+        Name of the date column
+    price_cols : list
+        Names of price/index columns to analyze
+    """
+    if len(price_cols) < 2:
+        print("Need at least 2 commodities for correlation analysis, skipping.", file=sys.stderr)
+        return
+    
+    print("\n" + "=" * 80)
+    print("CORRELATION ANALYSIS (Multiple Commodities)")
+    print("=" * 80)
+    
+    try:
+        # Compute log returns
+        log_returns = compute_log_returns(df, price_cols)
+        
+        if log_returns.shape[1] < 2:
+            print("Not enough valid price series for correlation analysis.", file=sys.stderr)
+            return
+        
+        print(f"\nUsing {log_returns.shape[0]} observations and {log_returns.shape[1]} commodities")
+        print(f"Commodities: {', '.join(log_returns.columns.tolist())}\n")
+        
+        # Calculate Pearson correlation
+        pearson_results = calculate_pearson_correlation(log_returns)
+        
+        print("PEARSON CORRELATION MATRIX (Log Returns):")
+        print(pearson_results['correlation_matrix'].to_string())
+        print("\nPearson p-values (significance):")
+        print(pearson_results['p_values'].to_string())
+        
+        # Calculate Spearman correlation
+        spearman_results = calculate_spearman_correlation(log_returns)
+        
+        print("\n" + "-" * 80)
+        print("\nSPEARMAN RANK CORRELATION MATRIX (Log Returns):")
+        print(spearman_results['correlation_matrix'].to_string())
+        print("\nSpearman p-values (significance):")
+        print(spearman_results['p_values'].to_string())
+        
+        # Compare the two methods
+        comparison = compare_correlation_matrices(pearson_results, spearman_results)
+        
+        print("\n" + "-" * 80)
+        print("\nROBUSTNESS COMPARISON (Pearson vs Spearman):")
+        print(f"Max absolute difference: {comparison['max_difference']:.6f}")
+        print(f"Mean absolute difference: {comparison['mean_difference']:.6f}")
+        print(f"Agreement rate (diff < 0.1): {comparison['agreement_pct']:.1f}%")
+        
+        if comparison['discordant_pairs']:
+            print("\nMost discordant pairs (largest differences):")
+            for pair_info in comparison['discordant_pairs']:
+                col1, col2 = pair_info['pair']
+                print(f"  {col1} - {col2}:")
+                print(f"    Pearson:  {pair_info['pearson']:.6f}")
+                print(f"    Spearman: {pair_info['spearman']:.6f}")
+                print(f"    Difference: {pair_info['difference']:.6f}")
+        
+        # Interpretation
+        print("\n" + "-" * 80)
+        print("\nINTERPRETATION:")
+        if comparison['agreement_pct'] >= 90:
+            print("✓ Strong agreement between Pearson and Spearman: results are robust.")
+            print("  Use either method; correlations are not driven by outliers.")
+        elif comparison['agreement_pct'] >= 75:
+            print("◆ Moderate agreement: generally robust, but check discordant pairs.")
+            print("  Consider outliers or non-linear relationships in discordant pairs.")
+        else:
+            print("⚠ Low agreement: results may be sensitive to outliers or non-linear effects.")
+            print("  Spearman is more robust to outliers; review discordant pairs carefully.")
+        
+        print("\n" + "=" * 80)
+        
+    except Exception as e:
+        print(f"Error during correlation analysis: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc(file=sys.stderr)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Calibrate GBM, OU, and Jump-Diffusion parameters from CSV price series.")
     parser.add_argument("csv_path", help="Path to CSV file with a date column and one or more price/index columns.")
@@ -394,6 +683,10 @@ def main(argv=None):
             print(f"  Jump-Diffusion calibration failed: {e}", file=sys.stderr)
 
         print()
+
+    # If multiple commodities were analyzed, perform correlation analysis
+    if len(price_cols) >= 2:
+        analyze_commodity_correlations(df, args.date_col, price_cols)
 
     print("=" * 80)
     print("Done.")

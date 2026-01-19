@@ -544,7 +544,7 @@ class OPEX:
 
         if bool(cfg.get("flag_apply_epistemic_lambda", False)):
             #self._apply_epistemic_uncertainty_failure_rates_gamma(specs, rng)
-            self._apply_epistemic_uncertainty_failure_rates_gamma_shared(specs, rng)
+            #self._apply_epistemic_uncertainty_failure_rates_gamma_shared(specs, rng)
             self._apply_epistemic_uncertainty_failure_rates_gamma_hierarchical_budgeted(specs, rng)
 
         if bool(cfg.get("flag_apply_process", False)):

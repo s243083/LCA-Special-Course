@@ -68,7 +68,7 @@ DET_ATOL = 1e-12
 DET_RTOL = 1e-10
 
 # Histogram binning
-N_BINS = 90
+N_BINS = 120
 MIN_BINS = 10
 
 # Plot styling

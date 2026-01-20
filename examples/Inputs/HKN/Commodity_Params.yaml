@@ -22,7 +22,7 @@ Commodity:
         unit: months
       material_cost: 1500
       flag_GBM: false
-      flag_JumpDif: true
+      flag_JumpDif: false
       flag_OU: false
 
       # Historical price data not Gaussian; GBM not appropriate
@@ -42,7 +42,7 @@ Commodity:
         unit: months 
       material_cost: 8000
       flag_GBM: false
-      flag_JumpDif: true
+      flag_JumpDif: false
       flag_OU: false
 
       # Historical price data not Gaussian; GBM not appropriate
@@ -138,7 +138,7 @@ Commodity:
         unit: months
       material_cost: 24000
       flag_GBM: false
-      flag_JumpDif: true
+      flag_JumpDif: false
       flag_OU: false
 
       # Historical price data not Gaussian; GBM not appropriate

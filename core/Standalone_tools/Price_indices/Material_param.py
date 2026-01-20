@@ -1,16 +1,17 @@
-#!/usr/bin/env python3
 """
 Calibrate GBM (mu, sigma), mean-reverting OU (kappa, theta, sigma),
 and simple Jump-Diffusion (lambda_jump, sigma_jump)
 from historical price/index time series stored in a CSV.
 
+Saves calibration outputs as JSON files for testing with accuracy_test.py
+
 Usage examples
 --------------
 Single series (column 'Price'):
-    python calibrate_commodities.py data.csv --date-col Date --price-cols Price
+    python Material_param.py data.csv --date-col Date --price-cols Price --output-dir ./calibrations
 
 Multiple materials in same file (columns 'Steel','Copper',...):
-    python calibrate_commodities.py materials.csv --date-col Date --price-cols Steel Copper
+    python Material_param.py materials.csv --date-col Date --price-cols Steel Copper --output-dir ./calibrations
 
 If --price-cols is omitted, all numeric columns except the date column are used.
 """
@@ -18,6 +19,9 @@ If --price-cols is omitted, all numeric columns except the date column are used.
 import argparse
 import sys
 import csv
+import json
+from pathlib import Path
+from datetime import datetime
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -112,7 +116,7 @@ def infer_dt_years(dates: pd.Series) -> float:
         dt_years = float(median_years)
     else:
         # Treat as datetime strings
-        dates_clean = pd.to_datetime(dates_clean)
+        dates_clean = pd.to_datetime(dates_clean, format='%d-%m-%Y')
         diffs = dates_clean.diff().dropna().dt.days.values
         
         if len(diffs) == 0:
@@ -281,6 +285,28 @@ def calibrate_jump_diffusion(prices: pd.Series, dt_years: float, threshold_std: 
         "threshold_std": float(threshold_std),
     }
 
+def save_calibration_json(commodity_name: str, gbm_params: dict, ou_params: dict, 
+                          jd_params: dict, output_dir: str) -> None:
+    """Save calibration results to a JSON file."""
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    
+    # Sanitize commodity name for filename
+    safe_name = commodity_name.replace(' ', '_').replace('/', '_').lower()
+    json_file = output_path / f'calibration_{safe_name}.json'
+    
+    data = {
+        'commodity': commodity_name,
+        'timestamp': datetime.now().isoformat(),
+        'gbm': gbm_params,
+        'ou': ou_params,
+        'jd': jd_params
+    }
+    
+    with open(json_file, 'w') as f:
+        json.dump(data, f, indent=2)
+    
+    print(f"  Saved to: {json_file}")
 
 def compute_log_returns(df: pd.DataFrame, price_cols: list) -> pd.DataFrame:
     """
@@ -595,6 +621,12 @@ def main(argv=None):
         help="Std-dev multiple used to classify jumps in log-returns (default: 2.5)."
     )
 
+    parser.add_argument(
+        "--output-dir",
+        default="./calibrations",
+        help="Directory to save calibration JSON files (default: ./calibrations)"
+    )
+
     args = parser.parse_args()
 
     # Load data with auto-detected delimiter
@@ -611,11 +643,12 @@ def main(argv=None):
 
     # Parse dates only if not already numeric (e.g., Year column)
     if not pd.api.types.is_numeric_dtype(df[args.date_col]):
-        try:
-            df[args.date_col] = pd.to_datetime(df[args.date_col], format=args.date_format)
-        except Exception as e:
-            print(f"Error parsing dates: {e}", file=sys.stderr)
-            sys.exit(1)
+        if args.date_format is not None:
+            try:
+                df[args.date_col] = pd.to_datetime(df[args.date_col], format=args.date_format)
+            except Exception as e:
+                print(f"Error parsing dates: {e}", file=sys.stderr)
+                sys.exit(1)
 
     df = df.sort_values(args.date_col).reset_index(drop=True)
 
@@ -652,6 +685,10 @@ def main(argv=None):
 
         print("=" * 80)
         print(f"Series: {col}")
+        
+        gbm_params = None
+        ou_params = None
+        jd_params = None
 
         # GBM calibration
         try:
@@ -681,6 +718,19 @@ def main(argv=None):
             print(f"  n_jumps     = {jd_params['n_jumps']} (out of {jd_params['n_steps']} steps, threshold={jd_params['threshold_std']}σ)")
         except Exception as e:
             print(f"  Jump-Diffusion calibration failed: {e}", file=sys.stderr)
+
+        # Save to JSON
+        if gbm_params or ou_params or jd_params:
+            try:
+                save_calibration_json(
+                    col,
+                    gbm_params or {},
+                    ou_params or {},
+                    jd_params or {},
+                    args.output_dir
+                )
+            except Exception as e:
+                print(f"  Error saving calibration: {e}", file=sys.stderr)
 
         print()
 

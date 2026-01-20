@@ -6,16 +6,17 @@ MaterialCorrelation:
   materials: [Steel, Copper, Iron, NdFeB, Glass_fiber, Uniax_GlassFiber, Carbon_fiber, Foam_core, Gelcoat_resin, Electrical_steel]
   matrix:
     # same as baseline
-    - [  1.0,  0.85, 0.90, 0.80, 0.75, 0.75, 0.78, 0.70, 0.72, 0.88 ]
-    - [  0.85, 1.0,  0.80, 0.82, 0.75, 0.75, 0.78, 0.70, 0.72, 0.80 ]
-    - [  0.90, 0.80, 1.0,  0.78, 0.72, 0.72, 0.75, 0.68, 0.70, 0.85 ]
-    - [  0.80, 0.82, 0.78, 1.0,  0.75, 0.75, 0.80, 0.70, 0.72, 0.78 ]
-    - [  0.75, 0.75, 0.72, 0.75, 1.0,  0.95, 0.80, 0.78, 0.80, 0.75 ]
-    - [  0.75, 0.75, 0.72, 0.75, 0.95, 1.0,  0.82, 0.78, 0.80, 0.75 ]
-    - [  0.78, 0.78, 0.75, 0.80, 0.80, 0.82, 1.0,  0.75, 0.78, 0.78 ]
-    - [  0.70, 0.70, 0.68, 0.70, 0.78, 0.78, 0.75, 1.0,  0.76, 0.70 ]
-    - [  0.72, 0.72, 0.70, 0.72, 0.80, 0.80, 0.78, 0.76, 1.0,  0.72 ]
-    - [  0.88, 0.80, 0.85, 0.78, 0.75, 0.75, 0.78, 0.70, 0.72, 1.0  ]
+    #           St    Cu    Fe   NdFeB  Gf    UGf   Cf    Foam  Gel   ESt
+    - [  1.0,  -0.03, 0.0, 0.0, 0.0, 0.0, -0.09, 0.0, 0.0, 0.0 ]
+    - [  -0.03, 1.0,  0.0, 0.0, 0.0, 0.0, 0.13, 0.0, 0.0, 0.0 ]
+    - [  0.0, 0.0, 1.0,  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ]
+    - [  0.0, 0.0, 0.0, 1.0,  0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ]
+    - [  0.0, 0.0, 0.0, 0.0, 1.0,  0.0, 0.0, 0.0, 0.0, 0.0 ]
+    - [  0.0, 0.0, 0.0, 0.0, 0.0, 1.0,  0.0, 0.0, 0.0, 0.0 ]
+    - [  -0.09, 0.13, 0.0, 0.0, 0.0, 0.0, 1.0,  0.0, 0.0, 0.0 ]
+    - [  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0,  0.0, 0.0 ]
+    - [  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0,  0.0 ]
+    - [  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0  ]
 
 Commodity:
   Steel:
@@ -24,16 +25,17 @@ Commodity:
         value: 12
         unit: months
       material_cost: 1500
-      flag_GBM: true
-      flag_JumpDif: false
+      flag_GBM: false
+      flag_JumpDif: true
       flag_OU: false
 
-      mu: 0.040     # 1.0 * 0.04
-      sigma: 0.180  # 1.0 * 0.18
+      # Historical price data not Gaussian; GBM not appropriate
+      mu: 0.0     
+      sigma: 0.0  
 
-      mu_jump: 0.0
-      lambda_jump: 0.010   # 1.0 * 0.01
-      sigma_jump: 0.10
+      mu_jump: 0.258
+      lambda_jump: 1.96   # 1.0 * 1,96
+      sigma_jump: 0.288
     LCAParameters:
       co2eq: 2.0
 
@@ -43,16 +45,17 @@ Commodity:
         value: 12
         unit: months 
       material_cost: 8000
-      flag_GBM: true
-      flag_JumpDif: false
+      flag_GBM: false
+      flag_JumpDif: true
       flag_OU: false
 
-      mu: 0.050     # 1.0 * 0.05
-      sigma: 0.250  # 1.0 * 0.25
+      # Historical price data not Gaussian; GBM not appropriate
+      mu: 0.0     
+      sigma: 0.0  
 
-      mu_jump: 0.0
-      lambda_jump: 0.020   # 1.0 * 0.02
-      sigma_jump: 0.15
+      mu_jump: 0.422
+      lambda_jump: 0.915   # 1.0 * ,915
+      sigma_jump: 0.422
     LCAParameters:
       co2eq: 4.0
 
@@ -62,16 +65,16 @@ Commodity:
         value: 12
         unit: months 
       material_cost: 500
-      flag_GBM: true
+      flag_GBM: false
       flag_JumpDif: false
       flag_OU: false
 
-      mu: 0.030     # 1.0 * 0.03
-      sigma: 0.150  # 1.0 * 0.15
+      mu: 0.0     
+      sigma: 0.0 
 
       mu_jump: 0.0
-      lambda_jump: 0.010   # 1.0 * 0.01
-      sigma_jump: 0.08
+      lambda_jump: 0.0  
+      sigma_jump: 0.0
     LCAParameters:
       co2eq: 1.8
 
@@ -82,15 +85,15 @@ Commodity:
         unit: months 
       material_cost: 90000
       flag_GBM: false
-      flag_JumpDif: true
+      flag_JumpDif: false
       flag_OU: false
 
-      mu: 0.080     # 1.0 * 0.08
-      sigma: 0.400  # 1.0 * 0.40
+      mu: 0.0    
+      sigma: 0.0
 
-      mu_jump: 0.70
-      lambda_jump: 0.080   # 1.0 * 0.08
-      sigma_jump: 0.25
+      mu_jump: 0.0
+      lambda_jump: 0.0
+      sigma_jump: 0.0
     LCAParameters:
       co2eq: 70.0
 
@@ -100,16 +103,16 @@ Commodity:
         value: 12
         unit: months
       material_cost: 3000
-      flag_GBM: true
+      flag_GBM: false
       flag_JumpDif: false
       flag_OU: false
 
-      mu: 0.030     # 1.0 * 0.03
-      sigma: 0.120  # 1.0 * 0.12
+      mu: 0.0     
+      sigma: 0.0  
 
       mu_jump: 0.0
-      lambda_jump: 0.010   # 1.0 * 0.01
-      sigma_jump: 0.08
+      lambda_jump: 0.0
+      sigma_jump: 0.0
     LCAParameters:
       co2eq: 2.5
 
@@ -119,16 +122,16 @@ Commodity:
         value: 12
         unit: months
       material_cost: 3500
-      flag_GBM: true
+      flag_GBM: false
       flag_JumpDif: false
       flag_OU: false
 
-      mu: 0.030     # 1.0 * 0.03
-      sigma: 0.120  # 1.0 * 0.12
+      mu: 0.0
+      sigma: 0.0
 
       mu_jump: 0.0
-      lambda_jump: 0.010   # 1.0 * 0.01
-      sigma_jump: 0.08
+      lambda_jump: 0.0
+      sigma_jump: 0.0
     LCAParameters:
       co2eq: 2.8
 
@@ -142,12 +145,14 @@ Commodity:
       flag_JumpDif: true
       flag_OU: false
 
-      mu: 0.050     # 1.0 * 0.05
-      sigma: 0.300  # 1.0 * 0.30
+      # Historical price data not Gaussian; GBM not appropriate
+      mu: 0.0     
+      sigma: 0.0  
 
-      mu_jump: 0.0
-      lambda_jump: 0.050   # 1.0 * 0.05
-      sigma_jump: 0.20
+      # Used  
+      mu_jump: 0.521
+      lambda_jump: 1.05   
+      sigma_jump: 0.919
     LCAParameters:
       co2eq: 29.0
 
@@ -157,16 +162,16 @@ Commodity:
         value: 12
         unit: months
       material_cost: 3500
-      flag_GBM: true
+      flag_GBM: false
       flag_JumpDif: false
       flag_OU: false
 
-      mu: 0.020     # 1.0 * 0.02
-      sigma: 0.100  # 1.0 * 0.10
+      mu: 0.0
+      sigma: 0.0
 
       mu_jump: 0.0
-      lambda_jump: 0.010   # 1.0 * 0.01
-      sigma_jump: 0.08
+      lambda_jump: 0.0
+      sigma_jump: 0.0
     LCAParameters:
       co2eq: 3.5
 
@@ -176,16 +181,17 @@ Commodity:
         value: 12
         unit: months
       material_cost: 4500
-      flag_GBM: true
+      flag_GBM: false
       flag_JumpDif: false
       flag_OU: false
 
-      mu: 0.030     # 1.0 * 0.03
-      sigma: 0.150  # 1.0 * 0.15
+      mu: 0.0
+      sigma: 0.0
 
       mu_jump: 0.0
-      lambda_jump: 0.010   # 1.0 * 0.01
-      sigma_jump: 0.10
+      lambda_jump: 0.0
+      sigma_jump: 0.0
+
     LCAParameters:
       co2eq: 6.0
 
@@ -195,16 +201,16 @@ Commodity:
         value: 12
         unit: months
       material_cost: 2000
-      flag_GBM: true
+      flag_GBM: false
       flag_JumpDif: false
       flag_OU: false
 
-      mu: 0.040     # 1.0 * 0.04
-      sigma: 0.200  # 1.0 * 0.20
+      mu: 0.0
+      sigma: 0.0
 
       mu_jump: 0.0
-      lambda_jump: 0.020   # 1.0 * 0.02
-      sigma_jump: 0.12
+      lambda_jump: 0.0
+      sigma_jump: 0.0
     LCAParameters:
       co2eq: 2.2
 
@@ -216,8 +222,8 @@ Commodity:
         unit: months
       material_cost: 7000    # €/t (nacelle cover laminates incl. processing)
       flag_GBM: false
-      mu: 0.03
-      sigma: 0.10
+      mu: 0.0
+      sigma: 0.0
       flag_JumpDif: false
       mu_jump: 0
       lambda_jump: 0
@@ -232,12 +238,12 @@ Commodity:
         unit: months
       material_cost: 50000  # €/t (SiC/IGBT stacks, DC link, control)
       flag_GBM: false
-      mu: 0.06
-      sigma: 0.30
+      mu: 0.0
+      sigma: 0.0
       flag_JumpDif: false
-      mu_jump: 0.25
-      lambda_jump: 0.10
-      sigma_jump: 0.20
+      mu_jump: 0.0
+      lambda_jump: 0.0
+      sigma_jump: 0.0
     LCAParameters:
       co2eq: 10.0
 
@@ -248,8 +254,8 @@ Commodity:
         unit: months
       material_cost: 15000   # €/t (integrated nacelle transformer)
       flag_GBM: false
-      mu: 0.03
-      sigma: 0.12
+      mu: 0.0
+      sigma: 0.0
       flag_JumpDif: false
       mu_jump: 0
       lambda_jump: 0
@@ -264,8 +270,8 @@ Commodity:
         unit: months
       material_cost: 20000   # €/t
       flag_GBM: false
-      mu: 0.03
-      sigma: 0.10
+      mu: 0.0
+      sigma: 0.0
       flag_JumpDif: false
       mu_jump: 0
       lambda_jump: 0
@@ -280,8 +286,8 @@ Commodity:
         unit: months
       material_cost: 12000   # €/t (Cu conductors + insulation)
       flag_GBM: false
-      mu: 0.04
-      sigma: 0.18
+      mu: 0.0
+      sigma: 0.0
       flag_JumpDif: false
       mu_jump: 0
       lambda_jump: 0
@@ -296,8 +302,8 @@ Commodity:
         unit: months
       material_cost: 2500    # €/t (oils, fluids, filters packaged)
       flag_GBM: false
-      mu: 0.02
-      sigma: 0.08
+      mu: 0.0
+      sigma: 0.0
       flag_JumpDif: false
       mu_jump: 0
       lambda_jump: 0
@@ -314,8 +320,8 @@ Commodity:
         unit: months
       material_cost: 28000      # €/t — high-grade unidirectional carbon fiber fabric
       flag_GBM: false
-      mu: 0.02
-      sigma: 0.08
+      mu: 0.0
+      sigma: 0.0
       flag_JumpDif: false
       mu_jump: 0
       lambda_jump: 0
@@ -330,8 +336,8 @@ Commodity:
         unit: months
       material_cost: 3000       # €/t — specialty polyester/vinylester gelcoat
       flag_GBM: false
-      mu: 0.02
-      sigma: 0.08
+      mu: 0.0
+      sigma: 0.0
       flag_JumpDif: false
       mu_jump: 0
       lambda_jump: 0
@@ -346,8 +352,8 @@ Commodity:
         unit: months
       material_cost: 5500       # €/t — biaxial E-glass fabrics
       flag_GBM: false
-      mu: 0.02
-      sigma: 0.08
+      mu: 0.0
+      sigma: 0.0
       flag_JumpDif: false
       mu_jump: 0
       lambda_jump: 0
@@ -362,8 +368,8 @@ Commodity:
         unit: months
       material_cost: 6500       # €/t — triaxial stitched E-glass fabrics
       flag_GBM: false
-      mu: 0.02
-      sigma: 0.08
+      mu: 0.0
+      sigma: 0.0
       flag_JumpDif: false
       mu_jump: 0
       lambda_jump: 0
@@ -378,8 +384,8 @@ Commodity:
         unit: months
       material_cost: 5000       # €/t — unidirectional E-glass fabric
       flag_GBM: false
-      mu: 0.02
-      sigma: 0.08
+      mu: 0.0
+      sigma: 0.0
       flag_JumpDif: false
       mu_jump: 0
       lambda_jump: 0
@@ -394,8 +400,8 @@ Commodity:
         unit: months
       material_cost: 3500       # €/t — PVC/PET foam used in core materials
       flag_GBM: false
-      mu: 0.02
-      sigma: 0.08
+      mu: 0.0
+      sigma: 0.0
       flag_JumpDif: false
       mu_jump: 0
       lambda_jump: 0

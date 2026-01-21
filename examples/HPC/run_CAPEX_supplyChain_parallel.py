@@ -82,6 +82,10 @@ def main() -> int:
             "Commodity_Params_Substantial.yaml",
         ],
 
+        "CAPEX_overrides.material_data.MD.Commodity.Steel.CostParameters.prediction_horizon.value": [12, 12, 24, 36],
+        "CAPEX_overrides.material_data.MD.Commodity.Copper.CostParameters.prediction_horizon.value": [12, 12, 24, 36],
+        "CAPEX_overrides.material_data.MD.Commodity.Carbon_fiber.CostParameters.prediction_horizon.value": [12, 12, 24, 36],
+
         # Optional scenario label                                                                                               
         "Scenario.name": [
             "Baseline",
@@ -92,6 +96,7 @@ def main() -> int:
 
         "FINEX_overrides.finex_input.FINEX.WACC.flag_fixed_WACC": [False, True, True, True],
         "FINEX_overrides.finex_input.FINEX.WACC.WACC_annual":     [0.052, 0.038, 0.052, 0.067]
+
     }
 
 
@@ -105,6 +110,9 @@ def main() -> int:
             "Scenario.name",
             "FINEX_overrides.finex_input.FINEX.WACC.flag_fixed_WACC",
             "FINEX_overrides.finex_input.FINEX.WACC.WACC_annual",
+            "CAPEX_overrides.material_data.MD.Commodity.Steel.CostParameters.prediction_horizon.value",
+            "CAPEX_overrides.material_data.MD.Commodity.Copper.CostParameters.prediction_horizon.value",
+            "CAPEX_overrides.material_data.MD.Commodity.Carbon_fiber.CostParameters.prediction_horizon.value",
         ]
     }
     # ---------------------------------------------------------------------

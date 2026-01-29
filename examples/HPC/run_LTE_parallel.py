@@ -96,13 +96,13 @@ def main() -> int:
         # ----------------------------
         "LTE_overrides.lte_input.LTE.aep_haircut.mu": [
             0.0,
-            -0.020,   # moderate AEP loss (=-2.0%)
-            -0.040,   # substantial AEP loss (=-4.0%)
+            -0.030,   # moderate AEP loss (=-2.0%)
+            -0.060,   # substantial AEP loss (=-4.0%)
         ],
         "LTE_overrides.lte_input.LTE.aep_haircut.sigma": [
             0.0,
             0.010,
-            0.015,
+            0.020,
         ],
         # Keep bounds conservative and code-consistent
         "LTE_overrides.lte_input.LTE.aep_haircut.min": [
@@ -167,12 +167,12 @@ def main() -> int:
         "LTE_overrides.lte_input.LTE.costs.refurb_uplift.mu": [
             0.0,        # baseline (unused if dist=fixed, but safe)
             1_500_000,  # moderate uplift
-            3_000_000,  # substantial uplift
+            5_000_000,  # substantial uplift
         ],
         "LTE_overrides.lte_input.LTE.costs.refurb_uplift.sigma": [
             0.0,
             500_000,
-            1_000_000,
+            2_000_000,
         ],
         "LTE_overrides.lte_input.LTE.costs.refurb_uplift.min": [
             0.0,
@@ -212,7 +212,7 @@ def main() -> int:
         simulation_config=sim_cfg,
         parameter_space=parameter_space,
         base_seed=42,
-        replicates=500,
+        replicates=2000,
         name="LTE_Scenario_Experiment",
         result_directory=str(RESULT_DIR),
         zip_groups=zip_groups,

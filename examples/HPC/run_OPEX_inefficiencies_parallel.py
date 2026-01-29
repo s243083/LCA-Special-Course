@@ -104,7 +104,7 @@ def main() -> int:
 
         # Scenario labels
         "Scenario.name": [
-            "P0 -- Reference",
+            "P0 -- Baseline",
             "P1 -- High process uncertainty",
             "P2 -- Typical offshore operations",
             "P3 -- Mature O&M processes",
@@ -151,7 +151,7 @@ def main() -> int:
         simulation_config=sim_cfg,
         parameter_space=parameter_space,
         base_seed=42,
-        replicates=1000,
+        replicates=2000,
         name="OPEX_Efficiency",
         result_directory=str(RESULT_DIR),
         zip_groups=zip_groups,

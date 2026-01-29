@@ -82,9 +82,7 @@ def main() -> int:
             "Commodity_Params_Substantial.yaml",
         ],
 
-        "CAPEX_overrides.material_data.MD.Commodity.Steel.CostParameters.prediction_horizon.value": [12, 12, 24, 36],
-        "CAPEX_overrides.material_data.MD.Commodity.Copper.CostParameters.prediction_horizon.value": [12, 12, 24, 36],
-        "CAPEX_overrides.material_data.MD.Commodity.Carbon_fiber.CostParameters.prediction_horizon.value": [12, 12, 24, 36],
+
 
         # Optional scenario label                                                                                               
         "Scenario.name": [
@@ -110,9 +108,6 @@ def main() -> int:
             "Scenario.name",
             "FINEX_overrides.finex_input.FINEX.WACC.flag_fixed_WACC",
             "FINEX_overrides.finex_input.FINEX.WACC.WACC_annual",
-            "CAPEX_overrides.material_data.MD.Commodity.Steel.CostParameters.prediction_horizon.value",
-            "CAPEX_overrides.material_data.MD.Commodity.Copper.CostParameters.prediction_horizon.value",
-            "CAPEX_overrides.material_data.MD.Commodity.Carbon_fiber.CostParameters.prediction_horizon.value",
         ]
     }
     # ---------------------------------------------------------------------
@@ -139,7 +134,7 @@ def main() -> int:
 
         # “replicates” here is what drives repeated draws of the uncertain lambda
         # (i.e., repeated epistemic realisations).
-        replicates=1000,
+        replicates=3000,
 
         name="CAPEX_SupplyChain",
         result_directory=str(RESULT_DIR),

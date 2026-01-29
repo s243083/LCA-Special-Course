@@ -30,6 +30,7 @@ from typing import Dict, List, Any, Tuple, Optional
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import math 
 
 
 # --------------------------------------------------------------------
@@ -68,7 +69,7 @@ DET_ATOL = 1e-12
 DET_RTOL = 1e-10
 
 # Histogram binning
-N_BINS = 120
+N_BINS = 200
 MIN_BINS = 10
 
 # Plot styling
@@ -80,7 +81,7 @@ DPI = 200
 
 # --- Print layout: 200 mm x 80 mm ---
 MM_TO_INCH = 1.0 / 25.4
-FIGSIZE_200x80 = (200 * MM_TO_INCH, 80 * MM_TO_INCH)
+FIGSIZE_200x80 = (200 * MM_TO_INCH, 90* MM_TO_INCH)
 
 # --- Font sizes tuned for 200x80 mm ---
 FS_TITLE = 9
@@ -90,7 +91,7 @@ FS_LEGEND = 7
 
 
 # --- Print layout: 100 mm x 80 mm (for LCOE) ---
-FIGSIZE_100x40 = (110 * MM_TO_INCH, 70 * MM_TO_INCH)
+FIGSIZE_100x40 = (110 * MM_TO_INCH, 75 * MM_TO_INCH)
 
 # Font sizes tuned for 100x40 mm
 FS_TITLE_SMALL = 8
@@ -363,13 +364,91 @@ def plot_two_panel(
     out_name: str,
     show_fits_left: bool = True,
     show_fits_right: bool = False,
-) -> None:
+    ) -> None:
     nondet_L, det_L = _split_det_nondet(macro_names, arrays_left)
     nondet_R, det_R = _split_det_nondet(macro_names, arrays_right)
 
     if (not nondet_L and not det_L) and (not nondet_R and not det_R):
         print(f"No data available for '{out_name}'; skipping.")
         return
+
+
+    def _stats_label(name: str, arr_scaled: np.ndarray) -> str:
+        """Format legend label with mean and median (scaled units)."""
+        x = arr_scaled[np.isfinite(arr_scaled)]
+        if x.size == 0:
+            return name
+        mu = float(np.mean(x))
+        med = float(np.median(x))
+        # Choose formatting: adjust decimals as you like
+        return f"{name} (μ={mu:.1f}, m̃={med:.1f})"
+
+    def _dedupe_handles_labels(handles, labels):
+        seen = set()
+        h2, l2 = [], []
+        for h, lab in zip(handles, labels):
+            if lab in seen:
+                continue
+            seen.add(lab)
+            h2.append(h); l2.append(lab)
+        return h2, l2
+
+        import math
+
+    def _ncol_for_max_rows(n_items: int, max_rows: int) -> int:
+        """Choose ncol so that legend uses at most max_rows rows."""
+        if n_items <= 0:
+            return 1
+        max_rows = max(1, int(max_rows))
+        return max(1, int(math.ceil(n_items / max_rows)))
+
+    def _place_legend_below_axis(
+        fig,
+        ax,
+        handles,
+        labels,
+        *,
+        max_rows: int = 2,
+        y_pad: float = 0.02,
+        fontsize: int = FS_LEGEND,
+    ):
+        """
+        Place a legend centered below a given axis, constrained to that axis' width.
+        max_rows controls wrapping by choosing ncol accordingly.
+        y_pad is the vertical gap (in figure fraction) between axis bottom and legend top.
+        """
+        if not handles:
+            return None
+
+        # Dedupe again just in case
+        handles2, labels2 = _dedupe_handles_labels(handles, labels)
+
+        n_items = len(labels2)
+        ncol = _ncol_for_max_rows(n_items, max_rows)
+
+        # axis bounding box in figure coordinates
+        bbox = ax.get_position()  # Bbox(x0,y0,x1,y1) in fig fraction
+        x_center = 0.5 * (bbox.x0 + bbox.x1)
+
+        # Place legend centered under this subplot
+        # We anchor the *upper center* of the legend to a point just below the axis.
+        leg = fig.legend(
+            handles2,
+            labels2,
+            loc="upper center",
+            ncol=ncol,
+            fontsize=fontsize,
+            frameon=False,
+            bbox_to_anchor=(x_center, bbox.y0 - y_pad),
+            bbox_transform=fig.transFigure,
+            borderaxespad=0.0,
+            columnspacing=1.0,
+            handletextpad=0.5,
+            labelspacing=0.35,
+        )
+        return leg
+
+    
 
     fig, (axL, axR) = plt.subplots(
         1, 2,
@@ -405,7 +484,6 @@ def plot_two_panel(
         for i, (macro_name, arr_raw) in enumerate(nondet_L):
             arr = arr_raw / scale_L
             color = color_cycle[i % len(color_cycle)]
-
             axL.hist(
                 arr,
                 bins=bin_edges_L,
@@ -413,8 +491,9 @@ def plot_two_panel(
                 alpha=FILL_ALPHA,
                 density=USE_DENSITY,
                 color=color,
-                label=macro_name,
+                label=_stats_label(macro_name, arr),
             )
+
             if DRAW_OUTLINE:
                 axL.hist(
                     arr,
@@ -437,7 +516,15 @@ def plot_two_panel(
     base_idx_L = len(nondet_L)
     for j, (macro_name, v_raw) in enumerate(det_L):
         color = color_cycle[(base_idx_L + j) % len(color_cycle)]
-        axL.axvline(v_raw / scale_L, color=color, linewidth=2.0, linestyle="--", label=macro_name)
+        v = v_raw / scale_L
+        axL.axvline(
+            v,
+            color=color,
+            linewidth=2.0,
+            linestyle="--",
+            label=_stats_label(macro_name, np.array([v], dtype=float)),
+        )
+
 
     # ---------------- Right panel (Total CAPEX) ----------------
     scale_R = _scale_factor_for([a for _, a in nondet_R], extra_points=[v for _, v in det_R])
@@ -458,8 +545,9 @@ def plot_two_panel(
                 alpha=FILL_ALPHA,
                 density=USE_DENSITY,
                 color=color,
-                label=macro_name,
+                label=_stats_label(macro_name, arr),
             )
+
             if DRAW_OUTLINE:
                 axR.hist(
                     arr,
@@ -479,34 +567,46 @@ def plot_two_panel(
                     density=USE_DENSITY,
                 )
 
+    
+    axL.set_xlim(-2500, 2500)
+    axR.set_xlim(0, 6000)
+    
+    
     base_idx_R = len(nondet_R)
     for j, (macro_name, v_raw) in enumerate(det_R):
         color = color_cycle[(base_idx_R + j) % len(color_cycle)]
-        axR.axvline(v_raw / scale_R, color=color, linewidth=2.0, linestyle="--", label=macro_name)
+        v = v_raw / scale_R
+        axR.axvline(
+            v,
+            color=color,
+            linewidth=2.0,
+            linestyle="--",
+            label=_stats_label(macro_name, np.array([v], dtype=float)),
+        )
 
-    # ---- Combined legend (centered below both subplots) ----
+
+    # ---- Two separate legends, constrained under each subplot ----
     hL, lL = axL.get_legend_handles_labels()
     hR, lR = axR.get_legend_handles_labels()
 
-    seen = set()
-    handles, labels = [], []
-    for h, lab in list(zip(hL, lL)) + list(zip(hR, lR)):
-        if lab in seen:
-            continue
-        seen.add(lab)
-        handles.append(h)
-        labels.append(lab)
+    # Choose how many rows you want at most:
+    LEGEND_MAX_ROWS = 4   # <-- set to 1, 2, or 3 depending on how many scenarios you have
+    LEGEND_Y_PAD = 0.12  # <-- increase if legends still overlap with axes/labels
 
-    if handles:
-        fig.legend(
-            handles,
-            labels,
-            loc="lower center",
-            ncol=min(4, len(labels)),
-            fontsize=FS_LEGEND,
-            frameon=False,
-            bbox_to_anchor=(0.5, 0.02),
-        )
+    legL = _place_legend_below_axis(
+        fig, axL, hL, lL,
+        max_rows=LEGEND_MAX_ROWS,
+        y_pad=LEGEND_Y_PAD,
+        fontsize=FS_LEGEND,
+    )
+    legR = _place_legend_below_axis(
+        fig, axR, hR, lR,
+        max_rows=LEGEND_MAX_ROWS,
+        y_pad=LEGEND_Y_PAD,
+        fontsize=FS_LEGEND,
+    )
+
+
 
     out_path = RESULTS_FOLDER_FIG / out_name
     plt.savefig(out_path, dpi=DPI)
@@ -526,6 +626,58 @@ def plot_single_panel(
         print(f"No data available for '{out_name}'; skipping.")
         return
 
+    # ---------- helpers ----------
+    def _stats_label(name: str, arr_scaled: np.ndarray) -> str:
+        x = arr_scaled[np.isfinite(arr_scaled)]
+        if x.size == 0:
+            return name
+        mu = float(np.mean(x))
+        med = float(np.median(x))
+        return f"{name} (μ={mu:.1f}, m̃={med:.1f})"
+
+    def _place_legend_below_axis(
+        fig,
+        ax,
+        handles,
+        labels,
+        *,
+        ncol: int,
+        y_pad: float = 0.05,
+        fontsize: int = 7,
+    ):
+        if not handles:
+            return None
+
+        # deduplicate labels
+        seen = set()
+        h2, l2 = [], []
+        for h, lab in zip(handles, labels):
+            if lab in seen:
+                continue
+            seen.add(lab)
+            h2.append(h)
+            l2.append(lab)
+
+        bbox = ax.get_position()  # figure coordinates
+        x_center = 0.5 * (bbox.x0 + bbox.x1)
+        y = max(0.01, bbox.y0 - y_pad)
+
+        return fig.legend(
+            h2,
+            l2,
+            loc="upper center",
+            ncol=ncol,
+            fontsize=fontsize,
+            frameon=False,
+            bbox_to_anchor=(x_center, y),
+            bbox_transform=fig.transFigure,
+            borderaxespad=0.0,
+            columnspacing=1.0,
+            handletextpad=0.5,
+            labelspacing=0.35,
+        )
+
+    # ---------- figure ----------
     fig, ax = plt.subplots(
         1, 1,
         figsize=figsize,
@@ -534,7 +686,7 @@ def plot_single_panel(
             "left": 0.10,
             "right": 0.98,
             "top": 0.90,
-            "bottom": 0.35,
+            "bottom": 0.35,  # space for legend
         },
     )
 
@@ -547,6 +699,7 @@ def plot_single_panel(
     scale = _scale_factor_for([a for _, a in nondet], extra_points=[v for _, v in det])
     ax.set_xlabel(xlabel + (" [million]" if scale == 1e6 else ""), fontsize=FS_LABEL_SMALL)
 
+    # ---------- histograms ----------
     if nondet:
         pooled = np.concatenate([arr for _, arr in nondet]) / scale
         bin_edges = _make_bin_edges(pooled)
@@ -562,8 +715,9 @@ def plot_single_panel(
                 alpha=FILL_ALPHA,
                 density=USE_DENSITY,
                 color=color,
-                label=macro_name,
+                label=_stats_label(macro_name, arr),
             )
+
             if DRAW_OUTLINE:
                 ax.hist(
                     arr,
@@ -574,24 +728,38 @@ def plot_single_panel(
                     color=color,
                 )
 
+    # ---------- deterministic ----------
+    ax.set_xlim(0, 200)
+
     base_idx = len(nondet)
     for j, (macro_name, v_raw) in enumerate(det):
         color = color_cycle[(base_idx + j) % len(color_cycle)]
-        ax.axvline(v_raw / scale, color=color, linewidth=2.0, linestyle="--", label=macro_name)
-
-    # legend below
-    handles, labels = ax.get_legend_handles_labels()
-    if handles:
-        fig.legend(
-            handles,
-            labels,
-            loc="lower center",
-            ncol=min(3, len(labels)),
-            fontsize=FS_LEGEND_SMALL,
-            frameon=False,
-            bbox_to_anchor=(0.5, 0.02),
+        v = v_raw / scale
+        ax.axvline(
+            v,
+            color=color,
+            linewidth=2.0,
+            linestyle="--",
+            label=_stats_label(macro_name, np.array([v], dtype=float)),
         )
 
+    # ---------- legend ----------
+    handles, labels = ax.get_legend_handles_labels()
+
+    LEGEND_NCOL = 1     # <-- explicit column control
+    LEGEND_Y_PAD = 0.12
+
+    _place_legend_below_axis(
+        fig,
+        ax,
+        handles,
+        labels,
+        ncol=LEGEND_NCOL,
+        y_pad=LEGEND_Y_PAD,
+        fontsize=FS_LEGEND_SMALL,
+    )
+
+    # ---------- save ----------
     out_path = RESULTS_FOLDER_FIG / out_name
     plt.savefig(out_path, dpi=DPI)
     plt.close()

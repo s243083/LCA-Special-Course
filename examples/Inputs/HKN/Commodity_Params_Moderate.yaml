@@ -22,7 +22,7 @@ Commodity:
   Steel:
     CostParameters: 
       prediction_horizon:
-        value: 36
+        value: 24
         unit: months
       material_cost: 1500
       flag_GBM: false
@@ -42,7 +42,7 @@ Commodity:
   Copper:
     CostParameters:
       prediction_horizon:
-        value: 36
+        value: 24
         unit: months 
       material_cost: 8000
       flag_GBM: false
@@ -138,7 +138,7 @@ Commodity:
   Carbon_fiber:
     CostParameters:
       prediction_horizon:
-        value: 36
+        value: 24
         unit: months
       material_cost: 24000
       flag_GBM: false

@@ -1,0 +1,4 @@
+Running on sn056.hpc.ait.dtu.dk
+Target: /work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/results/Curtailment
+Deleting...
+slurmstepd: error: *** JOB 4066129 ON sn056 CANCELLED AT 2026-01-22T17:21:06 DUE TO TIME LIMIT ***

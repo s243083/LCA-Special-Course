@@ -2,6 +2,8 @@ name: valuewind
 valuewind_inputFolder: Inputs/HKN
 Capex_inputFiles:
     PA: CAPEX.yaml
+LCA_inputFiles:
+    LC: LCA.yaml
 Finex_inputFiles:
     FI: FINEX.yaml
 Material_inputFiles: 

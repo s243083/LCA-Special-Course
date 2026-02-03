@@ -1,0 +1,7 @@
+LCA: 
+  LCA_mode: "material_inventory"   # "material_inventory"
+
+  material_inventory:
+    mass_unit: "t"   # mass unit for material inventory results
+    ef_unit: "tCO2eq_per_t"   # emission factor unit for material inventory results 
+    dummy_param: true

@@ -1,5 +1,6 @@
 import logging
 from core.CAPEX import CAPEX
+from core.LCA import LCA
 from core.FINEX import FINEX
 from core.OPEX import OPEX
 from core.MetEnvironment import MetEnvironment
@@ -25,6 +26,7 @@ class ValueWindEnv():
         self.metEnv = MetEnvironment(self)
         self.windFarm = WindFarm(self)
         self.capex = CAPEX(self)
+        self.LCA = LCA(self)
         self.finex = FINEX(self, self.capex)
         self.opex = OPEX(self)
         self.MarketEnv = MarketEnv(self)
@@ -58,6 +60,12 @@ class ValueWindEnv():
         # Wind Farm
         if cfg.run_windfarm:
             self.windFarm.start()
+
+        # LCA
+        if cfg.run_LCA: 
+            self.LCA.start()
+            if cfg.LCA_dashboard:
+                self.LCA.plot_LCA_dashboard()
 
         # Curtailment
         if cfg.run_curtailment:

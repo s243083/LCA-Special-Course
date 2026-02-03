@@ -115,6 +115,7 @@ class Configuration(FromDictMixin):
     valuewind_inputFolder: str
     Finex_inputFiles: str
     Capex_inputFiles: dict[str, str]
+    LCA_inputFiles: dict[str, str]
     Opex_inputFiles: dict[str, str]
     MetEnv_inputFiles: dict[str, str]
     Material_inputFiles: dict[str, str]
@@ -144,6 +145,7 @@ class Configuration(FromDictMixin):
     WindFarm_overrides: dict[str, Any] = field(factory=dict)
     Revenue_overrides: dict[str, Any] = field(factory=dict)
     CAPEX_overrides: dict[str, Any] = field(factory=dict)
+    LCA_overrides: dict[str, Any] = field(factory=dict)
     OPEX_overrides: dict[str, Any] = field(factory=dict)
     FINEX_overrides: dict[str, Any] = field(factory=dict)
     LTE_overrides: dict[str, Any] = field(factory=dict)

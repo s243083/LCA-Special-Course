@@ -15,6 +15,8 @@ class SimulationConfig:
     run_opex: bool = True
     opex_dashboard: bool = True
     run_windfarm: bool = True
+    run_LCA: bool = False
+    LCA_dashboard: bool = False
     run_opex: bool = True
     run_lifetime_extension: bool = False
     run_curtailment: bool = False

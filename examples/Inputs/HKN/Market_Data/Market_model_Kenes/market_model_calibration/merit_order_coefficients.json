@@ -1,0 +1,14 @@
+{
+  "zone": "DK1",
+  "n_observations": 78864,
+  "calibration_years": null,
+  "coefficients": {
+    "b0": 84.27451477791273,
+    "b1_wind": -0.01171285137474258,
+    "b2_solar": -0.00033696854231166085
+  },
+  "regression_stats": {
+    "r_squared": 0.024393619434199376,
+    "adj_r_squared": 0.024368877004339984
+  }
+}

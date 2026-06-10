@@ -1,5 +1,6 @@
 __pycache__/
 examples/Inputs/HKN/Response_Framework/External_Response/
+examples/Inputs/HKN/Market_Data/Market_model_Kenes/Raw_data/
 core/ResponseFramework/data/
 core/ResponseFramework/models/
 results/

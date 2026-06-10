@@ -1,0 +1,40 @@
+{
+  "zone": "DK1",
+  "model": "mean_layer_ar1",
+  "source": {
+    "residual_model_json": "m:\\Projects\\Impact_Assessment\\HiperSim\\WINPACT\\examples\\Inputs\\HKN\\Market_Data\\Market_model_Kenes\\market_model_calibration\\residual_model.json",
+    "period_mode": "month",
+    "mu_hat_by_period_used": true
+  },
+  "ar1": {
+    "mu_{t+1} = a + rho * mu_t + eps": true,
+    "include_intercept": true,
+    "a": -5.099258314572224,
+    "rho": 0.8691883782195619,
+    "rho_raw": 0.8691883782195619,
+    "rho_clipped": false,
+    "sigma": 4.996197385839998,
+    "mu_bar": -38.98169172713963,
+    "innovation_dist": {
+      "type": "normal",
+      "mean": 0.0,
+      "std": 4.996197385839998
+    }
+  },
+  "calibration": {
+    "n_periods": 60,
+    "period_index_start": "2015-01",
+    "period_index_end": "2020-12",
+    "mu_series_summary": {
+      "min": -57.50656505264414,
+      "max": -15.076959186169827,
+      "mean": -39.59479757596401,
+      "std": 9.940884802549636
+    },
+    "ar1_residuals_summary": {
+      "mean": 1.0507602321198092e-14,
+      "std": 4.996197385839998
+    },
+    "notes": "This model fits an AR(1) to the deterministic period means extracted in Tool C. In simulation, generate mu_period from this AR(1), then set price = merit + mu_period + u_t, where u_t is simulated using Tool C's fast residual model."
+  }
+}

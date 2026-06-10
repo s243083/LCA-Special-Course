@@ -1,7 +1,7 @@
 WindFarm:
     n_turbines: 34
     turbine_rated_power: 22  # MW
-    mode: "fixed"  # [external, PyWake, fixed]
+    mode: "dynamic_CF"  # [external, PyWake, fixed, dynamic_CF]
     external_response:
         WF_external_response_path: "../examples/Inputs/HKN/Response_Framework/External_Response_Example/HKN_TS_DA_HKN_Revenue_shutdown_500_TI_boost"
         metrics_file: "turbine_metrics_relative"
@@ -26,3 +26,8 @@ WindFarm:
         rated_power: 748  # MW
         capacity_factor: 0.53
         resolution: "1h" # [10min, 1h, 1d]
+    dynamic_CF:
+        
+         
+
+

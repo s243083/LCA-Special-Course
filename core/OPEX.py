@@ -119,6 +119,8 @@ class AccessProfile:
     # --- Repair / service (incl. transits) ---
     mu_R_per_h: float
     service_time_h: float
+    sailing_h: float
+    onsite_h: float
 
     # Vessel "type" / capability used for this task
     chosen_vessels: List[str] = field(default_factory=list)
@@ -160,6 +162,62 @@ class OpExBreakdown:
 # -----------------------------------------------------------------------------
 
 class OPEX:
+    """Operations & maintenance expenditure model.
+
+    OPEX supports three calculation modes selected via the ``OM``
+    section of the input YAML:
+
+    ``'capex_fraction'``
+        Lightweight legacy mode: OPEX is taken as a fixed fraction of
+        CAPEX. Useful for sanity checks and very fast scenario sweeps.
+    ``'analytic_ctmc'``
+        Closed-form expectations from a continuous-time Markov chain
+        model of turbine availability, expected component-failure
+        counts, and the corresponding labour/vessel/spares cost. No
+        time series is produced; output is a per-period summary.
+    ``'time_march_ctmc'``
+        Event/time-marching simulation of the same CTMC, producing an
+        availability time series and a full activity log alongside the
+        cost breakdown. Most expensive, but required when downstream
+        modules (curtailment, lifetime extension) need the time-resolved
+        availability profile.
+
+    Parameters
+    ----------
+    env : ValueWindEnv
+        Owning environment. OPEX reads ``env.config``, ``env.MetEnv``
+        for weather gating, and ``env.windFarm`` for the production and
+        turbine inventory.
+
+    Attributes
+    ----------
+    mode : {"capex_fraction", "analytic_ctmc", "time_march_ctmc"}
+        Active calculation mode.
+    parameters : dict
+        Resolved O&M parameter block (vessels, maintenance specs,
+        access profiles, PM policy).
+    OPEX_records : dict
+        Output container. Populated by :meth:`calc_OPEX` with at least
+        an ``OPEX_records`` DataFrame; CTMC modes additionally include
+        ``AvailabilitySummary`` and an ``ActivityLogEntry`` log.
+
+    Notes
+    -----
+    The public surface (``calc_OPEX``) and the keys produced in
+    ``OPEX_records`` are intentionally stable across the three modes so
+    that downstream modules (Valuation, dashboards) do not need to care
+    how the numbers were produced.
+
+    Overrides from ``config.OPEX_overrides`` are applied to the model
+    instance after the YAML is loaded.
+
+    See Also
+    --------
+    VesselSpec, MaintenanceSpec, PMPolicy, AccessProfile : input schemas.
+    AvailabilitySummary, OpExBreakdown : output schemas.
+    core.CAPEX.CAPEX : provides the base for ``'capex_fraction'`` mode.
+    """
+
     def __init__(self, env):
         self.config = env.config
         self.env = env  # Access to simulation environment
@@ -279,6 +337,17 @@ class OPEX:
         self.availability_profile = extras.get("availability_profile")
         self.activity_log = extras.get("activity_log")
         self.OpEx_breakdown = extras.get("OpEx_breakdown")
+        self.vessel_records = extras.get("vessel_records")
+
+        # Flatten the vessel_records dict into two top-level DataFrame
+        # attributes so ResultsCollector (which expects DataFrames) can
+        # persist them via dotted-path lookup.
+        if isinstance(self.vessel_records, dict):
+            self.vessel_records_by_mode = self.vessel_records.get("by_mode")
+            self.vessel_records_summary = self.vessel_records.get("summary_by_vessel")
+        else:
+            self.vessel_records_by_mode = None
+            self.vessel_records_summary = None
 
         # ----------------------------
         # 5) Restore temporary overrides
@@ -984,7 +1053,8 @@ class OPEX:
                 mean_weather_wait_h=mean_weather_wait_h,
                 mu_R_per_h=mu_R_per_h,
                 service_time_h=service_time_h,
-                # store capability label, not vessel name
+                sailing_h=t_transit_out + t_transit_back,
+                onsite_h=t_onsite,
                 chosen_vessels=[requested_cap],
             )
 
@@ -1119,6 +1189,7 @@ class OPEX:
         transport_cm = labour_cm = spares_cm = 0.0
         transport_pm = labour_pm = spares_pm = 0.0
         mode_cost_rows: List[dict] = []
+        vessel_rows: List[dict] = []
 
 
         # --------------------------------------------------------------------------
@@ -1357,9 +1428,39 @@ class OPEX:
                     if s_sum > 0:
                         pi /= s_sum
 
+                    # vessel usage from repair-state occupancy -------------------
+                    for local_idx, s in enumerate(specs_list):
+                        iR = 3 * local_idx + 3
+                        if iR >= len(pi):
+                            continue
+
+                        key = (s.component, str(s.mode_id))
+                        ap = access.get(key)
+                        if ap is None:
+                            continue
+
+                        if ap.chosen_vessels:
+                            vessel_type = str(ap.chosen_vessels[0])
+                        else:
+                            vessel_type = "CTV"
+
+                        repair_state_fraction = float(pi[iR])
+                        expected_vessel_hours = repair_state_fraction * T_h * n_turbines
+
+                        vessel_rows.append(
+                            {
+                                "component": s.component,
+                                "mode_id": str(s.mode_id),
+                                "task_type": s.task_type,
+                                "vessel_type": vessel_type,
+                                "repair_state_fraction": repair_state_fraction,
+                                "expected_vessel_hours": float(expected_vessel_hours),
+                            }
+                        )
+                    
                     # availability
                     A_comp = float(pi[0])
-
+                    
                     # downtime fractions by state group
                     wl_idx = []
                     ww_idx = []
@@ -1461,6 +1562,29 @@ class OPEX:
         # --------------------------------------------------------------------------
         # 6) EXTRAS PAYLOAD (consistent with _calc_opex_as_fraction_of_capex)
         # --------------------------------------------------------------------------
+        vessel_records_by_mode = pd.DataFrame(vessel_rows)
+
+        if vessel_records_by_mode.empty:
+            vessel_records_summary = pd.DataFrame(
+                columns=[
+                    "vessel_type",
+                    "expected_vessel_hours",
+                ]
+            )
+        else:
+            vessel_records_summary = (
+                vessel_records_by_mode
+                .groupby("vessel_type", as_index=False)[["expected_vessel_hours"]]
+                .sum()
+                .sort_values("expected_vessel_hours", ascending=False)
+                .reset_index(drop=True)
+            )
+
+        vessel_records = {
+            "by_mode": vessel_records_by_mode,
+            "summary_by_vessel": vessel_records_summary,
+        }
+
         extras = {
             "mode": "analytic_ctmc",
             "availability_summary": AvailabilitySummary(
@@ -1488,6 +1612,7 @@ class OPEX:
                 "op_end_ts": op_end_ts,
                 "n_months": len(idx),
             },
+            "vessel_records": vessel_records,
         }
 
         extras["downtime_breakdown"] = {

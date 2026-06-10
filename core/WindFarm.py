@@ -45,6 +45,8 @@ class WindFarm:
             self.power_records = self.calculate_windfarm_response()
         elif mode == "fixed":
             self.power_records = self.create_fixed_power_timeseries()
+        elif mode == "dynamic_CF":
+            self.power_records = self.create_dynamic_cf_power_timeseries()
         else:
             raise ValueError(f"WindFarm Response mode '{mode}' not recognized.")
 
@@ -258,6 +260,107 @@ class WindFarm:
         power_df = pd.DataFrame({
             "timestamp": timestamps,
             "Total_Power": fixed_power,  # broadcast scalar to all rows
+        })
+
+        return power_df
+    
+    def create_dynamic_cf_power_timeseries(self):
+        """
+        Create wind farm power time series based on CF_asset provided
+        by the Market environment (dynamic_CF mode).
+
+        Power is calculated as:
+            Total_Power(t) = CF_asset(t) * P_rated_farm
+
+        Requirements:
+            - MarketEnv must have been executed
+            - asset_cf_proxy_records must exist
+            - Timestamps must match exactly with operations window
+        """
+
+        # --------------------------------------------------
+        # 1) Access MarketEnv CF_asset series
+        # --------------------------------------------------
+        market_env = self.env.MarketEnv
+
+        if not hasattr(market_env, "asset_cf_proxy_records"):
+            raise ValueError(
+                "MarketEnv does not provide 'asset_cf_proxy_records'. "
+                "Enable asset_cf_mapping in MarketEnv first."
+            )
+
+        cf_df = market_env.asset_cf_proxy_records.copy()
+
+        if cf_df.empty:
+            raise ValueError("asset_cf_proxy_records is empty.")
+
+        if "timestamp" not in cf_df.columns or "cf_asset_proxy" not in cf_df.columns:
+            raise ValueError(
+                "asset_cf_proxy_records must contain columns "
+                "['timestamp', 'cf_asset_proxy']."
+            )
+
+        cf_df["timestamp"] = pd.to_datetime(cf_df["timestamp"], errors="raise")
+        cf_df = cf_df.sort_values("timestamp").reset_index(drop=True)
+
+        # --------------------------------------------------
+        # 2) Restrict to operations window (using env.config + WF_OperationsStart/End_h)
+        # --------------------------------------------------
+        start_h = float(self.start_time)
+        end_h   = float(self.end_time)
+
+        if end_h <= start_h:
+            raise ValueError(
+                f"WF_OperationsEnd_h ({end_h}) must be greater than WF_OperationsStart_h ({start_h})."
+            )
+
+        start_ts = pd.to_datetime(self.env.config.Project_StartDate, format="%d.%m.%Y")
+        op_start_ts = start_ts + pd.to_timedelta(start_h, unit="h")
+        op_end_ts   = start_ts + pd.to_timedelta(end_h, unit="h")
+
+        # Keep [op_start_ts, op_end_ts) like your fixed mode (inclusive="left")
+        cf_df = cf_df[(cf_df["timestamp"] >= op_start_ts) & (cf_df["timestamp"] < op_end_ts)].copy()
+
+        if cf_df.empty:
+            raise ValueError("No CF data available within wind farm operations window.")
+
+        # --------------------------------------------------
+        # 3) Strict timestamp alignment check
+        # --------------------------------------------------
+        # Build expected timestamps for the operations window using MarketEnv's step
+        # (simple + robust for now; assumes MarketEnv provides regular frequency)
+        if len(cf_df) < 2:
+            raise ValueError("CF series within operations window must have at least 2 timestamps to infer resolution.")
+
+        step = cf_df["timestamp"].iloc[1] - cf_df["timestamp"].iloc[0]
+        if step <= pd.Timedelta(0):
+            raise ValueError("Invalid timestep inferred from CF series.")
+
+        expected_index = pd.date_range(start=op_start_ts, end=op_end_ts, freq=step, inclusive="left")
+
+        if len(cf_df) != len(expected_index):
+            raise ValueError(
+                "Timestamp mismatch between MarketEnv CF series and WindFarm operations timeline "
+                f"(got {len(cf_df)} rows, expected {len(expected_index)})."
+            )
+
+        if not cf_df["timestamp"].reset_index(drop=True).equals(pd.Series(expected_index).reset_index(drop=True)):
+            raise ValueError("Timestamps from MarketEnv do not exactly match WindFarm operations timeline.")
+
+        # --------------------------------------------------
+        # 4) Compute rated farm power
+        # --------------------------------------------------
+        rated_power_farm = float(self.n_turbines) * float(self.turbine_rated_power)
+
+        cf_values = pd.to_numeric(cf_df["cf_asset_proxy"], errors="raise").clip(lower=0.0, upper=1.0)
+        total_power = cf_values * rated_power_farm
+
+        # --------------------------------------------------
+        # 5) Return standardized power DataFrame
+        # --------------------------------------------------
+        power_df = pd.DataFrame({
+            "timestamp": cf_df["timestamp"],
+            "Total_Power": total_power
         })
 
         return power_df

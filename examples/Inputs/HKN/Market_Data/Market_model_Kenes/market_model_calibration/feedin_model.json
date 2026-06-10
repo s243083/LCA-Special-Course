@@ -1,0 +1,29 @@
+{
+  "zone": "DK1",
+  "resolution": "1h",
+  "cf_bounds": [
+    0.0,
+    1.0
+  ],
+  "wind": {
+    "seasonality": {
+      "type": "hour_month",
+      "profile_file": "system_wind_cf_hour_month.csv"
+    },
+    "ar1": {
+      "phi": 0.9889490916161399,
+      "sigma": 0.031356738911507205
+    }
+  },
+  "solar": {
+    "seasonality": {
+      "type": "hour_month",
+      "profile_file": "system_solar_cf_hour_month.csv"
+    },
+    "ar1": {
+      "phi": 0.9539187732300791,
+      "sigma": 0.044349579668764294
+    }
+  },
+  "notes": "Seasonality computed as mean CF by hour\u00d7month. AR(1) fitted on deseasonalized residuals."
+}

@@ -1,5 +1,6 @@
 Market:
-  mode: "fixed"  # [fixed, external]
+  mode: "stochastic_market_model"  # [fixed, external, Keles_style_market_model]
+
   timeseries: 
     fixed: 
       price: 50  # used if mode is "fixed"
@@ -11,24 +12,82 @@ Market:
       expected_columns:
         - "timestamp"
         - "price"
+        
+    stochastic_market_model:
+      resolution: "1h"
+      timezone: "UTC"          # or "Europe/Copenhagen" but then define how to convert
+      seed: ~              # used if caller doesn’t override, seed: ~ means random seed
 
+      inputs:
+        merit_json: "/Market_Data/Market_model_Kenes/market_model_calibration/merit_order_coefficients.json"
+        residual_json: "/Market_Data/Market_model_Kenes/market_model_calibration/residual_model.json"
+        mean_json: "/Market_Data/Market_model_Kenes/market_model_calibration/mean_model.json"
+        wind_profile_csv: "/Market_Data/Market_model_Kenes/market_model_calibration/system_wind_cf_hour_month.csv"
+        solar_profile_csv: "/Market_Data/Market_model_Kenes/market_model_calibration/system_solar_cf_hour_month.csv"
+        capacity_csv: "/Market_Data/Market_model_Kenes/market_model_calibration/installed_capacity_dk1.csv"
+        feedin_model_json: "/Market_Data/Market_model_Kenes/market_model_calibration/feedin_model.json"
+
+      knobs:
+        alpha_shape: 2.0
+        alpha_mu: 1.0
+        mu_shift: 25.0
+        alpha_u: 1.0
+        alpha_j_pos: 2.0
+        alpha_j_neg: 1.0
+        alpha_wind_feed: 1.0
+        alpha_solar_feed: 1.0
+        jump_prob_mult_pos: 1.0
+        jump_prob_mult_neg: 1.0
+        stress_p11_mult: 1.0
+
+        drift:
+          enabled: true
+          period_mode: "year"
+          rho: 0.85
+          sigma: 0.6
+          center: 0.0
+          half_range: 20.0
+          alpha: 1.50
+
+      asset_cf_mapping:
+        enabled: true
+        coefficients: [0.3, 1.0]  # polynomial coefficients [0 1] CF_asset = CF_sys
+        clip_bounds: [0.0, 1.0]
+
+      outputs:
+        store_components: true
+        store_regime: true
+        store_feed_in: true
+        write_debug_files: false
+        debug_dir: "../.../sim_runs/"
 
 
 Revenue: 
   inflation_rate: 0.02 # annual inflation_rate
   price_inflation: true # if true, market prices are inflated annually by inflation_rate
   index_strike_price: true # if true, strike price is indexed annually by inflation_rate
-  marketscheme: "FiT"
+  marketscheme: "FiT" # [FiP, FiT, CfD, Market, CfD_NoRevenue_at_NegativePrices, Capability_CfD]
+  FiP: 
+    premium: 50
+    settling_freq: "monthly" # [hourly, daily, monthly]
+    reference_freq: "monthly" # [hourly, daily, monthly, quarterly, bianunual, annual] % only used for calculating market averages (MVF)
   FiT:
     strike_price: 100
     settling_freq: "monthly" # [hourly, daily, monthly]
-    reference_freq: "monthly" # [hourly, daily, monthly]
+    reference_freq: "monthly" # [hourly, daily, monthly, quarterly, bianunual, annual] % only used for calculating market averages (MVF)
   CfD:  
     strike_price: 100
     settling_freq: "monthly" # [hourly, daily, monthly]
-    reference_freq: "monthly" # [hourly, daily, monthly]
+    reference_freq: "monthly" # [hourly, daily, monthly, quarterly, bianunual, annual]
     one_sided: true # if true, negative differences are set to zero
   Market:
     settling_freq: "hourly" # [hourly, daily, monthly]  
-    reference_freq: "monthly" # [hourly, daily, monthly] % only used for calculating market averages (MVF)  
+    reference_freq: "monthly" # [hourly, daily, monthly, quarterly, bianunual, annual] % only used for calculating market averages (MVF)  
+  CfD_NoRevenue_at_NegativePrices:
+    settling_freq: "hourly" # [hourly, daily, monthly]  
+    reference_freq: "monthly" # [hourly, daily, monthly, quarterly, bianunual, annual]
+    one_sided: true # if true, negative differences are set to zero
+  Capability_CfD:
+    settling_freq: "hourly" # [hourly, daily, monthly]  
+    reference_freq: "monthly" # [hourly, daily, monthly, quarterly, bianunual, annual] 
 

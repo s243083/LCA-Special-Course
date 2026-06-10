@@ -10,6 +10,7 @@ class SimulationConfig:
     # High-level module switches
     run_capex: bool = True
     run_marketenv: bool = True
+    marketenv_dashboard: bool = True
     run_metenv: bool = True
     capex_dashboard: bool = True
     run_opex: bool = True
@@ -17,7 +18,6 @@ class SimulationConfig:
     run_windfarm: bool = True
     run_LCA: bool = False
     LCA_dashboard: bool = False
-    run_opex: bool = True
     run_lifetime_extension: bool = False
     run_curtailment: bool = False
     run_revenue: bool = True

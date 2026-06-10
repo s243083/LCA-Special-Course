@@ -1,5 +1,5 @@
 LTE:
-  apply_lte: true
+  apply_lte: false
   mode: "fixed"  # [fixed, WindFarm_potential]
   extension_h: 43000  # e.g. 15 years * 8760 (can still be fixed for now)
 

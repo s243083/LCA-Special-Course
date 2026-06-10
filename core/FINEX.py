@@ -18,6 +18,49 @@ from core.utils import get_input_parameter, apply_overrides
 # -----------------------------
 @dataclass(frozen=True)
 class FinexConfig:
+    """Resolved financing & depreciation configuration.
+
+    A flat, immutable representation of the FINEX section of the input
+    YAML after duration-field processing and override application. All
+    rates are annual fractions in the range [0, 1] unless noted.
+
+    Parameters
+    ----------
+    debt_share : float
+        Share of CAPEX financed by debt (e.g. ``0.7`` for 70/30 D/E).
+    interest_rate : float
+        Annual interest rate on the debt tranche.
+    n_yearly_payments : int
+        Debt-service payments per year (e.g. 2 for semi-annual).
+    n_total_payments : int
+        Total number of scheduled debt-service payments over the loan
+        tenor.
+    start_debt_service_h : int
+        Hour offset from project start at which the first debt-service
+        payment is due.
+    E : float
+        Cost of equity (annual fraction) when ``flag_CAPM`` is False.
+    flag_CAPM : bool
+        If True, the cost of equity is recomputed via CAPM
+        (``rf + beta * (rm - rf)``) and ``E`` is ignored.
+    rf, rm, beta : float
+        Risk-free rate, market return, and equity beta used by CAPM.
+    tax_rate : float
+        Corporate tax rate, used in the after-tax WACC formula.
+    depreciation_method : {"SL"}
+        Depreciation scheme. Currently only straight-line is supported.
+    depreciation_period : float
+        Depreciation horizon in years.
+    depreciation_salvage_value : float
+        Salvage value as a fraction of CAPEX.
+    flag_fixed_wacc : bool
+        If True, ``WACC_annual_input`` is used directly and the D/E +
+        cost-of-equity inputs are ignored.
+    WACC_annual_input : float
+        Externally supplied WACC, honoured only when
+        ``flag_fixed_wacc`` is True.
+    """
+
     # Debt
     debt_share: float                 # fraction (0..1)
     interest_rate: float              # annual fraction (0..1)
@@ -46,15 +89,56 @@ class FinexConfig:
 
 
 class FINEX:
-    def __init__(self, env: Any, capex: Any, cfg: Optional[FinexConfig] = None):
-        """
-        FINEX parameters are read from YAML via load_finex_inputs(config),
-        not directly from env.config. Scenario overrides may then modify the instance.
+    """Project financing and depreciation engine.
 
-        Notes:
-        - `cfg` can be provided explicitly for testing; if provided it wins.
-        - Overrides are applied *after* YAML load to support scenario variations.
-        """
+    FINEX produces the time-resolved schedule of debt service, interest,
+    principal, outstanding balance, and depreciation that the
+    cash-flow engine consumes alongside CAPEX, OPEX, and revenue. It
+    also computes the WACC (or accepts a fixed one) and the cost of
+    equity used by :class:`core.Valuation.Valuation`.
+
+    Parameters
+    ----------
+    env : ValueWindEnv
+        Owning environment. FINEX reads ``env.config`` and the
+        ``FINEX_overrides`` mapping for scenario variations.
+    capex : CAPEX
+        CAPEX module instance, used to determine the financing base.
+    cfg : FinexConfig, optional
+        Pre-built immutable config. If provided, FINEX skips its YAML
+        load and uses this directly — primarily a test/debug hook.
+
+    Attributes
+    ----------
+    cfg : FinexConfig
+        Resolved configuration after YAML load + overrides.
+    D0, E0 : float
+        Initial debt and equity amounts derived from the financing
+        base and ``cfg.debt_share``.
+    WACC_annual : float
+        After-tax weighted-average cost of capital used as the discount
+        rate by Valuation.
+    equity_annual : float
+        Cost of equity (input or CAPM).
+    finex_records : pandas.DataFrame
+        Per-period schedule with columns ``timestamp``, ``payment``,
+        ``interest``, ``principal``, ``outstanding``, ``depreciation``,
+        plus any extras added by sub-routines.
+
+    Notes
+    -----
+    Overrides are applied *before* the resolved :class:`FinexConfig` is
+    built, so dotted-path parameters in ``FINEX_overrides`` may target
+    either the YAML-shaped fields or the FINEX instance directly.
+
+    See Also
+    --------
+    FinexConfig : the resolved configuration schema.
+    core.CAPEX.CAPEX : provides the financing base.
+    core.Valuation.Valuation : consumes ``WACC_annual`` and ``finex_records``.
+    """
+
+    def __init__(self, env: Any, capex: Any, cfg: Optional[FinexConfig] = None):
         self.env = env
         self.config = env.config
         self.capex = capex

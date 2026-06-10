@@ -16,10 +16,73 @@ from core.CashFlowEngine import CashFlowEngine
 
 
 class Valuation:
+    """Project-level valuation: NPV, IRR, LCOE, DSCR, payback.
+
+    The Valuation module is the financial outer loop of WINPACT. It
+    pulls the time-resolved cost and revenue streams from the upstream
+    modules — CAPEX, OPEX, FINEX, Revenue, optional Lifetime Extension
+    — feeds them through :class:`core.CashFlowEngine.CashFlowEngine`,
+    and computes the headline economic metrics consumed by the solver
+    and dashboards.
+
+    Parameters
+    ----------
+    env : ValueWindEnv
+        Owning environment. Valuation reads ``env.config``,
+        ``env.capex``, ``env.opex``, ``env.finex``, ``env.revenue``, and
+        (optionally) ``env.lte`` at the time :meth:`project_valuation`
+        is called. Inputs from a custom YAML block under
+        ``Valuation_inputFiles`` may also override defaults.
+
+    Attributes
+    ----------
+    valuationInput : dict
+        Resolved valuation parameters (aggregation period, metric
+        flags, etc.).
+    cf_aggregation_period : str
+        Pandas frequency alias used to aggregate cash flows before
+        metric computation (e.g. ``"Y"``, ``"M"``).
+    discount_rate : float
+        After-tax WACC used for project NPV (read from FINEX).
+    cost_of_equity_annual : float
+        Cost of equity used for equity NPV (read from FINEX).
+    tax_rate : float
+        Effective tax rate.
+    cashflow_records : pandas.DataFrame
+        Aggregated nominal cash flows by period.
+    cashflow_discounted_records : pandas.DataFrame
+        Discounted cash flows.
+    valuemetrics : pandas.DataFrame
+        Headline metrics (NPV, IRR, LCOE, DSCR, payback, ...). Specific
+        scalar attributes — typically ``npv_equity``, ``npv_project``,
+        and ``dscr_min`` — are also exposed on the instance for direct
+        read by the strike-price solver.
+
+    Notes
+    -----
+    ``config.Valuation_overrides`` is applied to ``valuationInput``
+    immediately after YAML load, before any metric is computed.
+
+    The strike-price solver
+    (:class:`core.Simulation.SolveSweepExperiment`) reads
+    ``getattr(valuation, solve_config.npv_attr)`` after every
+    iteration, so any extension that adds a new NPV-like metric should
+    expose it as a top-level attribute on this object.
+
+    See Also
+    --------
+    core.CashFlowEngine.CashFlowEngine : the per-period cash-flow assembler.
+    core.FINEX.FINEX : provides discount rate and tax inputs.
+    core.Revenue_Model.Revenue : provides revenue records.
+    core.Simulation.SolveConfig : selects which valuation metric the
+        solver targets (``npv_attr``, ``dscr_min_floor``).
+    """
+
     def __init__(self, env):
         self.env = env
         self.valuationInput = load_valuationInput(self.env.config)
         self.cf_aggregation_period = get_input_parameter(self.valuationInput, 'VA', 'cf_aggregation_period')
+        self.append_metrics = get_input_parameter(self.valuationInput, 'VA', 'append_metrics')
 
         # Apply any overrides from config to valuationInput
         if hasattr(self.env.config, 'Valuation_overrides'):
@@ -155,7 +218,7 @@ class Valuation:
     # ------------------------------ Aggregation (WIDE) ------------------------------
     def aggregate_cash_flows(self, df_wide: pd.DataFrame) -> pd.DataFrame:
         period = self.cf_aggregation_period
-        freq_map = {"monthly": "ME", "quarterly": "Q", "yearly": "A"}
+        freq_map = {"monthly": "ME", "quarterly": "Q", "yearly": "YE"}
         if period not in freq_map:
             raise ValueError("cf_aggregation_period must be one of: 'monthly', 'quarterly', 'yearly'.")
         freq = freq_map[period]
@@ -169,11 +232,15 @@ class Valuation:
         sum_cols = [c for c in numcols if c != "DSCR"]
 
         agg_sum = df.groupby(pd.Grouper(key="timestamp", freq=freq))[sum_cols].sum()
-        out = agg_sum
-        if "DSCR" in df.columns:
-            out = out.join(df.groupby(pd.Grouper(key="timestamp", freq=freq))["DSCR"].mean(), how="left")
+        out = agg_sum.copy()
 
-        out = out.reset_index().rename(columns={"timestamp": "period_end"})
+        # period DSCR: Σ CFADS / Σ |DS|, only meaningful when debt service exists
+        if {"CFADS", "DS"}.issubset(df.columns):
+            grouped = df.groupby(pd.Grouper(key="timestamp", freq=freq))
+            cfads_sum = grouped["CFADS"].sum()
+            ds_abs_sum = grouped["DS"].apply(lambda s: s.abs().sum())
+
+            out["DSCR"] = cfads_sum / ds_abs_sum.replace(0, np.nan)
 
         # Equity "net" line for convenience
         if "Equity_CF" in out.columns:
@@ -188,6 +255,8 @@ class Valuation:
         else:
             # If any component is missing, create FCFF with NaNs to avoid silent misuse
             out["FCFF"] = np.nan
+
+        out = out.reset_index().rename(columns={"timestamp": "period_end"})
 
         return out
 
@@ -242,6 +311,90 @@ class Valuation:
         energy = pd.to_numeric(pr["_energy"], errors="coerce")
         total = float(energy.dropna().sum())
         return total if np.isfinite(total) else None
+
+
+    # ------------------------------ Support Metrics Helper -----------------------
+    def _calc_support_metrics(self):
+        """
+        Compute support KPIs from RevenueModel.revenue_records (settlement view),
+        and PV support using discount factors from cashflow_discounted_records.
+
+        Stores results as attributes for later use in valuemetrics.
+        """
+        rev = getattr(getattr(self.env, "RevenueModel", None), "revenue_records", None)
+        if not isinstance(rev, pd.DataFrame) or rev.empty:
+            # keep everything as None to avoid silent misuse
+            self.support_total_undisc = None
+            self.support_total_abs_undisc = None
+            self.support_energy_total_mwh = None
+            self.support_rate_lifetime = None
+            self.support_rate_lifetime_abs = None
+            self.pv_support_wacc = None
+            self.pv_support_abs_wacc = None
+            return
+
+        # required columns
+        required = {"timestamp", "support_payment", "support_energy"}
+        missing = required - set(rev.columns)
+        if missing:
+            raise ValueError(
+                f"RevenueModel.revenue_records missing required columns: {sorted(missing)}. "
+                "Ensure RevenueModel.calculate_revenues() aggregates support fields."
+            )
+
+        r = rev.copy()
+        r["timestamp"] = pd.to_datetime(r["timestamp"], errors="coerce")
+        r = r.dropna(subset=["timestamp"]).sort_values("timestamp")
+
+        r["support_payment"] = pd.to_numeric(r["support_payment"], errors="coerce").fillna(0.0)
+        r["support_energy"] = pd.to_numeric(r["support_energy"], errors="coerce").fillna(0.0)
+
+        # -------- Undiscounted totals (lifetime) --------
+        self.support_total_undisc = float(r["support_payment"].sum())
+        self.support_total_abs_undisc = float(r["support_payment"].abs().sum())
+        self.support_energy_total_mwh = float(r["support_energy"].sum())
+
+        denom = self.support_energy_total_mwh
+        self.support_rate_lifetime = (self.support_total_undisc / denom) if denom > 0 else None
+        self.support_rate_lifetime_abs = (self.support_total_abs_undisc / denom) if denom > 0 else None
+
+        # -------- PV totals using WACC discount factors --------
+        cf_disc = getattr(self, "cashflow_discounted_records", None)
+        if not isinstance(cf_disc, pd.DataFrame) or cf_disc.empty:
+            self.pv_support_wacc = None
+            self.pv_support_abs_wacc = None
+            return
+
+        if ("period_end" not in cf_disc.columns) or ("df_wacc" not in cf_disc.columns):
+            self.pv_support_wacc = None
+            self.pv_support_abs_wacc = None
+            return
+
+        dfw = cf_disc[["period_end", "df_wacc"]].copy()
+        dfw["period_end"] = pd.to_datetime(dfw["period_end"], errors="coerce")
+        dfw["df_wacc"] = pd.to_numeric(dfw["df_wacc"], errors="coerce")
+        dfw = dfw.dropna(subset=["period_end", "df_wacc"]).sort_values("period_end")
+
+        # Align revenue settlement timestamps to the same aggregation as valuation periods.
+        # Use your valuation aggregation frequency so the PV multiplication lines up with df_wacc.
+        freq = {"monthly": "ME", "quarterly": "Q", "yearly": "YE"}[self.cf_aggregation_period]
+
+        r_agg = (
+            r.groupby(pd.Grouper(key="timestamp", freq=freq))
+            .agg(
+                support_payment=("support_payment", "sum"),
+                support_payment_abs=("support_payment", lambda s: s.abs().sum()),
+            )
+            .reset_index()
+            .rename(columns={"timestamp": "period_end"})
+        )
+
+        pv_df = dfw.merge(r_agg, on="period_end", how="left").fillna(
+            {"support_payment": 0.0, "support_payment_abs": 0.0}
+        )
+
+        self.pv_support_wacc = float((pv_df["support_payment"] * pv_df["df_wacc"]).sum())
+        self.pv_support_abs_wacc = float((pv_df["support_payment_abs"] * pv_df["df_wacc"]).sum())
 
 
     # ------------------------------ KPIs ------------------------------
@@ -335,7 +488,7 @@ class Valuation:
                 else:
                     base["costs"] = -(base["capex"] + base["opex"])
 
-                freq = {"monthly": "ME", "quarterly": "Q", "yearly": "A"}[self.cf_aggregation_period]
+                freq = {"monthly": "ME", "quarterly": "Q", "yearly": "YE"}[self.cf_aggregation_period]
 
                 pr = self.power_records.copy()
 
@@ -397,6 +550,52 @@ class Valuation:
                     # Fallback: simple average over reference periods
                     self.avg_mvf = float(tmp["market_value_factor"].mean())
 
+        # ---- DSCR metrics ----
+        self.dscr_min = None
+
+        if (
+            isinstance(cf_undisc, pd.DataFrame)
+            and (not cf_undisc.empty)
+            and ("DSCR" in cf_undisc.columns)
+            and ("DS" in cf_undisc.columns)
+        ):
+
+            df_tmp = cf_undisc.copy()
+
+            # Ensure numeric
+            df_tmp["DSCR"] = pd.to_numeric(df_tmp["DSCR"], errors="coerce")
+            df_tmp["DS"] = pd.to_numeric(df_tmp["DS"], errors="coerce")
+
+            # Keep only periods with actual debt service
+            mask_debt = df_tmp["DS"].notna() & (df_tmp["DS"] != 0)
+            df_debt = df_tmp.loc[mask_debt].copy()
+
+            # Drop NaN DSCR
+            df_debt = df_debt.dropna(subset=["DSCR"])
+
+            if not df_debt.empty:
+
+                # ---- EXCLUDE first and last entry (edge distortion) ----
+                if len(df_debt) > 2:
+                    df_debt = df_debt.iloc[1:-1]
+
+                # If still non-empty after trimming
+                if not df_debt.empty:
+                    self.dscr_min = float(df_debt["DSCR"].min())
+                else:
+                    # If trimming removed everything
+                    self.dscr_min = float("inf")
+
+            else:
+                # No debt service periods
+                self.dscr_min = float("inf")
+
+
+        #---- Support metrics ----------------------------------------
+        self._calc_support_metrics()  
+
+
+
         # ---- Write metrics row ----
         metrics_row = {
             "npv_firm": self.npv_firm,
@@ -405,6 +604,8 @@ class Valuation:
             "lcoe": self.lcoe,
             "avg_mvf": self.avg_mvf,
             "total_energy_mwh": self.total_energy_mwh,
+            "dscr_min": self.dscr_min,
+            "strike_price": self.env.RevenueModel.strike_price,
 
             # NEW totals
             "total_capex_undisc": self.total_capex_undisc,
@@ -413,13 +614,32 @@ class Valuation:
             "pv_capex_wacc": self.pv_capex_wacc,
             "pv_opex_wacc": self.pv_opex_wacc,
             "pv_debt_service_wacc": self.pv_debt_service_wacc,
+
+
+            # Support metrics
+            "support_total_undisc": self.support_total_undisc,
+            "support_total_abs_undisc": self.support_total_abs_undisc,
+            "support_energy_total_mwh": self.support_energy_total_mwh,
+            "support_rate_lifetime": self.support_rate_lifetime,
+            "support_rate_lifetime_abs": self.support_rate_lifetime_abs,
+            "pv_support_wacc": self.pv_support_wacc,
+            "pv_support_abs_wacc": self.pv_support_abs_wacc,
+
         }
 
         row_df = pd.DataFrame([metrics_row])
-        if not isinstance(getattr(self, "valuemetrics", None), pd.DataFrame) or self.valuemetrics.empty:
+
+        # Suppress appending during iterative calls (e.g. optimization)
+        if not self.append_metrics:
+            # Always overwrite (iteration-safe)
             self.valuemetrics = row_df
         else:
-            self.valuemetrics = pd.concat([self.valuemetrics, row_df], ignore_index=True)
+            # Original append behavior
+            if not isinstance(getattr(self, "valuemetrics", None), pd.DataFrame) or self.valuemetrics.empty:
+                self.valuemetrics = row_df
+            else:
+                self.valuemetrics = pd.concat([self.valuemetrics, row_df], ignore_index=True)
+
 
 
     # ------------------------------ IRR helpers ------------------------------

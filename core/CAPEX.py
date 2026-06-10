@@ -20,12 +20,60 @@ from plotly.subplots import make_subplots
 
 
 class CAPEX:
-    """
-    CAPEX calculator without SimPy.
-    - Extracts a cost schedule from input data.
-    - Computes all costs immediately in a deterministic loop.
-    - Stores detailed cost records in a DataFrame (self.cost_records).
-    - NEW: Precomputes material unit prices once (self.material_unit_prices) and reuses them.
+    """Capital-expenditure calculator for a wind-farm project.
+
+    Builds a deterministic CAPEX schedule from the project YAML inputs
+    and the DTU Cost Model (TopFarm), then evaluates every cost item
+    at the appropriate timestamp and stores the result as a long-form
+    DataFrame ready for the cash-flow engine.
+
+    The model is intentionally schedule-based rather than discrete-event:
+    timing comes from the input phases ("Production & Acquisition",
+    "Project & Balance of Plant", "Decommissioning"); per-item costs
+    come from a mix of unit prices, scaling laws, and material masses.
+    Material unit prices are precomputed once at construction so that
+    repeated evaluations (e.g. inside the strike-price solver) are
+    cheap.
+
+    Parameters
+    ----------
+    env : ValueWindEnv
+        The owning environment. CAPEX reads ``env.config`` for input
+        files and override dictionaries (``CAPEX_overrides``) and
+        publishes its results through the same environment for downstream
+        modules (OPEX, FINEX, Valuation).
+
+    Attributes
+    ----------
+    cost_records : pandas.DataFrame
+        One row per cost event with columns
+        ``timestamp``, ``phase_name``, ``item_name``, ``category_name``,
+        ``subcategory_name``, ``subsubcategory_name``, ``cost``,
+        ``turbine_id``, ``per_turbine``.
+    total_cost : float
+        Sum of all cost records once :meth:`calc_CAPEX` has run.
+    material_unit_prices : dict
+        Cached ``{material_name: unit_price}`` map computed once at
+        construction; used to keep iterative experiments cheap.
+    scaling_model : economic_evaluation
+        DTU Cost Model handle used for component scaling laws.
+    blade_total_mass, blade_material_mass : float, dict
+        Optional outputs from the Blade Mass Estimator integration when
+        enabled.
+
+    Notes
+    -----
+    Overrides from ``config.CAPEX_overrides`` are applied **twice**:
+    once on the configuration (to influence input loading) and once on
+    the model object after construction (to influence evaluation). This
+    makes scenario sweeps work whether the override targets a YAML field
+    or a Python attribute on the model.
+
+    See Also
+    --------
+    core.OPEX.OPEX : consumes CAPEX totals when ``mode='capex_fraction'``.
+    core.FINEX.FINEX : uses CAPEX as the financing base.
+    core.CashFlowEngine.CashFlowEngine : aggregates ``cost_records``.
     """
 
     def __init__(self, env):

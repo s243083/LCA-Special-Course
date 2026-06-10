@@ -7,7 +7,7 @@
 
 set -euo pipefail
 
-TARGET="/work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/results/OPEX_Efficiency"
+TARGET="/work/users/mograf/Projects/WINPACT/Market_study/winpact/results/DoE_SolveStrike_NPV0"
 
 echo "Running on $(hostname)"
 echo "Target: $TARGET"

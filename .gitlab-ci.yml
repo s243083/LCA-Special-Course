@@ -1,0 +1,36 @@
+# GitLab CI — builds Sphinx docs and publishes to GitLab Pages.
+# Published at: https://hipersim.pages.windenergy.dtu.dk/winpact/
+
+stages:
+  - build
+  - deploy
+
+default:
+  image: python:3.11-slim
+  before_script:
+    - apt-get update -qq && apt-get install -y --no-install-recommends git make pandoc
+    - python -m pip install --upgrade pip
+    # The DTU runner CPU is pre-x86-64-v2; NumPy >= 2.1 wheels won't import
+    # there. Pin <2.1 so autodoc can introspect the modules.
+    - pip install -e ".[docs]" "numpy<2.1"
+
+# Build the docs on every branch / MR so breakage shows up before merge.
+docs:build:
+  stage: build
+  script:
+    - sphinx-build -n --keep-going -b html docs docs/_build/html
+  artifacts:
+    paths:
+      - docs/_build/html
+    expire_in: 1 week
+
+# Pages deployment — only from the default branch.
+pages:
+  stage: deploy
+  script:
+    - sphinx-build -n --keep-going -b html docs public
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

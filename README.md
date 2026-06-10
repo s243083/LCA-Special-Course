@@ -1,4 +1,7 @@
 # WINPACT
+
+📚 **Documentation:** <https://hipersim.pages.windenergy.dtu.dk/winpact/>
+
 WINPACT is a Python-based life-cycle modeling tool for impact assessment of wind energy technologies. It simulates the operational life of wind energy assets and their interaction with metocean, technical, and economic environments. The tool quantifies the economic and technical effects of system changes, including wind farm control strategies, turbine design characteristics, external operating conditions, and economic parameters.
 
 WINPACT captures combined system interactions such as control-driven load changes, reliability impacts, O&M cost evolution, market interaction, and revenue potential. It provides aggregated outputs in terms of economic metrics (e.g., LCOE, NPV) and technical metrics (e.g., component, turbine, and farm health).
@@ -24,8 +27,7 @@ See the accompanying [NOTICE](NOTICE) file for attribution details.
 
 If you use **WINPACT** in your research or project, please cite it as follows:
 
-Gräfe, M., Pettas, V., & Dimitrov, N. (2025). WINPACT (v1.0.0). Zenodo. https://doi.org/10.5281/zenodo.17641606
-
+Gräfe, M., Pettas, V., Ioannou, A., Shields, M., Kolios, A., & Dimitrov, N. (2026). WINPACT. Zenodo. https://doi.org/10.5281/zenodo.19070012
 
 ---
 
@@ -125,5 +127,24 @@ Extras can be combined:
 ```bash
 pip install -e ".[notebook,internal]"
 ```
+
+---
+
+## 📚 Documentation
+
+The full WINPACT documentation — installation, tutorials, theory, and the
+auto-generated API reference — is published at:
+
+**<https://hipersim.pages.windenergy.dtu.dk/winpact/>**
+
+To build the docs locally:
+
+```bash
+pip install -e ".[docs]"
+cd docs
+make html
+```
+
+Open `docs/_build/html/index.html` in a browser.
 
 ---

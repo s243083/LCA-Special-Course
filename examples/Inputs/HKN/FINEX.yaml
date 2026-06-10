@@ -18,8 +18,8 @@ FINEX:
 
 
   WACC:
-    flag_fixed_WACC: false
-    WACC_annual: None   # 7.2% as fraction
+    flag_fixed_WACC: true
+    WACC_annual: 0.054  # 7.2% as fraction
 
   Tax:
     tax_rate: 21  # corporate tax rate [%]

@@ -62,8 +62,6 @@ KNOWN GAPS
                          Override via DISTANCE_TO_SHORE_OVERRIDE_KM below.
 """
 
-import csv
-import math
 import os
 import re
 import sys
@@ -98,6 +96,7 @@ DESKTOP_OUTPUT_FILE = r"C:\Users\andre\OneDrive\Desktop\technical_output.py"
 DISTANCE_TO_SHORE_OVERRIDE_KM = None
 
 
+
 # ---------------------------------------------------------------------------
 # GENERIC HELPERS
 # ---------------------------------------------------------------------------
@@ -111,34 +110,6 @@ def _load_text(path):
     with open(path, "r", encoding="utf-8") as fh:
         return fh.read()
 
-
-def _mst_length_m(coords):
-    """
-    Prim's minimum spanning tree over turbine (x, y) positions (metres).
-    Returns total edge length -- a theoretical lower-bound for inter-array
-    cable length to string all turbines together.
-    """
-    n = len(coords)
-    if n <= 1:
-        return 0.0
-    in_tree  = [False] * n
-    min_edge = [float("inf")] * n
-    min_edge[0] = 0.0
-    total = 0.0
-    for _ in range(n):
-        u = min(
-            (i for i in range(n) if not in_tree[i]),
-            key=lambda i: min_edge[i],
-        )
-        in_tree[u] = True
-        total += min_edge[u]
-        xu, yu = coords[u]
-        for v in range(n):
-            if not in_tree[v]:
-                d = math.hypot(xu - coords[v][0], yu - coords[v][1])
-                if d < min_edge[v]:
-                    min_edge[v] = d
-    return total
 
 
 # ---------------------------------------------------------------------------
@@ -208,6 +179,83 @@ def _dtu_pitch_bearing_mass_kg(rotor_diameter_m):
     and therefore stores no fixed mass value.
     """
     return 5.0e2 + 0.07 * (rotor_diameter_m ** 2.5)
+
+
+def _find_node(capex, target_name):
+    """BFS through CAPEX Phase/categories/subcategories/subsubcategories to find a node by name."""
+    queue = []
+    for phase in capex.get("Phase") or []:
+        for cat in phase.get("categories") or []:
+            queue.append(cat)
+    while queue:
+        node = queue.pop(0)
+        if node.get("name") == target_name:
+            return node
+        for child in (node.get("subcategories") or []) + (node.get("subsubcategories") or []):
+            queue.append(child)
+    return {}
+
+
+def _mat(node, material_name):
+    """Return mass (tonnes) of a named material from a node's material list. 0 if not found."""
+    for m in (node or {}).get("material") or []:
+        if m.get("name") == material_name and m.get("mass") is not None:
+            return float(m["mass"])
+    return 0.0
+
+
+def _extract_material_inventory(capex, capex_raw_text):
+    """
+    Extract per-material masses (tonnes) matching the LCA inventory format.
+
+    Hub steel = hub shell (40 t) + pitch_system (78 t); pitch bearings excluded.
+    Blade mass split into glass fibre / epoxy using BLADE_*_FRACTION constants.
+    Cabling split uses CABLING_COPPER_T / CABLING_PLASTIC_T constants.
+    """
+    blade_t = _blade_mass_from_capex_comment_t(capex_raw_text)
+
+    hub    = _find_node(capex, "Hub_system")
+    ps     = _find_node(capex, "pitch_system")
+    carb   = _find_node(capex, "CARB_upwind_bearing")
+    srb    = _find_node(capex, "SRB_downwind_bearing")
+    shaft  = _find_node(capex, "main_shaft")
+    gen    = _find_node(capex, "Generator")
+    brake  = _find_node(capex, "Brake")
+    turret = _find_node(capex, "Turret")
+    bed    = _find_node(capex, "Bedplate")
+    yaw    = _find_node(capex, "Yaw_system")
+    nac    = _find_node(capex, "Nacelle_cover_and_platforms")
+    hvac_n = _find_node(capex, "HVAC_and_auxiliaries")
+    conv   = _find_node(capex, "Converter")
+    trans  = _find_node(capex, "Transformer")
+    tower  = _find_node(capex, "Tower")
+    mono   = _find_node(capex, "Monopile")
+    tp     = _find_node(capex, "Transition_piece")
+
+    return {
+        "TURBINE_HUB_STEEL_T":             _mat(hub, "Steel") + _mat(ps, "Steel"),
+        "TURBINE_HUB_GLASS_FIBER_T":       _mat(hub, "Uniax_GlassFiber"),
+        "TURBINE_BLADES_T":                 blade_t,
+        "TURBINE_MAIN_SHAFT_STEEL_T":      _mat(carb, "Steel") + _mat(srb, "Steel") + _mat(shaft, "Steel"),
+        "TURBINE_GENERATOR_NDFEB_T":       _mat(gen, "NdFeB"),
+        "TURBINE_GENERATOR_COPPER_T":      _mat(gen, "Copper"),
+        "TURBINE_GENERATOR_ELEC_STEEL_T":  _mat(gen, "Electrical_steel"),
+        "TURBINE_GENERATOR_STEEL_T":       _mat(gen, "Steel"),
+        "TURBINE_BRAKE_STEEL_T":           _mat(brake, "Steel"),
+        "TURBINE_TURRET_STEEL_T":          _mat(turret, "Steel"),
+        "TURBINE_BEDPLATE_STEEL_T":        _mat(bed, "Steel"),
+        "TURBINE_YAW_STEEL_T":             _mat(yaw, "Steel"),
+        "TURBINE_NACELLE_STEEL_T":         _mat(nac, "Steel"),
+        "TURBINE_NACELLE_COMPOSITE_T":     _mat(nac, "Composite_panel"),
+        "TURBINE_HVAC_T":                  _mat(hvac_n, "HVAC_pack"),
+        "TURBINE_CABLING_T":               _mat(hvac_n, "Cabling_internal"),
+        "TURBINE_LUBE_HYDRAULICS_T":       _mat(hvac_n, "Lube_and_hydraulics"),
+        "TURBINE_CONVERTER_T":             _mat(conv, "Power_electronics_modules"),
+        "TURBINE_TRANSFORMER_T":           _mat(trans, "Transformer_unit"),
+        "TURBINE_TOWER_STEEL_T":           _mat(tower, "Steel"),
+        "SUBSTRUCTURE_MONOPILE_STEEL_T":   _mat(mono, "Steel"),
+        "SUBSTRUCTURE_TRANSITION_STEEL_T": _mat(tp, "Steel"),
+    }
 
 
 # Maps CAPEX YAML component names to output dict keys.
@@ -406,19 +454,11 @@ def main():
     lifetime_h     = lifetime_years * 365 * 24
     energy_net_kwh = total_farm_mw * capacity_factor * float(lifetime_h) * 1_000.0
 
-    # ---- Turbine coordinates (x_scaled, y_scaled in metres) ----------------
-    coords = []
-    with open(LAYOUT_CSV, newline="", encoding="utf-8") as fh:
-        for row in csv.DictReader(fh):
-            coords.append((float(row["x_scaled"]), float(row["y_scaled"])))
-
-    # ---- Array cable length (MST, metres) ----------------------------------
-    cable_m = _mst_length_m(coords)
-
     # ---- Component masses --------------------------------------------------
     rotor_d = _read_rotor_diameter_m(IEA22_TURBINE_FILE)
     masses_t, meta = _extract_masses(capex, capex_raw, rotor_d)
     masses_kg = {k: round(v * 1_000.0, 3) for k, v in masses_t.items()}
+    inventory = _extract_material_inventory(capex, capex_raw)
 
     # ---- OPEX: N_interventions for mode_id == 3 + vessel hours ----------------
     print("Running OPEX simulation to extract mode-3 interventions and vessel hours ...")
@@ -501,11 +541,6 @@ def main():
         ),
         f'    "monopile":                 {kg("monopile")},  # CAPEX.yaml: Monopile.Steel (BoP Substructure)',
         f'    "transition_piece":         {kg("transition_piece")},   # CAPEX.yaml: Transition_piece.Steel (BoP Substructure)',
-        (
-            f'    "array_cable_length_m":     {cable_m:.1f},'
-            "   # metres -- minimum spanning tree of turbine coordinates;"
-            " no unit conversion needed"
-        ),
         "}",
         "",
         "# N_interventions for failure mode_id == 3 per component",
@@ -541,7 +576,6 @@ def main():
     print(f"  DISTANCE_TO_SHORE_KM = {dist_km} km")
     print(f"  LIFETIME_YEARS       = {lifetime_years} yrs")
     print(f"  ENERGY_NET_KWH       = {energy_net_kwh:.4e} kWh")
-    print(f"  array_cable_length_m = {cable_m:.0f} m  ({cable_m / 1_000:.1f} km, MST)")
     print()
     print(f"  Rotor diameter (iea_22s.py)  = {meta['rotor_diameter_m']:.0f} m")
     print(
@@ -591,27 +625,60 @@ def main():
         f"LIFETIME_YEARS          = {lifetime_years}",
         f"ENERGY_NET_KWH          = {energy_net_kwh:.4e}",
         "",
-        "# --- Component Masses (kg) ---",
-        f"PITCH_BEARING_MASS_KG   = {meta['pitch_bearing_kg']:.1f}",
+        "# --- Component Masses (tonnes) ---",
+        f"PITCH_BEARING_MASS_KG            = {meta['pitch_bearing_kg']:.1f}",
         "",
-        "MASSES_KG = {",
-        f'    "hub_system":               {masses_kg["hub_system"]:.1f},',
-        f'    "blades":                   {masses_kg["blades"]:.1f},',
-        f'    "main_shaft_and_bearings":  {masses_kg["main_shaft_and_bearings"]:.1f},',
-        f'    "generator":                {masses_kg["generator"]:.1f},',
-        f'    "brake":                    {masses_kg["brake"]:.1f},',
-        f'    "turret":                   {masses_kg["turret"]:.1f},',
-        f'    "bedplate":                 {masses_kg["bedplate"]:.1f},',
-        f'    "yaw_system":               {masses_kg["yaw_system"]:.1f},',
-        f'    "nacelle_cover_platforms":  {masses_kg["nacelle_cover_platforms"]:.1f},',
-        f'    "hvac_auxiliaries":         {masses_kg["hvac_auxiliaries"]:.1f},',
-        f'    "converter":                {masses_kg["converter"]:.1f},',
-        f'    "transformer":              {masses_kg["transformer"]:.1f},',
-        f'    "tower":                    {masses_kg["tower"]:.1f},',
-        f'    "monopile":                 {masses_kg["monopile"]:.1f},',
-        f'    "transition_piece":         {masses_kg["transition_piece"]:.1f},',
-        f'    "array_cable_length_m":     {cable_m:.1f},',
-        "}",
+        "# 1.1 Hub System (Rotor)",
+        f"TURBINE_HUB_STEEL_T              = {inventory['TURBINE_HUB_STEEL_T']}",
+        f"TURBINE_HUB_GLASS_FIBER_T        = {inventory['TURBINE_HUB_GLASS_FIBER_T']}",
+        "",
+        "# 1.2 Blades (Rotor)",
+        f"TURBINE_BLADES_T                 = {inventory['TURBINE_BLADES_T']}  # split: Glass Fibre = TURBINE_BLADES_T * 0.40 | Epoxy = TURBINE_BLADES_T * 0.60",
+        "",
+        "# 1.3 Main Shaft and Bearings",
+        f"TURBINE_MAIN_SHAFT_STEEL_T       = {inventory['TURBINE_MAIN_SHAFT_STEEL_T']}",
+        "",
+        "# 1.4 Generator",
+        f"TURBINE_GENERATOR_NDFEB_T        = {inventory['TURBINE_GENERATOR_NDFEB_T']}",
+        f"TURBINE_GENERATOR_COPPER_T       = {inventory['TURBINE_GENERATOR_COPPER_T']}",
+        f"TURBINE_GENERATOR_ELEC_STEEL_T   = {inventory['TURBINE_GENERATOR_ELEC_STEEL_T']}",
+        f"TURBINE_GENERATOR_STEEL_T        = {inventory['TURBINE_GENERATOR_STEEL_T']}",
+        "",
+        "# 1.5 Brake",
+        f"TURBINE_BRAKE_STEEL_T            = {inventory['TURBINE_BRAKE_STEEL_T']}",
+        "",
+        "# 1.6 Turret (Nacelle)",
+        f"TURBINE_TURRET_STEEL_T           = {inventory['TURBINE_TURRET_STEEL_T']}",
+        "",
+        "# 1.7 Bedplate (Nacelle)",
+        f"TURBINE_BEDPLATE_STEEL_T         = {inventory['TURBINE_BEDPLATE_STEEL_T']}",
+        "",
+        "# 1.8 Yaw System (Nacelle)",
+        f"TURBINE_YAW_STEEL_T              = {inventory['TURBINE_YAW_STEEL_T']}",
+        "",
+        "# 1.9 Nacelle Cover and Platforms",
+        f"TURBINE_NACELLE_STEEL_T          = {inventory['TURBINE_NACELLE_STEEL_T']}",
+        f"TURBINE_NACELLE_COMPOSITE_T      = {inventory['TURBINE_NACELLE_COMPOSITE_T']}",
+        "",
+        "# 1.10 HVAC and Auxiliaries",
+        f"TURBINE_HVAC_T                   = {inventory['TURBINE_HVAC_T']}",
+        f"TURBINE_CABLING_T                = {inventory['TURBINE_CABLING_T']}  # split: Copper = 2.6 t | Plastic = 1.4 t",
+        f"TURBINE_LUBE_HYDRAULICS_T        = {inventory['TURBINE_LUBE_HYDRAULICS_T']}",
+        "",
+        "# 1.11 Converter",
+        f"TURBINE_CONVERTER_T              = {inventory['TURBINE_CONVERTER_T']}",
+        "",
+        "# 1.12 Transformer",
+        f"TURBINE_TRANSFORMER_T            = {inventory['TURBINE_TRANSFORMER_T']}",
+        "",
+        "# 1.13 Tower",
+        f"TURBINE_TOWER_STEEL_T            = {inventory['TURBINE_TOWER_STEEL_T']}",
+        "",
+        "# 2.1 Monopile",
+        f"SUBSTRUCTURE_MONOPILE_STEEL_T    = {inventory['SUBSTRUCTURE_MONOPILE_STEEL_T']}",
+        "",
+        "# 2.2 Transition Piece",
+        f"SUBSTRUCTURE_TRANSITION_STEEL_T  = {inventory['SUBSTRUCTURE_TRANSITION_STEEL_T']}",
         "",
         "# --- O&M Interventions (average per year, mode_id == 3) ---",
         "N_INTERVENTIONS = {",

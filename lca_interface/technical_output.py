@@ -28,7 +28,6 @@ MASSES_KG = {
     "tower":                    1574000.0,  # CAPEX.yaml: Tower.Steel (subsubcategory of Turbine.Substructure)
     "monopile":                 2097000.0,  # CAPEX.yaml: Monopile.Steel (BoP Substructure)
     "transition_piece":         100000.0,   # CAPEX.yaml: Transition_piece.Steel (BoP Substructure)
-    "array_cable_length_m":     59214.6,   # metres -- minimum spanning tree of turbine coordinates; no unit conversion needed
 }
 
 # N_interventions for failure mode_id == 3 per component

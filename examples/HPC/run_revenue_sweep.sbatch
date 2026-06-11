@@ -6,13 +6,13 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32
 #SBATCH --mem=0
-#SBATCH --chdir=/work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact
-#SBATCH --output=/work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/logs/%x_%j.out
-#SBATCH --error=/work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/logs/%x_%j.err
+#SBATCH --chdir=/work/users/mograf/Projects/WINPACT/Market_study/winpact
+#SBATCH --output=/work/users/mograf/Projects/WINPACT/Market_study/winpact/logs/%x_%j.out
+#SBATCH --error=/work/users/mograf/Projects/WINPACT/Market_study/winpact/logs/%x_%j.err
 
 set -euo pipefail
 
-mkdir -p /work/users/mograf/Projects/WINPACT/WINPACT_WISER/winpact/logs
+mkdir -p /work/users/mograf/Projects/WINPACT/Market_study/winpact/logs
 
 echo "TMPDIR=$TMPDIR"
 echo "PWD=$(pwd)"
@@ -26,4 +26,4 @@ export MKL_NUM_THREADS=1
 export OPENBLAS_NUM_THREADS=1
 export NUMEXPR_NUM_THREADS=1
 
-python -u examples/HPC/run_OPEX_reliability_parallel.py
+python -u examples/HPC/run_revenue_sweep.py

@@ -1,0 +1,9 @@
+LICENSE
+NOTICE
+README.md
+pyproject.toml
+winpact.egg-info/PKG-INFO
+winpact.egg-info/SOURCES.txt
+winpact.egg-info/dependency_links.txt
+winpact.egg-info/requires.txt
+winpact.egg-info/top_level.txt

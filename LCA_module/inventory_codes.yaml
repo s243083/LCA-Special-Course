@@ -1,0 +1,309 @@
+# =============================================================================
+# inventory_codes.yaml — Wind Farm LCA Component-to-Ecoinvent Process Mapping
+# =============================================================================
+# This file maps each wind farm component to an ecoinvent Activity UID.
+# The UID is the lookup key in the ecoinvent database.
+#
+# To change a process: replace the UID with the new one from ecoinvent.
+# To add a new component: add a new key-value pair in the right section.
+# To add a new life stage: add a new top-level key with its components.
+# =============================================================================
+
+# =========================================================================
+# MATERIALS — Raw material extraction
+# =========================================================================
+Materials:
+  1. Wind Turbine:
+    1.1 Hub System (Rotor):
+      1.1.1 Hub System Steel: "be165311-0b2b-5a66-9bc7-363cd3163982_8cb650d5-8a48-4719-81b1-2080b3b4387f"
+      1.1.2 Hub System Uniax_Glass Fiber: "95dc65d3-d560-56b8-a09d-a77b3eba04a2_0798a5d1-6713-4c82-8ec9-c40ac2548279"
+    1.2 Blades (Rotor):
+      1.2.1 Blades Glass Fibre (60%): "a7f6f7f6-9d7d-58b7-953a-223d6c5a9026_fa6f1b55-8b52-4052-a2c8-0a0ba7a22d17"
+      1.2.2 Blades Epoxy (40%): "8972befd-d617-58cd-97e3-c8bcb08574dd_51c7e57a-00b7-4412-b56c-94c17b211ee7"
+    1.3 Main Shaft and Bearings:
+      1.3.1 Main Shaft and Bearings Steel: "be165311-0b2b-5a66-9bc7-363cd3163982_8cb650d5-8a48-4719-81b1-2080b3b4387f"
+    1.4 Generator:
+      1.4.1 Generator NdFeB: "5792a517-6c90-5f41-a5ff-2a7fe708eae1_787cf1f4-ff36-4548-8a99-9adb6c4f8f23"
+      1.4.2 Generator Copper: "ab7b5760-3982-5668-a413-7cd21fa84ee4_fbb039f7-f9cc-46d2-b631-313ddb125c1a"
+      1.4.3 Generator Electrical Steel: "55ba216e-bf0e-524a-bd0f-ecb605bea69f_c5246dbb-0abd-4bee-8dda-d52a1b202322"
+      1.4.4 Generator Steel: "be165311-0b2b-5a66-9bc7-363cd3163982_8cb650d5-8a48-4719-81b1-2080b3b4387f"
+    1.5 Brake:
+      1.5.1 Brake Steel: "be165311-0b2b-5a66-9bc7-363cd3163982_8cb650d5-8a48-4719-81b1-2080b3b4387f"
+    1.6 Turret (Nacelle):
+      1.6.1 Turret Steel: "be165311-0b2b-5a66-9bc7-363cd3163982_8cb650d5-8a48-4719-81b1-2080b3b4387f"
+    1.7 Bedplate (Nacelle):
+      1.7.1 Bedplate Steel: "be165311-0b2b-5a66-9bc7-363cd3163982_8cb650d5-8a48-4719-81b1-2080b3b4387f"
+    1.8 Yaw System (Nacelle):
+      1.8.1 Yaw System Steel: "be165311-0b2b-5a66-9bc7-363cd3163982_8cb650d5-8a48-4719-81b1-2080b3b4387f"
+    1.9 Nacelle_cover_and_platforms (Nacelle):
+      1.9.1 Nacelle Steel: "be165311-0b2b-5a66-9bc7-363cd3163982_8cb650d5-8a48-4719-81b1-2080b3b4387f"
+      1.9.2 Nacelle Composite: "95dc65d3-d560-56b8-a09d-a77b3eba04a2_0798a5d1-6713-4c82-8ec9-c40ac2548279"
+    1.10 HVAC_and_auxiliarie (Nacelle):
+      1.10.1 HVAC_pack: "3c6be8d8-5906-5a1a-9497-ef59784b035b_245732f4-a5ce-4881-816b-a207ba8df4c8"
+      1.10.2.1 Cabling_internal Copper: "ab7b5760-3982-5668-a413-7cd21fa84ee4_fbb039f7-f9cc-46d2-b631-313ddb125c1a"
+      1.10.2.2 Cabling_internal Plastic: "66fd755c-ff73-5bf4-bcfb-cf3a90f2bbfa_19bacec1-aff8-4398-a7bd-d125b48505b7"
+      1.10.3 Lube_and_hydraulics: "1263754f-68c5-541d-b771-d3542fdf8c85_ea75b944-c676-4a13-85b8-2bea98f765a4"
+    1.11 Converter (Electrical components):
+      1.11.1 Power Electronics Converter: "3c6be8d8-5906-5a1a-9497-ef59784b035b_245732f4-a5ce-4881-816b-a207ba8df4c8"
+    1.12 Transformer (Electrical components):
+      1.12.1 Transformer: "bec66b6a-99c0-5840-a7a5-5da886f47739_0c7faf73-f5ea-4a3b-96ec-54d025cae6f4"
+    1.13 Tower:
+      1.13.1 Tower Steel: "be165311-0b2b-5a66-9bc7-363cd3163982_8cb650d5-8a48-4719-81b1-2080b3b4387f"
+
+  2. Substructure:
+    2.1 Monopile:
+      2.1.1 Monopile Steel: "be165311-0b2b-5a66-9bc7-363cd3163982_8cb650d5-8a48-4719-81b1-2080b3b4387f"
+    2.2 Transitioning piece:
+      2.2.1 Transitioning piece Steel: "be165311-0b2b-5a66-9bc7-363cd3163982_8cb650d5-8a48-4719-81b1-2080b3b4387f"
+
+  3. Electrical Infrastructure:
+    3.1 Array Cables 240mm2 (66kV):
+      3.1.1 Copper: "ab7b5760-3982-5668-a413-7cd21fa84ee4_fbb039f7-f9cc-46d2-b631-313ddb125c1a"
+      3.1.2 Polyethylene: "b69747c7-1668-557c-96d3-91fbd6476bf2_b685192a-e033-421e-9074-8fe7cb176046"
+      3.1.3 Lead: "0f96c182-f3c0-5ddd-853d-e099a5935fb0_237b35c6-69e1-49c4-8e99-0be6c1b1806e"
+      3.1.4 Steel: "be165311-0b2b-5a66-9bc7-363cd3163982_8cb650d5-8a48-4719-81b1-2080b3b4387f"
+      3.1.5 Glass: "026649f9-fce3-5e9b-8c71-68e85971cef2_3080a9dc-6699-4f25-916e-79f0d4705d76"
+    3.2 Array Cables 630mm2 (66kV):
+      3.2.1 Copper: "ab7b5760-3982-5668-a413-7cd21fa84ee4_fbb039f7-f9cc-46d2-b631-313ddb125c1a"
+      3.2.2 Polyethylene: "b69747c7-1668-557c-96d3-91fbd6476bf2_b685192a-e033-421e-9074-8fe7cb176046"
+      3.2.3 Lead: "0f96c182-f3c0-5ddd-853d-e099a5935fb0_237b35c6-69e1-49c4-8e99-0be6c1b1806e"
+      3.2.4 Steel: "be165311-0b2b-5a66-9bc7-363cd3163982_8cb650d5-8a48-4719-81b1-2080b3b4387f"
+      3.2.5 Glass: "026649f9-fce3-5e9b-8c71-68e85971cef2_3080a9dc-6699-4f25-916e-79f0d4705d76"
+    3.3 Array Cables 800mm2 (66kV):
+      3.3.1 Copper: "ab7b5760-3982-5668-a413-7cd21fa84ee4_fbb039f7-f9cc-46d2-b631-313ddb125c1a"
+      3.3.2 Polyethylene: "b69747c7-1668-557c-96d3-91fbd6476bf2_b685192a-e033-421e-9074-8fe7cb176046"
+      3.3.3 Lead: "0f96c182-f3c0-5ddd-853d-e099a5935fb0_237b35c6-69e1-49c4-8e99-0be6c1b1806e"
+      3.3.4 Steel: "be165311-0b2b-5a66-9bc7-363cd3163982_8cb650d5-8a48-4719-81b1-2080b3b4387f"
+      3.3.5 Glass: "026649f9-fce3-5e9b-8c71-68e85971cef2_3080a9dc-6699-4f25-916e-79f0d4705d76"
+    3.4 Export Cables:
+      3.4.1 Copper: "ab7b5760-3982-5668-a413-7cd21fa84ee4_fbb039f7-f9cc-46d2-b631-313ddb125c1a"
+      3.4.2 Lead: "0f96c182-f3c0-5ddd-853d-e099a5935fb0_237b35c6-69e1-49c4-8e99-0be6c1b1806e"
+      3.4.3 Steel: "be165311-0b2b-5a66-9bc7-363cd3163982_8cb650d5-8a48-4719-81b1-2080b3b4387f"
+      3.4.4 Polyethylene: "b69747c7-1668-557c-96d3-91fbd6476bf2_b685192a-e033-421e-9074-8fe7cb176046"
+
+  4. Offshore Substation:
+    4.1 Steel: "e799a45f-5544-5285-85c2-645f48144ed7_9ba48284-0f03-4fec-800d-de77833b12f6"
+    4.2 Copper: "ab7b5760-3982-5668-a413-7cd21fa84ee4_fbb039f7-f9cc-46d2-b631-313ddb125c1a"
+    4.3 Aluminium: "87defbff-5590-58f3-8f5b-4f34cc221371_aa81aad8-3eea-4eb5-b33c-97621400e199"
+    4.4 Polyethylene: "b69747c7-1668-557c-96d3-91fbd6476bf2_b685192a-e033-421e-9074-8fe7cb176046"
+    4.5 Lubricating oil: "1263754f-68c5-541d-b771-d3542fdf8c85_ea75b944-c676-4a13-85b8-2bea98f765a4"
+    4.6 Cast iron: "5914dddc-e562-5172-8a1b-eda4e7308e80_4447af36-0897-4b00-8fd0-fd6a446dda6a"
+    4.7 Modified organic natural materials:
+      4.7.1 Kraft paper: "016593bf-3756-578f-bae5-e46e17966a6f_8ef02d68-0b80-4c12-81ee-3dd678d2915b"
+      4.7.2 Vegetable oil methyl ester: "0a5f0e65-99d8-52d9-a702-e1eef7c00cee_4bc66efe-f91b-48e5-9a26-07e383d47e80"
+    4.8 Ceramic / glass: "2bae382b-d83d-54a4-a200-7edb5c369bfc_e9661fc2-f27f-4b41-87cc-2d55a4bee0cd"
+    4.9 SF6 Gas: "2c335833-a5df-5de2-beab-b3c6940d8ca8_ab5dcfa8-e8f9-4923-84d4-51b25a898fa1"
+    4.10 Zinc alloys: "dba221cc-aa82-5009-ba94-2fa7304ffb5f_dae5718b-c433-4bd9-9deb-eb3ffc2c889e"
+
+  5. Onshore Substation:
+    5.1 Steel: "e799a45f-5544-5285-85c2-645f48144ed7_9ba48284-0f03-4fec-800d-de77833b12f6"
+    5.2 Copper: "ab7b5760-3982-5668-a413-7cd21fa84ee4_fbb039f7-f9cc-46d2-b631-313ddb125c1a"
+    5.3 Aluminium: "87defbff-5590-58f3-8f5b-4f34cc221371_aa81aad8-3eea-4eb5-b33c-97621400e199"
+    5.4 Polyethylene: "b69747c7-1668-557c-96d3-91fbd6476bf2_b685192a-e033-421e-9074-8fe7cb176046"
+    5.5 Lubricating oil: "1263754f-68c5-541d-b771-d3542fdf8c85_ea75b944-c676-4a13-85b8-2bea98f765a4"
+    5.6 Cast iron: "5914dddc-e562-5172-8a1b-eda4e7308e80_4447af36-0897-4b00-8fd0-fd6a446dda6a"
+    5.7 Modified organic natural materials:
+      5.7.1 Kraft paper: "016593bf-3756-578f-bae5-e46e17966a6f_8ef02d68-0b80-4c12-81ee-3dd678d2915b"
+      5.7.2 Vegetable oil methyl ester: "0a5f0e65-99d8-52d9-a702-e1eef7c00cee_4bc66efe-f91b-48e5-9a26-07e383d47e80"
+    5.8 Ceramic / glass: "2bae382b-d83d-54a4-a200-7edb5c369bfc_e9661fc2-f27f-4b41-87cc-2d55a4bee0cd"
+    5.9 SF6 Gas: "2c335833-a5df-5de2-beab-b3c6940d8ca8_ab5dcfa8-e8f9-4923-84d4-51b25a898fa1"
+    5.10 Concrete: "6e1527f2-b21d-5069-a467-87cab4498624_d4ee8f39-342b-4443-bbb9-c49b6801b5d6"
+
+# =========================================================================
+# MANUFACTURING — Component fabrication and processing
+# =========================================================================
+Manufacturing:
+  1. Steel: "910c985e-62f4-50b4-9d19-dc87af4d7a26_e2f62697-57d4-42fe-95bf-c85fd32a9cf0"
+  2. Chromium Steel: "61d42ce8-5b44-58e7-bc4d-fe1195f28d79_68b4fdd4-d341-4ac5-9dbc-59eb34653dab"
+  3. Copper: "ca9cfc51-da30-5466-8bb9-1fb9cfdbb798_cdb7b939-f508-49ed-80f3-b39f6137fe1c"
+  4. Cast iron: "3c435556-1652-50d6-a692-c4f6dd5af647_8aa5cd19-c1ca-49f1-8efb-c7a28f5ad71f"
+  5. Polyethylene PE: "7e5a8c97-439f-5fca-921a-860ad94d4593_406ae9de-8894-4c8b-a601-40b7e849b66d"
+  6. Inter-array cables:
+    6.1 Copper: "ca9cfc51-da30-5466-8bb9-1fb9cfdbb798_cdb7b939-f508-49ed-80f3-b39f6137fe1c"
+    6.2 Steel: "224b5c29-a28e-5d0b-aab3-d51d31ef0f5f_444d81a0-13e0-41a4-8f63-e691b0133c04"
+    6.3 Polyethylene PE: "7e5a8c97-439f-5fca-921a-860ad94d4593_406ae9de-8894-4c8b-a601-40b7e849b66d"
+  7. Export Cables:
+    7.1 Copper: "ca9cfc51-da30-5466-8bb9-1fb9cfdbb798_cdb7b939-f508-49ed-80f3-b39f6137fe1c"
+    7.2 Steel: "224b5c29-a28e-5d0b-aab3-d51d31ef0f5f_444d81a0-13e0-41a4-8f63-e691b0133c04"
+    7.3 Polyethylene PE: "7e5a8c97-439f-5fca-921a-860ad94d4593_406ae9de-8894-4c8b-a601-40b7e849b66d"
+
+# =========================================================================
+# TRANSPORT
+# =========================================================================
+Transport:
+  1. Wind Turbine: "f141bb4a-3876-5d97-a744-92830a6e4448_eeb68c18-502b-4117-a033-a5daf24322fc"
+  2. Substructure: "f141bb4a-3876-5d97-a744-92830a6e4448_eeb68c18-502b-4117-a033-a5daf24322fc"
+  3.1 Array Cables: "f141bb4a-3876-5d97-a744-92830a6e4448_eeb68c18-502b-4117-a033-a5daf24322fc"
+  3.2 Export Cables: "f141bb4a-3876-5d97-a744-92830a6e4448_eeb68c18-502b-4117-a033-a5daf24322fc"
+  3.3 Offshore Substation: "f141bb4a-3876-5d97-a744-92830a6e4448_eeb68c18-502b-4117-a033-a5daf24322fc"
+
+# =========================================================================
+# ASSEMBLY & INSTALLATION
+# =========================================================================
+Installation:
+  1. Total Vessel Fuel Consumption: "3395b69c-ea71-5ad0-9797-934ac36ab1c7_79838d89-26c0-4781-b17f-a0deb787d482"
+
+# =========================================================================
+# OPERATION — Maintenance over project lifetime
+# =========================================================================
+Operation:
+  1. Routine Maintenance and Inspection:
+    1.1 CTV Vessel Operation and Maintenance: "3395b69c-ea71-5ad0-9797-934ac36ab1c7_79838d89-26c0-4781-b17f-a0deb787d482"
+    1.2 LCN Vessel Operation and Maintenance: "3395b69c-ea71-5ad0-9797-934ac36ab1c7_79838d89-26c0-4781-b17f-a0deb787d482"
+  2. Material Replacements:
+    2.1 Wind Turbine:
+      2.1.1 Hub System (Rotor):
+        2.1.1.1 Hub System Steel: "be165311-0b2b-5a66-9bc7-363cd3163982_8cb650d5-8a48-4719-81b1-2080b3b4387f"
+        2.1.1.2 Hub System Uniax_Glass Fiber: "95dc65d3-d560-56b8-a09d-a77b3eba04a2_0798a5d1-6713-4c82-8ec9-c40ac2548279"
+      2.1.2 Blades (Rotor):
+        2.1.2.1 Blades Glass Fibre (60%): "a7f6f7f6-9d7d-58b7-953a-223d6c5a9026_fa6f1b55-8b52-4052-a2c8-0a0ba7a22d17"
+        2.1.2.2 Blades Epoxy (40%): "8972befd-d617-58cd-97e3-c8bcb08574dd_51c7e57a-00b7-4412-b56c-94c17b211ee7"
+      2.1.3 Main Shaft and Bearings:
+        2.1.3.1 Main Shaft and Bearings Steel: "be165311-0b2b-5a66-9bc7-363cd3163982_8cb650d5-8a48-4719-81b1-2080b3b4387f"
+      2.1.4 Generator:
+        2.1.4.1 Generator NdFeB: "5792a517-6c90-5f41-a5ff-2a7fe708eae1_787cf1f4-ff36-4548-8a99-9adb6c4f8f23"
+        2.1.4.2 Generator Copper: "ab7b5760-3982-5668-a413-7cd21fa84ee4_fbb039f7-f9cc-46d2-b631-313ddb125c1a"
+        2.1.4.3 Generator Electrical Steel: "55ba216e-bf0e-524a-bd0f-ecb605bea69f_c5246dbb-0abd-4bee-8dda-d52a1b202322"
+        2.1.4.4 Generator Steel: "be165311-0b2b-5a66-9bc7-363cd3163982_8cb650d5-8a48-4719-81b1-2080b3b4387f"
+      2.1.5 Brake:
+        2.1.5.1 Brake Steel: "be165311-0b2b-5a66-9bc7-363cd3163982_8cb650d5-8a48-4719-81b1-2080b3b4387f"
+      2.1.6 Turret (Nacelle):
+        2.1.6.1 Turret Steel: "be165311-0b2b-5a66-9bc7-363cd3163982_8cb650d5-8a48-4719-81b1-2080b3b4387f"
+      2.1.7 Bedplate (Nacelle):
+        2.1.7.1 Bedplate Steel: "be165311-0b2b-5a66-9bc7-363cd3163982_8cb650d5-8a48-4719-81b1-2080b3b4387f"
+      2.1.8 Yaw System (Nacelle):
+        2.1.8.1 Yaw System Steel: "be165311-0b2b-5a66-9bc7-363cd3163982_8cb650d5-8a48-4719-81b1-2080b3b4387f"
+      2.1.9 Nacelle_cover_and_platforms (Nacelle):
+        2.1.9.1 Nacelle Steel: "be165311-0b2b-5a66-9bc7-363cd3163982_8cb650d5-8a48-4719-81b1-2080b3b4387f"
+        2.1.9.2 Nacelle Composite: "95dc65d3-d560-56b8-a09d-a77b3eba04a2_0798a5d1-6713-4c82-8ec9-c40ac2548279"
+      2.1.10 HVAC_and_auxiliarie (Nacelle):
+        2.1.10.1 HVAC_pack: "3c6be8d8-5906-5a1a-9497-ef59784b035b_245732f4-a5ce-4881-816b-a207ba8df4c8"
+        2.1.10.2.1 Cabling_internal Copper: "ab7b5760-3982-5668-a413-7cd21fa84ee4_fbb039f7-f9cc-46d2-b631-313ddb125c1a"
+        2.1.10.2.2 Cabling_internal Plastic: "66fd755c-ff73-5bf4-bcfb-cf3a90f2bbfa_19bacec1-aff8-4398-a7bd-d125b48505b7"
+        2.1.10.3 Lube_and_hydraulics: "1263754f-68c5-541d-b771-d3542fdf8c85_ea75b944-c676-4a13-85b8-2bea98f765a4"
+      2.1.11 Converter (Electrical components):
+        2.1.11.1 Power Electronics Converter: "3c6be8d8-5906-5a1a-9497-ef59784b035b_245732f4-a5ce-4881-816b-a207ba8df4c8"
+      2.1.12 Transformer (Electrical components):
+        2.1.12.1 Transformer: "bec66b6a-99c0-5840-a7a5-5da886f47739_0c7faf73-f5ea-4a3b-96ec-54d025cae6f4"
+      2.1.13 Tower:
+        2.1.13.1 Tower Steel: "be165311-0b2b-5a66-9bc7-363cd3163982_8cb650d5-8a48-4719-81b1-2080b3b4387f"
+    2.2 Substructure:
+      2.2.1 Monopile:
+        2.2.1.1 Monopile Steel: "be165311-0b2b-5a66-9bc7-363cd3163982_8cb650d5-8a48-4719-81b1-2080b3b4387f"
+      2.2.2 Transitioning piece:
+        2.2.2.1 Transitioning piece Steel: "be165311-0b2b-5a66-9bc7-363cd3163982_8cb650d5-8a48-4719-81b1-2080b3b4387f"
+
+# =========================================================================
+# DECOMMISSIONING/DISMANTLING
+# =========================================================================
+Decommissioning:
+  1. Total Vessel Fuel Consumption: "3395b69c-ea71-5ad0-9797-934ac36ab1c7_79838d89-26c0-4781-b17f-a0deb787d482"
+
+# =========================================================================
+# END OF LIFE
+# =========================================================================
+End of life:
+  1. Wind Turbine:
+    1.1 Hub System (Rotor):
+      1.1.1 Hub System Steel Recycling: "d33bd13f-ad9a-559e-9a97-2f2c0546661d_4f312355-ac65-4635-8fb2-006dba64ce60"
+      1.1.1 Hub System Steel Landfill: "a1087005-1ecd-52aa-b379-793c2876bdbf_d1a4a803-c563-4740-84cf-3c21a488bd74"
+      1.1.2 Hub System Uniax_Glass Fiber Incineration: "9bcb58c0-0bc7-5d02-99a9-d9cd9a45212b_dae141a8-7daa-4f03-a649-b85b718ac65b"
+      1.1.2 Hub System Uniax_Glass Fiber Landfill: "89288da2-38a6-5765-add5-8ba6e68471e4_dae141a8-7daa-4f03-a649-b85b718ac65b"
+    1.2 Blades (Rotor):
+      1.2.1 Blades Glass Fibre (60%) Incineration: "9bcb58c0-0bc7-5d02-99a9-d9cd9a45212b_dae141a8-7daa-4f03-a649-b85b718ac65b"
+      1.2.1 Blades Glass Fibre (60%) Landfill: "89288da2-38a6-5765-add5-8ba6e68471e4_dae141a8-7daa-4f03-a649-b85b718ac65b"
+      1.2.2 Blades Epoxy (40%) Incineration: "ac1f609a-4575-51ad-a9c0-66382fec5ce9_88afd721-07ec-4910-a004-fa3fecb6bf70"
+      1.2.2 Blades Epoxy (40%) Landfill: "3baec5b1-eaa2-5700-bd4f-0cd96c64bbae_88afd721-07ec-4910-a004-fa3fecb6bf70"
+    1.3 Main Shaft and Bearings:
+      1.3.1 Main Shaft and Bearings Steel Recycling: "d33bd13f-ad9a-559e-9a97-2f2c0546661d_4f312355-ac65-4635-8fb2-006dba64ce60"
+      1.3.1 Main Shaft and Bearings Steel Landfill: "a1087005-1ecd-52aa-b379-793c2876bdbf_d1a4a803-c563-4740-84cf-3c21a488bd74"
+    1.4 Generator:
+      1.4.1 Generator NdFeB Landfill: "544c37a0-c4ff-5ed2-9365-06ee2a94fdc0_15442876-adcd-4acd-8f5b-bfca7ecab125"
+      1.4.2 Generator Copper Recycling: "d33bd13f-ad9a-559e-9a97-2f2c0546661d_4f312355-ac65-4635-8fb2-006dba64ce60"
+      1.4.2 Generator Copper Landfill: "a1087005-1ecd-52aa-b379-793c2876bdbf_d1a4a803-c563-4740-84cf-3c21a488bd74"
+      1.4.3 Generator Electrical Steel Recycling: "d33bd13f-ad9a-559e-9a97-2f2c0546661d_4f312355-ac65-4635-8fb2-006dba64ce60"
+      1.4.3 Generator Electrical Steel Landfill: "a1087005-1ecd-52aa-b379-793c2876bdbf_d1a4a803-c563-4740-84cf-3c21a488bd74"
+      1.4.4 Generator Steel Recycling: "d33bd13f-ad9a-559e-9a97-2f2c0546661d_4f312355-ac65-4635-8fb2-006dba64ce60"
+      1.4.4 Generator Steel Landfill: "a1087005-1ecd-52aa-b379-793c2876bdbf_d1a4a803-c563-4740-84cf-3c21a488bd74"
+    1.5 Brake:
+      1.5.1 Brake Steel Recycling: "d33bd13f-ad9a-559e-9a97-2f2c0546661d_4f312355-ac65-4635-8fb2-006dba64ce60"
+      1.5.1 Brake Steel Landfill: "a1087005-1ecd-52aa-b379-793c2876bdbf_d1a4a803-c563-4740-84cf-3c21a488bd74"
+    1.6 Turret (Nacelle):
+      1.6.1 Turret Steel Recycling: "d33bd13f-ad9a-559e-9a97-2f2c0546661d_4f312355-ac65-4635-8fb2-006dba64ce60"
+      1.6.1 Turret Steel Landfill: "a1087005-1ecd-52aa-b379-793c2876bdbf_d1a4a803-c563-4740-84cf-3c21a488bd74"
+    1.7 Bedplate (Nacelle):
+      1.7.1 Bedplate Steel Recycling: "d33bd13f-ad9a-559e-9a97-2f2c0546661d_4f312355-ac65-4635-8fb2-006dba64ce60"
+      1.7.1 Bedplate Steel Landfill: "a1087005-1ecd-52aa-b379-793c2876bdbf_d1a4a803-c563-4740-84cf-3c21a488bd74"
+    1.8 Yaw System (Nacelle):
+      1.8.1 Yaw System Steel Recycling: "d33bd13f-ad9a-559e-9a97-2f2c0546661d_4f312355-ac65-4635-8fb2-006dba64ce60"
+      1.8.1 Yaw System Steel Landfill: "a1087005-1ecd-52aa-b379-793c2876bdbf_d1a4a803-c563-4740-84cf-3c21a488bd74"
+    1.9 Nacelle_cover_and_platforms (Nacelle):
+      1.9.1 Nacelle Steel Recycling: "d33bd13f-ad9a-559e-9a97-2f2c0546661d_4f312355-ac65-4635-8fb2-006dba64ce60"
+      1.9.1 Nacelle Steel Landfill: "a1087005-1ecd-52aa-b379-793c2876bdbf_d1a4a803-c563-4740-84cf-3c21a488bd74"
+      1.9.2 Nacelle Composite Glass Fibre Incineration: "9bcb58c0-0bc7-5d02-99a9-d9cd9a45212b_dae141a8-7daa-4f03-a649-b85b718ac65b"
+      1.9.2 Nacelle Composite Glass Fibre Landfill: "89288da2-38a6-5765-add5-8ba6e68471e4_dae141a8-7daa-4f03-a649-b85b718ac65b"
+    1.10 HVAC_and_auxiliarie (Nacelle):
+      1.10.1 HVAC_pack Treatment and Disposal: "544c37a0-c4ff-5ed2-9365-06ee2a94fdc0_15442876-adcd-4acd-8f5b-bfca7ecab125"
+      1.10.2.1 Cabling_internal Copper Recycling: "d33bd13f-ad9a-559e-9a97-2f2c0546661d_4f312355-ac65-4635-8fb2-006dba64ce60"
+      1.10.2.1 Cabling_internal Copper Landfill: "a1087005-1ecd-52aa-b379-793c2876bdbf_d1a4a803-c563-4740-84cf-3c21a488bd74"
+      1.10.2.2 Cabling_internal Plastic Landfill: "3baec5b1-eaa2-5700-bd4f-0cd96c64bbae_88afd721-07ec-4910-a004-fa3fecb6bf70"
+      1.10.2.2 Cabling_internal Plastic Incineration: "ac1f609a-4575-51ad-a9c0-66382fec5ce9_88afd721-07ec-4910-a004-fa3fecb6bf70"
+      1.10.3 Lube_and_hydraulics Incineration: "2e6f04ca-475a-5507-8133-368a639596de_1b30b018-ac39-41f4-a9e0-92057eef8bb8"
+    1.11 Converter (Electrical components):
+      1.11.1 Power Electronics Converter: "544c37a0-c4ff-5ed2-9365-06ee2a94fdc0_15442876-adcd-4acd-8f5b-bfca7ecab125"
+    1.12 Transformer (Electrical components):
+      1.12.1 Transformer Treatment and Disposal: "544c37a0-c4ff-5ed2-9365-06ee2a94fdc0_15442876-adcd-4acd-8f5b-bfca7ecab125"
+    1.13 Tower:
+      1.13.1 Tower Steel Recycling: "d33bd13f-ad9a-559e-9a97-2f2c0546661d_4f312355-ac65-4635-8fb2-006dba64ce60"
+      1.13.1 Tower Steel Landfill: "a1087005-1ecd-52aa-b379-793c2876bdbf_d1a4a803-c563-4740-84cf-3c21a488bd74"
+
+  2. Substructure:
+    2.1 Monopile:
+      2.1.1 Monopile Steel Recycling: "d33bd13f-ad9a-559e-9a97-2f2c0546661d_4f312355-ac65-4635-8fb2-006dba64ce60"
+      2.1.1 Monopile Steel Landfill: "a1087005-1ecd-52aa-b379-793c2876bdbf_d1a4a803-c563-4740-84cf-3c21a488bd74"
+    2.2 Transitioning piece:
+      2.2.1 Transitioning piece Steel Recycling: "d33bd13f-ad9a-559e-9a97-2f2c0546661d_4f312355-ac65-4635-8fb2-006dba64ce60"
+      2.2.1 Transitioning piece Steel Landfill: "a1087005-1ecd-52aa-b379-793c2876bdbf_d1a4a803-c563-4740-84cf-3c21a488bd74"
+
+  3. Electrical Infrastructure:
+    3.1 Array Cables 240mm2 (66kV): "7035ae7a-6fb0-5972-967e-29c2c6ea0a13_57e5d14a-3624-46d9-bea2-2422222a9f13"
+    3.2 Array Cables 630mm2 (66kV): "7035ae7a-6fb0-5972-967e-29c2c6ea0a13_57e5d14a-3624-46d9-bea2-2422222a9f13"
+    3.3 Array Cables 800mm2 (66kV): "7035ae7a-6fb0-5972-967e-29c2c6ea0a13_57e5d14a-3624-46d9-bea2-2422222a9f13"
+    3.4 Export Cables: "7035ae7a-6fb0-5972-967e-29c2c6ea0a13_57e5d14a-3624-46d9-bea2-2422222a9f13"
+    3.5 Offshore Substation:
+      3.5.1 Offshore Substation Steel Recycling: "d33bd13f-ad9a-559e-9a97-2f2c0546661d_4f312355-ac65-4635-8fb2-006dba64ce60"
+      3.5.1 Offshore Substation Steel Landfill: "a1087005-1ecd-52aa-b379-793c2876bdbf_d1a4a803-c563-4740-84cf-3c21a488bd74"
+      3.5.2 Offshore Substation Copper Recycling: "d33bd13f-ad9a-559e-9a97-2f2c0546661d_4f312355-ac65-4635-8fb2-006dba64ce60"
+      3.5.2 Offshore Substation Copper Landfill: "a1087005-1ecd-52aa-b379-793c2876bdbf_d1a4a803-c563-4740-84cf-3c21a488bd74"
+      3.5.3 Offshore Substation Aluminium Recycling: "d33bd13f-ad9a-559e-9a97-2f2c0546661d_4f312355-ac65-4635-8fb2-006dba64ce60"
+      3.5.3 Offshore Substation Aluminium Landfill: "6becb09f-11d3-5ed2-b550-2df7ee047f8c_7df87cd6-22cd-4010-ab95-b1a02917bbfe"
+      3.5.4 Offshore Substation Polyethylene Incineration: "9bcb58c0-0bc7-5d02-99a9-d9cd9a45212b_dae141a8-7daa-4f03-a649-b85b718ac65b"
+      3.5.4 Offshore Substation Polyethylene Landfill: "3fbf3862-7b53-562b-8054-b936b79df09d_7ee0ddc3-924d-4339-b9bf-7856af6a698f"
+      3.5.5 Offshore Substation Lubricating Oil Incineration: "2e6f04ca-475a-5507-8133-368a639596de_1b30b018-ac39-41f4-a9e0-92057eef8bb8"
+      3.5.6 Offshore Substation Cast Iron Recycling: "d33bd13f-ad9a-559e-9a97-2f2c0546661d_4f312355-ac65-4635-8fb2-006dba64ce60"
+      3.5.6 Offshore Substation Cast Iron Landfill: "a1087005-1ecd-52aa-b379-793c2876bdbf_d1a4a803-c563-4740-84cf-3c21a488bd74"
+      3.5.7 Modified Organic Natural Materials:
+        3.5.7.1 Kraft Paper: "016593bf-3756-578f-bae5-e46e17966a6f_8ef02d68-0b80-4c12-81ee-3dd678d2915b"
+        3.5.7.2 Vegetable Oil Methyl Ester Incineration: "91474598-4716-5e54-a64a-c1e8a61f7c4b_e303fb73-b0e1-41ae-bddc-5e0e444eb3fb"
+      3.5.8 Ceramic / Glass Landfill: "89288da2-38a6-5765-add5-8ba6e68471e4_dae141a8-7daa-4f03-a649-b85b718ac65b"
+      3.5.9 SF6 Gas: null
+      3.5.10 Offshore Substation Zinc Alloys Recycling: "d33bd13f-ad9a-559e-9a97-2f2c0546661d_4f312355-ac65-4635-8fb2-006dba64ce60"
+      3.5.10 Offshore Substation Zinc Alloys Landfill: "a1087005-1ecd-52aa-b379-793c2876bdbf_d1a4a803-c563-4740-84cf-3c21a488bd74"
+    3.6 Onshore Substation:
+      3.6.1 Onshore Substation Steel Recycling: "d33bd13f-ad9a-559e-9a97-2f2c0546661d_4f312355-ac65-4635-8fb2-006dba64ce60"
+      3.6.1 Onshore Substation Steel Landfill: "a1087005-1ecd-52aa-b379-793c2876bdbf_d1a4a803-c563-4740-84cf-3c21a488bd74"
+      3.6.2 Onshore Substation Copper Recycling: "d33bd13f-ad9a-559e-9a97-2f2c0546661d_4f312355-ac65-4635-8fb2-006dba64ce60"
+      3.6.2 Onshore Substation Copper Landfill: "a1087005-1ecd-52aa-b379-793c2876bdbf_d1a4a803-c563-4740-84cf-3c21a488bd74"
+      3.6.3 Onshore Substation Aluminium Recycling: "d33bd13f-ad9a-559e-9a97-2f2c0546661d_4f312355-ac65-4635-8fb2-006dba64ce60"
+      3.6.3 Onshore Substation Aluminium Landfill: "6becb09f-11d3-5ed2-b550-2df7ee047f8c_7df87cd6-22cd-4010-ab95-b1a02917bbfe"
+      3.6.4 Onshore Substation Polyethylene Incineration: "9bcb58c0-0bc7-5d02-99a9-d9cd9a45212b_dae141a8-7daa-4f03-a649-b85b718ac65b"
+      3.6.4 Onshore Substation Polyethylene Landfill: "3fbf3862-7b53-562b-8054-b936b79df09d_7ee0ddc3-924d-4339-b9bf-7856af6a698f"
+      3.6.5 Onshore Substation Lubricating Oil Incineration: "2e6f04ca-475a-5507-8133-368a639596de_1b30b018-ac39-41f4-a9e0-92057eef8bb8"
+      3.6.6 Onshore Substation Cast Iron Recycling: "d33bd13f-ad9a-559e-9a97-2f2c0546661d_4f312355-ac65-4635-8fb2-006dba64ce60"
+      3.6.6 Onshore Substation Cast Iron Landfill: "a1087005-1ecd-52aa-b379-793c2876bdbf_d1a4a803-c563-4740-84cf-3c21a488bd74"
+      3.6.7 Modified Organic Natural Materials:
+        3.6.7.1 Kraft Paper: "016593bf-3756-578f-bae5-e46e17966a6f_8ef02d68-0b80-4c12-81ee-3dd678d2915b"
+        3.6.7.2 Vegetable Oil Methyl Ester Incineration: "91474598-4716-5e54-a64a-c1e8a61f7c4b_e303fb73-b0e1-41ae-bddc-5e0e444eb3fb"
+      3.6.8 Ceramic / Glass Landfill: "89288da2-38a6-5765-add5-8ba6e68471e4_dae141a8-7daa-4f03-a649-b85b718ac65b"
+      3.6.9 SF6 Gas: null
+      3.6.10 Onshore Substation Concrete Landfill: "d28e35a2-d499-5d9e-aa91-bac692c99661_e9f6d312-001c-435a-a668-82239a3b7511"

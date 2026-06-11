@@ -1,0 +1,126 @@
+# =============================================================================
+# config.yaml — Wind Farm LCA Project Configuration
+# =============================================================================
+
+# --- ECOINVENT DATABASE ---
+ECOINVENT_FILE:        "Cut-off Cumulative LCIA v3.12.xlsx"
+ECOINVENT_SHEET:       "LCIA"
+ECOINVENT_HEADER_ROW:  3
+UID_COLUMN:            "Activity UUID_Product UUID"
+REF_UNIT_COLUMN:       "Reference Product Unit"
+REF_AMOUNT_COLUMN:     "Reference Product Amount"
+
+# --- IMPACT CATEGORIES ---
+IMPACT_COLUMNS:
+  "GWP100 (kg CO2-Eq)":
+    method:    "IMPACT World+ v2.1, footprint"
+    category:  "climate change"
+    indicator: "carbon footprint"
+    unit:      "kg CO2-Eq"
+
+# --- WIND FARM TECHNICAL PARAMETERS ---
+DISTANCE_TO_SHORE_KM: 30
+
+# --- ARRAY CABLE LENGTHS (km) ---
+ARRAY_CABLE_240MM2_LENGTH_KM:      14.8
+ARRAY_CABLE_630MM2_LENGTH_KM:      93.9
+ARRAY_CABLE_800MM2_LENGTH_KM:      16.5
+
+# --- ARRAY CABLE MATERIAL FRACTIONS (kg material / kg cable) ---
+CABLE_FRACTION_COPPER:             0.143476
+CABLE_FRACTION_POLYETHYLENE:       0.245935
+CABLE_FRACTION_LEAD:               0.094476
+CABLE_FRACTION_STEEL:              0.500264
+CABLE_FRACTION_GLASS:              0.01585
+
+# --- ARRAY CABLE LINEAR MASS DENSITY (kg/m) ---
+CABLE_KGM_120MM2:                  23.8
+CABLE_KGM_240MM2:                  31.3
+CABLE_KGM_500MM2:                  45.4
+CABLE_KGM_630MM2:                  52.0
+CABLE_KGM_800MM2:                  60.0
+CABLE_KGM_1000MM2:                 70.7
+
+# --- OFFSHORE SUBSTATION MATERIALS (tonnes) ---
+OSS_STEEL_UNALLOYED_T:             10217     # 1.1 Unalloyed steel
+OSS_STEEL_HIGHLY_ALLOYED_T:        45        # 1.2 Highly alloyed steel
+OSS_CAST_IRON_T:                   2         # 1.3 Cast iron
+OSS_ALUMINIUM_T:                   87        # 2.1 Aluminium
+OSS_COPPER_T:                      136       # 3.1 Copper
+OSS_ZINC_ALLOYS_T:                 14        # 3.2 Zinc alloys
+OSS_POLYMER_T:                     56        # 4. Polymer
+OSS_ORGANIC_MATERIALS_T:           294       # 5.1 Modified organic natural materials
+OSS_CERAMIC_GLASS_T:               5         # 5.2 Ceramic/glass
+OSS_CONCRETE_T:                    0         # 5.3 Concrete
+OSS_SF6_GAS_T:                     1.952     # 5.4 SF6 gas
+OSS_ELECTRONICS_T:                 0         # 6.1 Electronics
+OSS_ELECTRICS_T:                   0         # 6.2 Electrics
+OSS_LUBRICANTS_T:                  37        # 7.1 Other fuels and auxiliary
+OSS_NOT_SPECIFIED_T:               0         # 8. Not specified
+
+# --- ONSHORE SUBSTATION MATERIALS (tonnes) ---
+ONS_STEEL_UNALLOYED_T:             550       # 1.1 Unalloyed steel
+ONS_STEEL_HIGHLY_ALLOYED_T:        11        # 1.2 Highly alloyed steel
+ONS_CAST_IRON_T:                   4         # 1.3 Cast iron
+ONS_ALUMINIUM_T:                   119       # 2.1 Aluminium
+ONS_COPPER_T:                      414       # 3.1 Copper
+ONS_ZINC_ALLOYS_T:                 0         # 3.2 Zinc alloys
+ONS_POLYMER_T:                     60        # 4. Polymer
+ONS_ORGANIC_MATERIALS_T:           350       # 5.1 Modified organic natural materials
+ONS_CERAMIC_GLASS_T:               5         # 5.2 Ceramic/glass
+ONS_CONCRETE_T:                    12000     # 5.3 Concrete
+ONS_SF6_GAS_T:                     3.528     # 5.4 SF6 gas
+ONS_ELECTRONICS_T:                 9         # 6.1 Electronics
+ONS_ELECTRICS_T:                   7         # 6.2 Electrics
+ONS_LUBRICANTS_T:                  320       # 7.1 Other fuels and auxiliary
+ONS_NOT_SPECIFIED_T:               4         # 8. Not specified
+
+# --- INSTALLATION AND DECOMMISSIONING ---
+ENERGY_CONTENT_FUEL_MJ_PER_KG: 42.7  # MJ/kg, marine diesel
+
+# Fuel consumption rate (tonnes/day) and duration (days) per activity: [t_per_day, days]
+INSTALLATION_ACTIVITIES:
+  "Site preparation":                      [10,  92.00]
+  "Export — Landfall (HDD)":               [3,   20.00]
+  "Export — Cable laying":                 [10,  60.00]
+  "Export — Trenching":                    [10,  30.00]
+  "Export — Pull-in":                      [5,   10.00]
+  "Export — Testing":                      [5,   10.00]
+  "Inter-array — Route preparation":       [10,  39.02]
+  "Inter-array — Cable laying":            [10,  91.71]
+  "Inter-array — Trenching":               [10, 101.46]
+  "Inter-array — Testing":                 [10,  99.51]
+  "Inter-array — Tower prep & pull-in":    [10,  39.02]
+  "Offshore substation — Topside+jacket":  [20,  10.00]
+  "Offshore substation — Commissioning":   [3,   65.00]
+  "Foundation — Monopile installation":    [17,  44.86]
+  "Foundation — Secondary structure":      [10,  44.86]
+  "Foundation — Scour protection":         [10,  47.22]
+  "Wind turbine — Installation":           [15,  80.28]
+  "Wind turbine — Commissioning":          [10,  94.44]
+  "Other — General site logistics":        [10, 550.00]
+  "Other — Wind turbine crew transfer":    [10,  94.44]
+
+# --- EXPORT CABLE MATERIAL MASS DENSITIES (t/km) ---
+EXPORT_CABLE_MASSES_T_PER_KM:
+  Copper:  141.94
+  Lead:    111.31
+  Steel:   137.60
+  Polyethylene: 121.15
+
+# --- END OF LIFE FACTORS ---
+# Format: factor_id: {recovered, recycled, incineration, landfill}
+EOL_FACTORS:
+  1:  {recovered: 1.00, recycled: 0.98, incineration: 0.00, landfill: 0.02}  # Large mono-material steel/iron parts (tower, monopile, TP)
+  2:  {recovered: 1.00, recycled: 0.95, incineration: 0.00, landfill: 0.05}  # Complex metal components (generator, gearbox, yaw, transformers)
+  3:  {recovered: 1.00, recycled: 0.92, incineration: 0.00, landfill: 0.08}  # Generic steel/aluminium/copper not component-specific
+  4:  {recovered: 1.00, recycled: 0.00, incineration: 0.50, landfill: 0.50}  # Polymers/plastics
+  5:  {recovered: 1.00, recycled: 0.00, incineration: 1.00, landfill: 0.00}  # Fluids/lubricating oil
+  6:  {recovered: 1.00, recycled: 0.00, incineration: 0.50, landfill: 0.50}  # Blade composites/glass fibre composites
+  7:  {recovered: 1.00, recycled: 0.00, incineration: 0.00, landfill: 1.00}  # Other materials
+  8:  {recovered: 1.00, recycled: 1.00, incineration: 0.00, landfill: 0.00}  # Array/site cables
+  9:  {recovered: 0.68, recycled: 0.98, incineration: 0.00, landfill: 0.02}  # Monopile (32% left in seabed)
+  10: {recovered: 1.00, recycled: 0.95, incineration: 0.00, landfill: 0.05}  # Offshore substation topside
+  11: {recovered: 0.20, recycled: 0.98, incineration: 0.00, landfill: 0.02}  # Jacket/pin piles (80% left in seabed)
+  12: {recovered: 1.00, recycled: 0.54, incineration: 0.00, landfill: 0.46}  # Concrete
+  13: {recovered: 1.00, recycled: 0.00, incineration: 0.00, landfill: 1.00}  # Other materials (ceramic/glass)

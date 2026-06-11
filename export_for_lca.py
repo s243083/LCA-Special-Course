@@ -81,9 +81,7 @@ INPUTS_DIR = os.path.join(ROOT_DIR, "examples", "Inputs", "HKN")
 CONFIG_YAML        = os.path.join(INPUTS_DIR, "Config.yaml")
 WINDFARM_YAML      = os.path.join(INPUTS_DIR, "WindFarm.yaml")
 CAPEX_YAML         = os.path.join(INPUTS_DIR, "CAPEX.yaml")
-LAYOUT_CSV         = os.path.join(
-    INPUTS_DIR, "Response_Framework", "HKN_layout_subset_with_scaled.csv"
-)
+OM_VESSELS_YAML    = os.path.join(INPUTS_DIR, "OM_Vessels.yaml")
 IEA22_TURBINE_FILE = os.path.join(
     ROOT_DIR, "core", "ResponseFramework", "data", "turbine", "iea_22s.py"
 )
@@ -229,6 +227,7 @@ def _extract_material_inventory(capex, capex_raw_text):
     conv   = _find_node(capex, "Converter")
     trans  = _find_node(capex, "Transformer")
     tower  = _find_node(capex, "Tower")
+    tti    = _find_node(capex, "Tower_top_interface")
     mono   = _find_node(capex, "Monopile")
     tp     = _find_node(capex, "Transition_piece")
 
@@ -253,6 +252,7 @@ def _extract_material_inventory(capex, capex_raw_text):
         "TURBINE_CONVERTER_T":             _mat(conv, "Power_electronics_modules"),
         "TURBINE_TRANSFORMER_T":           _mat(trans, "Transformer_unit"),
         "TURBINE_TOWER_STEEL_T":           _mat(tower, "Steel"),
+        "TURBINE_TOWER_TOP_STEEL_T":       _mat(tti, "Steel"),
         "SUBSTRUCTURE_MONOPILE_STEEL_T":   _mat(mono, "Steel"),
         "SUBSTRUCTURE_TRANSITION_STEEL_T": _mat(tp, "Steel"),
     }
@@ -427,6 +427,7 @@ def main():
     wf         = _load_yaml(WINDFARM_YAML)
     capex      = _load_yaml(CAPEX_YAML)
     capex_raw  = _load_text(CAPEX_YAML)
+    vessels    = _load_yaml(OM_VESSELS_YAML)
 
     # ---- General parameters ------------------------------------------------
     n_turbines      = int(wf["WindFarm"]["n_turbines"])
@@ -449,6 +450,13 @@ def main():
             "inferred from CAPEX.yaml -- Export_cable_supply_offshore_220kV"
             " comment: '110 km x 2.5 M EUR/km'"
         )
+
+    # Port distances per vessel type -- read from OM_Vessels.yaml
+    port_distances = {
+        vname: float(vdata["port_distance"])
+        for vname, vdata in (vessels.get("Vessels") or {}).items()
+        if "port_distance" in vdata
+    }
 
     # Net energy (kWh) = total_farm_MW * CF * hours * 1000 kWh/MWh
     lifetime_h     = lifetime_years * 365 * 24
@@ -622,6 +630,10 @@ def main():
         f"TOTAL_FARM_SIZE_MW      = {total_farm_mw}",
         f"CAPACITY_FACTOR         = {capacity_factor}",
         f"DISTANCE_TO_SHORE_KM    = {dist_km}",
+    ] + [
+        f"PORT_DISTANCE_{vname}_KM = {km}"
+        for vname, km in port_distances.items()
+    ] + [
         f"LIFETIME_YEARS          = {lifetime_years}",
         f"ENERGY_NET_KWH          = {energy_net_kwh:.4e}",
         "",
@@ -673,6 +685,7 @@ def main():
         "",
         "# 1.13 Tower",
         f"TURBINE_TOWER_STEEL_T            = {inventory['TURBINE_TOWER_STEEL_T']}",
+        f"TURBINE_TOWER_TOP_STEEL_T        = {inventory['TURBINE_TOWER_TOP_STEEL_T']}",
         "",
         "# 2.1 Monopile",
         f"SUBSTRUCTURE_MONOPILE_STEEL_T    = {inventory['SUBSTRUCTURE_MONOPILE_STEEL_T']}",

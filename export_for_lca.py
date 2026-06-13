@@ -86,7 +86,8 @@ IEA22_TURBINE_FILE = os.path.join(
     ROOT_DIR, "core", "ResponseFramework", "data", "turbine", "iea_22s.py"
 )
 
-OUTPUT_FILE = os.path.join(ROOT_DIR, "LCA_module", "technical_output.py")
+OUTPUT_FILE    = os.path.join(ROOT_DIR, "LCA_module", "technical_output.py")
+OUTPUT_FILE_V2 = os.path.join(ROOT_DIR, "LCA_module 2", "inputs", "technical_output.py")
 
 # Set to a float (km) to override the inferred value; leave as None to use 110.0 km.
 DISTANCE_TO_SHORE_OVERRIDE_KM = None
@@ -599,10 +600,16 @@ def main():
         "}",
     ]
 
+    output_content = "\n".join(desktop_lines) + "\n"
+
     with open(OUTPUT_FILE, "w", encoding="utf-8") as fh:
-        fh.write("\n".join(desktop_lines) + "\n")
+        fh.write(output_content)
+
+    with open(OUTPUT_FILE_V2, "w", encoding="utf-8") as fh:
+        fh.write(output_content)
 
     print(f"\nWritten to: {OUTPUT_FILE}")
+    print(f"Written to: {OUTPUT_FILE_V2}")
 
 
 if __name__ == "__main__":

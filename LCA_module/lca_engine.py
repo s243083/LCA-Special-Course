@@ -10,7 +10,7 @@ import yaml
 import os
 import io
 
-_cfg_path = os.path.join(os.path.dirname(__file__), "config.yaml")
+_cfg_path = os.path.join(os.path.dirname(__file__), "inputs", "config.yaml")
 with open(_cfg_path, "r", encoding="utf-8") as _f:
     _cfg = yaml.safe_load(_f)
 

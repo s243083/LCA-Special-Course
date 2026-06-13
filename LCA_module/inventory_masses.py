@@ -15,7 +15,8 @@
 # =============================================================================
 
 from inputs.technical_output import (
-    N_INTERVENTIONS, N_TURBINES, ENERGY_NET_KWH,
+    N_INTERVENTIONS, N_TURBINES, ENERGY_NET_KWH, LIFETIME_YEARS,
+    VESSEL_HOURS_BY_TYPE,
     TURBINE_HUB_STEEL_T, TURBINE_HUB_GLASS_FIBER_T,
     TURBINE_BLADES_T,
     TURBINE_MAIN_SHAFT_STEEL_T,
@@ -77,6 +78,7 @@ ONS_CONCRETE_T                 = _cfg["ONS_CONCRETE_T"]
 ONS_SF6_GAS_T                  = _cfg["ONS_SF6_GAS_T"]
 ONS_LUBRICANTS_T               = _cfg["ONS_LUBRICANTS_T"]
 EXPORT_CABLE_MASSES_T_PER_KM   = _cfg["EXPORT_CABLE_MASSES_T_PER_KM"]
+VESSEL_PARAMETERS              = _cfg["VESSEL_PARAMETERS"]
 # Split factors for components reported as totals in technical_output.py
 BLADES_GLASS_FIBRE_FRACTION    = 0.40
 BLADES_EPOXY_FRACTION          = 0.60
@@ -656,6 +658,9 @@ _MAT_FLAT["3.3 Array Cables 800mm2 (66kV)"] = {"per_turbine": (None, "kg"), "ful
 _MAT_FLAT["3.4 Export Cables"]               = {"per_turbine": (None, "kg"), "full_farm": (_TRANSPORT_EXPORT_KG, "kg"), "per_FU": (_TRANSPORT_EXPORT_KG * FU_FACTOR, "kg")}
 
 
+
+
+
 INVENTORY_MASSES = {
 
     "Materials": _MAT,
@@ -867,14 +872,34 @@ INVENTORY_MASSES = {
     "Operation": {
             "1. Routine Maintenance and Inspection": {
                 "1.1 CTV Vessel Operation and Maintenance": {
-                    "per_turbine": (None,              "MJ"),
-                    "full_farm":   (527_754_216.88,    "MJ"),
-                    "per_FU":      (7.60e-3,           "MJ"),
+                    "per_turbine": (None, "MJ"),
+                    "full_farm":   ((VESSEL_HOURS_BY_TYPE["CTV"] / LIFETIME_YEARS)
+                                    * (  VESSEL_PARAMETERS["CTV"]["fuel_use_transiting_l_per_h"] * VESSEL_PARAMETERS["CTV"]["fraction_transiting"]
+                                       + VESSEL_PARAMETERS["CTV"]["fuel_use_loitering_l_per_h"]  * VESSEL_PARAMETERS["CTV"]["fraction_loitering"])
+                                    * VESSEL_PARAMETERS["CTV"]["energy_content_fuel_MJ_per_kg"]
+                                    * VESSEL_PARAMETERS["CTV"]["density_kg_per_L"]
+                                    * LIFETIME_YEARS,                   "MJ"),
+                    "per_FU":      ((VESSEL_HOURS_BY_TYPE["CTV"] / LIFETIME_YEARS)
+                                    * (  VESSEL_PARAMETERS["CTV"]["fuel_use_transiting_l_per_h"] * VESSEL_PARAMETERS["CTV"]["fraction_transiting"]
+                                       + VESSEL_PARAMETERS["CTV"]["fuel_use_loitering_l_per_h"]  * VESSEL_PARAMETERS["CTV"]["fraction_loitering"])
+                                    * VESSEL_PARAMETERS["CTV"]["energy_content_fuel_MJ_per_kg"]
+                                    * VESSEL_PARAMETERS["CTV"]["density_kg_per_L"]
+                                    * LIFETIME_YEARS * FU_FACTOR,       "MJ"),
                 },
                 "1.2 LCN Vessel Operation and Maintenance": {
-                    "per_turbine": (None,              "MJ"),
-                    "full_farm":   (648_087_667.92,    "MJ"),
-                    "per_FU":      (9.33e-3,           "MJ"),
+                    "per_turbine": (None, "MJ"),
+                    "full_farm":   ((VESSEL_HOURS_BY_TYPE["LCN"] / LIFETIME_YEARS)
+                                    * (  VESSEL_PARAMETERS["LLCN"]["fuel_use_transiting_l_per_h"] * VESSEL_PARAMETERS["LLCN"]["fraction_transiting"]
+                                       + VESSEL_PARAMETERS["LLCN"]["fuel_use_loitering_l_per_h"]  * VESSEL_PARAMETERS["LLCN"]["fraction_loitering"])
+                                    * VESSEL_PARAMETERS["LLCN"]["energy_content_fuel_MJ_per_kg"]
+                                    * VESSEL_PARAMETERS["LLCN"]["density_kg_per_L"]
+                                    * LIFETIME_YEARS,                   "MJ"),
+                    "per_FU":      ((VESSEL_HOURS_BY_TYPE["LCN"] / LIFETIME_YEARS)
+                                    * (  VESSEL_PARAMETERS["LLCN"]["fuel_use_transiting_l_per_h"] * VESSEL_PARAMETERS["LLCN"]["fraction_transiting"]
+                                       + VESSEL_PARAMETERS["LLCN"]["fuel_use_loitering_l_per_h"]  * VESSEL_PARAMETERS["LLCN"]["fraction_loitering"])
+                                    * VESSEL_PARAMETERS["LLCN"]["energy_content_fuel_MJ_per_kg"]
+                                    * VESSEL_PARAMETERS["LLCN"]["density_kg_per_L"]
+                                    * LIFETIME_YEARS * FU_FACTOR,       "MJ"),
                 },
             },
             "2. Material Replacements": {

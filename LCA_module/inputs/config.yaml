@@ -124,3 +124,20 @@ EOL_FACTORS:
   11: {recovered: 0.20, recycled: 0.98, incineration: 0.00, landfill: 0.02}  # Jacket/pin piles (80% left in seabed)
   12: {recovered: 1.00, recycled: 0.54, incineration: 0.00, landfill: 0.46}  # Concrete
   13: {recovered: 1.00, recycled: 0.00, incineration: 0.00, landfill: 1.00}  # Other materials (ceramic/glass)
+
+# --- VESSEL PARAMETERS ---
+VESSEL_PARAMETERS:
+  CTV:
+    fuel_use_transiting_l_per_h: 320
+    fuel_use_loitering_l_per_h: 130
+    fraction_transiting: 0.12
+    fraction_loitering: 0.88
+    energy_content_fuel_MJ_per_kg: 42.7
+    density_kg_per_L: 0.85
+  LLCN:
+    fuel_use_transiting_l_per_h: 1000
+    fuel_use_loitering_l_per_h: 120
+    fraction_transiting: 0.52
+    fraction_loitering: 0.48
+    energy_content_fuel_MJ_per_kg: 42.7
+    density_kg_per_L: 0.85

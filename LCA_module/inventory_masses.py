@@ -14,7 +14,7 @@
 # directly instead of duplicating or recomputing them.
 # =============================================================================
 
-from technical_output import (
+from inputs.technical_output import (
     N_INTERVENTIONS, N_TURBINES, ENERGY_NET_KWH,
     TURBINE_HUB_STEEL_T, TURBINE_HUB_GLASS_FIBER_T,
     TURBINE_BLADES_T,
@@ -33,7 +33,7 @@ from technical_output import (
 import yaml
 import os
 
-_cfg_path = os.path.join(os.path.dirname(__file__), "config.yaml")
+_cfg_path = os.path.join(os.path.dirname(__file__), "inputs", "config.yaml")
 with open(_cfg_path, "r", encoding="utf-8") as _f:
     _cfg = yaml.safe_load(_f)
 

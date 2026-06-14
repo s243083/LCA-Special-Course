@@ -1,0 +1,14 @@
+5d450c7233b3678793d7a60d12fcbf650fe3c89d commit	refs/heads/main
+a743089ccd943804c57a8f321e1608d370f4488f commit	refs/original/refs/heads/main
+879b0e1928253f06413f18333da33b3410e0f6c8 commit	refs/remotes/origin/HEAD
+cd3d82179bc7fc20c4cf64ffca6a5387bc23c967 commit	refs/remotes/origin/WISER_study_OPEX
+879b0e1928253f06413f18333da33b3410e0f6c8 commit	refs/remotes/origin/main
+e29fb41c5afb6ffbc33beb05d2dd1fdf00abfe8c commit	refs/remotes/upstream/HEAD
+e01cf20d8035cda81e662f2624828e94bc01e0d9 commit	refs/remotes/upstream/Market_study
+2fe3ef8c04a73ec36834b91996b8e8d88cf62fb0 commit	refs/remotes/upstream/Response_fw_integration
+a378e05055064206ae3631b59185a3e4ee454f4e commit	refs/remotes/upstream/TAILWIND
+acfda122bcf372eab373d707ae0c1cbcdcea5b2c commit	refs/remotes/upstream/TWAIN
+7d612b71ff6e570f2665e04c96b743f1eb92a2e8 commit	refs/remotes/upstream/WISER_study_OPEX
+e29fb41c5afb6ffbc33beb05d2dd1fdf00abfe8c commit	refs/remotes/upstream/main
+33a7ef4cdd1ef9bc930ff7c2d79f7054739ac9a6 commit	refs/tags/v1.0.0
+639e66feecd4eb1a074120a9f7e96d39d6e69f0f commit	refs/tags/v1.1.0

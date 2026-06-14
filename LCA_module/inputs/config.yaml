@@ -1,6 +1,16 @@
 # =============================================================================
 # config.yaml — Wind Farm LCA Project Configuration
 # =============================================================================
+# Some input parameters are provided by the WinPact module; others are
+# specific to this LCA study and are not included there. This file lists
+# the additional input parameters required by the LCA module.
+# =============================================================================
+
+
+
+# =========================================================================
+# ECOINVENT
+# =========================================================================
 
 # --- ECOINVENT DATABASE ---
 ECOINVENT_FILE:        "Cut-off Cumulative LCIA v3.12.xlsx"
@@ -20,6 +30,10 @@ IMPACT_COLUMNS:
 
 # --- WIND FARM TECHNICAL PARAMETERS ---
 DISTANCE_TO_SHORE_KM: 30
+
+# =========================================================================
+# MATERIALS - PARAMETERS
+# =========================================================================
 
 # --- ARRAY CABLE LENGTHS (km) ---
 ARRAY_CABLE_240MM2_LENGTH_KM:      14.8
@@ -75,7 +89,11 @@ ONS_ELECTRICS_T:                   7         # 6.2 Electrics
 ONS_LUBRICANTS_T:                  320       # 7.1 Other fuels and auxiliary
 ONS_NOT_SPECIFIED_T:               4         # 8. Not specified
 
-# --- INSTALLATION AND DECOMMISSIONING ---
+
+# =========================================================================
+# INSTALLATION AND DECOMMISSIONING
+# =========================================================================
+
 ENERGY_CONTENT_FUEL_MJ_PER_KG: 42.7  # MJ/kg, marine diesel
 
 # Fuel consumption rate (tonnes/day) and duration (days) per activity: [t_per_day, days]
@@ -108,22 +126,10 @@ EXPORT_CABLE_MASSES_T_PER_KM:
   Steel:   137.60
   Polyethylene: 121.15
 
-# --- END OF LIFE FACTORS ---
-# Format: factor_id: {recovered, recycled, incineration, landfill}
-EOL_FACTORS:
-  1:  {recovered: 1.00, recycled: 0.98, incineration: 0.00, landfill: 0.02}  # Large mono-material steel/iron parts (tower, monopile, TP)
-  2:  {recovered: 1.00, recycled: 0.95, incineration: 0.00, landfill: 0.05}  # Complex metal components (generator, gearbox, yaw, transformers)
-  3:  {recovered: 1.00, recycled: 0.92, incineration: 0.00, landfill: 0.08}  # Generic steel/aluminium/copper not component-specific
-  4:  {recovered: 1.00, recycled: 0.00, incineration: 0.50, landfill: 0.50}  # Polymers/plastics
-  5:  {recovered: 1.00, recycled: 0.00, incineration: 1.00, landfill: 0.00}  # Fluids/lubricating oil
-  6:  {recovered: 1.00, recycled: 0.00, incineration: 0.50, landfill: 0.50}  # Blade composites/glass fibre composites
-  7:  {recovered: 1.00, recycled: 0.00, incineration: 0.00, landfill: 1.00}  # Other materials
-  8:  {recovered: 1.00, recycled: 1.00, incineration: 0.00, landfill: 0.00}  # Array/site cables
-  9:  {recovered: 0.68, recycled: 0.98, incineration: 0.00, landfill: 0.02}  # Monopile (32% left in seabed)
-  10: {recovered: 1.00, recycled: 0.95, incineration: 0.00, landfill: 0.05}  # Offshore substation topside
-  11: {recovered: 0.20, recycled: 0.98, incineration: 0.00, landfill: 0.02}  # Jacket/pin piles (80% left in seabed)
-  12: {recovered: 1.00, recycled: 0.54, incineration: 0.00, landfill: 0.46}  # Concrete
-  13: {recovered: 1.00, recycled: 0.00, incineration: 0.00, landfill: 1.00}  # Other materials (ceramic/glass)
+
+# =========================================================================
+# OPERATION AND MAINTENANCE 
+# =========================================================================
 
 # --- VESSEL PARAMETERS ---
 VESSEL_PARAMETERS:
@@ -141,3 +147,25 @@ VESSEL_PARAMETERS:
     fraction_loitering: 0.48
     energy_content_fuel_MJ_per_kg: 42.7
     density_kg_per_L: 0.85
+
+
+# =========================================================================
+# END OF LIFE
+# =========================================================================
+
+# End of life factors (format: factor_id: {recovered, recycled, incineration, landfill})
+EOL_FACTORS:
+  1:  {recovered: 1.00, recycled: 0.98, incineration: 0.00, landfill: 0.02}  # Large mono-material steel/iron parts (tower, monopile, TP)
+  2:  {recovered: 1.00, recycled: 0.95, incineration: 0.00, landfill: 0.05}  # Complex metal components (generator, gearbox, yaw, transformers)
+  3:  {recovered: 1.00, recycled: 0.92, incineration: 0.00, landfill: 0.08}  # Generic steel/aluminium/copper not component-specific
+  4:  {recovered: 1.00, recycled: 0.00, incineration: 0.50, landfill: 0.50}  # Polymers/plastics
+  5:  {recovered: 1.00, recycled: 0.00, incineration: 1.00, landfill: 0.00}  # Fluids/lubricating oil
+  6:  {recovered: 1.00, recycled: 0.00, incineration: 0.50, landfill: 0.50}  # Blade composites/glass fibre composites
+  7:  {recovered: 1.00, recycled: 0.00, incineration: 0.00, landfill: 1.00}  # Other materials
+  8:  {recovered: 1.00, recycled: 1.00, incineration: 0.00, landfill: 0.00}  # Array/site cables
+  9:  {recovered: 0.68, recycled: 0.98, incineration: 0.00, landfill: 0.02}  # Monopile (32% left in seabed)
+  10: {recovered: 1.00, recycled: 0.95, incineration: 0.00, landfill: 0.05}  # Offshore substation topside
+  11: {recovered: 0.20, recycled: 0.98, incineration: 0.00, landfill: 0.02}  # Jacket/pin piles (80% left in seabed)
+  12: {recovered: 1.00, recycled: 0.54, incineration: 0.00, landfill: 0.46}  # Concrete
+  13: {recovered: 1.00, recycled: 0.00, incineration: 0.00, landfill: 1.00}  # Other materials (ceramic/glass)
+

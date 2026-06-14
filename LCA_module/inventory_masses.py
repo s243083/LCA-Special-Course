@@ -27,6 +27,7 @@ from inputs.technical_output import (
     TURBINE_NACELLE_STEEL_T, TURBINE_NACELLE_COMPOSITE_T,
     TURBINE_HVAC_T, TURBINE_CABLING_T, TURBINE_LUBE_HYDRAULICS_T,
     TURBINE_CONVERTER_T, TURBINE_TRANSFORMER_T, TURBINE_TOWER_STEEL_T,
+    TURBINE_TOWER_TOP_STEEL_T, PITCH_BEARING_MASS_KG,
     SUBSTRUCTURE_MONOPILE_STEEL_T, SUBSTRUCTURE_TRANSITION_STEEL_T,
 )
 
@@ -115,7 +116,7 @@ _MAT = {
                 "full_farm":   (TURBINE_HUB_STEEL_T * TON_TO_KG * N_TURBINES,          "kg"),
                 "per_FU":      (TURBINE_HUB_STEEL_T * TON_TO_KG * N_TURBINES * FU_FACTOR,    "kg"),
             },
-            "1.1.2 Hub System Uniax_Glass Fiber": {
+            "1.1.2 Hub System Uniax_Glass Fibre": {
                 "per_turbine": (TURBINE_HUB_GLASS_FIBER_T * TON_TO_KG,             "kg"),
                 "full_farm":   (TURBINE_HUB_GLASS_FIBER_T * TON_TO_KG * N_TURBINES,        "kg"),
                 "per_FU":      (TURBINE_HUB_GLASS_FIBER_T * TON_TO_KG * N_TURBINES * FU_FACTOR,  "kg"),
@@ -243,6 +244,20 @@ _MAT = {
                 "per_turbine": (TURBINE_TOWER_STEEL_T * TON_TO_KG,             "kg"),
                 "full_farm":   (TURBINE_TOWER_STEEL_T * TON_TO_KG * N_TURBINES,        "kg"),
                 "per_FU":      (TURBINE_TOWER_STEEL_T * TON_TO_KG * N_TURBINES * FU_FACTOR,  "kg"),
+            },
+        },
+        "1.14 Turbine Top Tower": {
+            "1.14.1 Turbine Top Tower Steel": {
+                "per_turbine": (TURBINE_TOWER_TOP_STEEL_T * TON_TO_KG,                              "kg"),
+                "full_farm":   (TURBINE_TOWER_TOP_STEEL_T * TON_TO_KG * N_TURBINES,                 "kg"),
+                "per_FU":      (TURBINE_TOWER_TOP_STEEL_T * TON_TO_KG * N_TURBINES * FU_FACTOR,     "kg"),
+            },
+        },
+        "1.15 Pitch Bearing": {
+            "1.15.1 Pitch Bearing Steel": {
+                "per_turbine": (PITCH_BEARING_MASS_KG,                              "kg"),
+                "full_farm":   (PITCH_BEARING_MASS_KG * N_TURBINES,                 "kg"),
+                "per_FU":      (PITCH_BEARING_MASS_KG * N_TURBINES * FU_FACTOR,     "kg"),
             },
         },
     },
@@ -393,7 +408,7 @@ _MAT = {
             "full_farm":   (OSS_LUBRICANTS_T * TON_TO_KG,        "kg"),
             "per_FU":      (OSS_LUBRICANTS_T * TON_TO_KG * FU_FACTOR,  "kg"),
         },
-        "4.6 Cast iron": {
+        "4.6 Cast Iron": {
             "per_turbine": (None,                            "kg"),
             "full_farm":   (OSS_CAST_IRON_T * TON_TO_KG,         "kg"),
             "per_FU":      (OSS_CAST_IRON_T * TON_TO_KG * FU_FACTOR,   "kg"),
@@ -452,7 +467,7 @@ _MAT = {
             "full_farm":   (ONS_LUBRICANTS_T * TON_TO_KG,               "kg"),
             "per_FU":      (ONS_LUBRICANTS_T * TON_TO_KG * FU_FACTOR,   "kg"),
         },
-        "5.6 Cast iron": {
+        "5.6 Cast Iron": {
             "per_turbine": (None,                            "kg"),
             "full_farm":   (ONS_CAST_IRON_T * TON_TO_KG,         "kg"),
             "per_FU":      (ONS_CAST_IRON_T * TON_TO_KG * FU_FACTOR,   "kg"),
@@ -529,7 +544,7 @@ def _eol_ff(material_key, factor_id, scenario):
 # Transport mass sums (kg) — used to compute t*km dynamically from DISTANCE_TO_SHORE_KM
 _TRANSPORT_WT_KG = (
     _ff(_T["1.1 Hub System (Rotor)"]["1.1.1 Hub System Steel"])                           +
-    _ff(_T["1.1 Hub System (Rotor)"]["1.1.2 Hub System Uniax_Glass Fiber"])               +
+    _ff(_T["1.1 Hub System (Rotor)"]["1.1.2 Hub System Uniax_Glass Fibre"])               +
     _ff(_T["1.2 Blades (Rotor)"]["1.2.1 Blades Glass Fibre (60%)"])                       +
     _ff(_T["1.2 Blades (Rotor)"]["1.2.2 Blades Epoxy (40%)"])                             +
     _ff(_T["1.3 Main Shaft and Bearings"]["1.3.1 Main Shaft and Bearings Steel"])         +
@@ -549,7 +564,9 @@ _TRANSPORT_WT_KG = (
     _ff(_T["1.10 HVAC_and_auxiliarie (Nacelle)"]["1.10.3 Lube_and_hydraulics"])          +
     _ff(_T["1.11 Converter (Electrical components)"]["1.11.1 Power Electronics Converter"]) +
     _ff(_T["1.12 Transformer (Electrical components)"]["1.12.1 Transformer"])             +
-    _ff(_T["1.13 Tower"]["1.13.1 Tower Steel"])
+    _ff(_T["1.13 Tower"]["1.13.1 Tower Steel"])                                          +
+    _ff(_T["1.14 Turbine Top Tower"]["1.14.1 Turbine Top Tower Steel"])                  +
+    _ff(_T["1.15 Pitch Bearing"]["1.15.1 Pitch Bearing Steel"])
 )
 
 _TRANSPORT_SUB_KG = (
@@ -588,7 +605,7 @@ _TRANSPORT_OSS_KG = (
     _ff(_OSS["4.3 Aluminium"])                                                            +
     _ff(_OSS["4.4 Polyethylene"])                                                         +
     _ff(_OSS["4.5 Lubricating oil"])                                                      +
-    _ff(_OSS["4.6 Cast iron"])                                                            +
+    _ff(_OSS["4.6 Cast Iron"])                                                            +
     _ff(_OSS["4.7 Modified organic natural materials"]["4.7.1 Kraft paper"])              +
     _ff(_OSS["4.7 Modified organic natural materials"]["4.7.2 Vegetable oil methyl ester"]) +
     _ff(_OSS["4.8 Ceramic / glass"])                                                      +
@@ -598,7 +615,7 @@ _TRANSPORT_OSS_KG = (
 
 _TRANSPORT_WT_PT_KG = (
     _pt(_T["1.1 Hub System (Rotor)"]["1.1.1 Hub System Steel"])                           +
-    _pt(_T["1.1 Hub System (Rotor)"]["1.1.2 Hub System Uniax_Glass Fiber"])               +
+    _pt(_T["1.1 Hub System (Rotor)"]["1.1.2 Hub System Uniax_Glass Fibre"])               +
     _pt(_T["1.2 Blades (Rotor)"]["1.2.1 Blades Glass Fibre (60%)"])                       +
     _pt(_T["1.2 Blades (Rotor)"]["1.2.2 Blades Epoxy (40%)"])                             +
     _pt(_T["1.3 Main Shaft and Bearings"]["1.3.1 Main Shaft and Bearings Steel"])         +
@@ -618,7 +635,9 @@ _TRANSPORT_WT_PT_KG = (
     _pt(_T["1.10 HVAC_and_auxiliarie (Nacelle)"]["1.10.3 Lube_and_hydraulics"])          +
     _pt(_T["1.11 Converter (Electrical components)"]["1.11.1 Power Electronics Converter"]) +
     _pt(_T["1.12 Transformer (Electrical components)"]["1.12.1 Transformer"])             +
-    _pt(_T["1.13 Tower"]["1.13.1 Tower Steel"])
+    _pt(_T["1.13 Tower"]["1.13.1 Tower Steel"])                                          +
+    _pt(_T["1.14 Turbine Top Tower"]["1.14.1 Turbine Top Tower Steel"])                  +
+    _pt(_T["1.15 Pitch Bearing"]["1.15.1 Pitch Bearing Steel"])
 )
 
 _TRANSPORT_SUB_PT_KG = (
@@ -681,6 +700,8 @@ INVENTORY_MASSES = {
                 _ff(_T["1.8 Yaw System (Nacelle)"]["1.8.1 Yaw System Steel"])        +
                 _ff(_T["1.9 Nacelle_cover_and_platforms (Nacelle)"]["1.9.1 Nacelle Steel"]) +
                 _ff(_T["1.13 Tower"]["1.13.1 Tower Steel"])                          +
+                _ff(_T["1.14 Turbine Top Tower"]["1.14.1 Turbine Top Tower Steel"])  +
+                _ff(_T["1.15 Pitch Bearing"]["1.15.1 Pitch Bearing Steel"])          +
                 _ff(_SUB["2.1 Monopile"]["2.1.1 Monopile Steel"])                    +
                 _ff(_SUB["2.2 Transitioning piece"]["2.2.1 Transitioning piece Steel"]) +
                 _ff(_OSS["4.1 Steel"])                                               +
@@ -698,6 +719,8 @@ INVENTORY_MASSES = {
                 _ff(_T["1.8 Yaw System (Nacelle)"]["1.8.1 Yaw System Steel"])        +
                 _ff(_T["1.9 Nacelle_cover_and_platforms (Nacelle)"]["1.9.1 Nacelle Steel"]) +
                 _ff(_T["1.13 Tower"]["1.13.1 Tower Steel"])                          +
+                _ff(_T["1.14 Turbine Top Tower"]["1.14.1 Turbine Top Tower Steel"])  +
+                _ff(_T["1.15 Pitch Bearing"]["1.15.1 Pitch Bearing Steel"])          +
                 _ff(_SUB["2.1 Monopile"]["2.1.1 Monopile Steel"])                    +
                 _ff(_SUB["2.2 Transitioning piece"]["2.2.1 Transitioning piece Steel"]) +
                 _ff(_OSS["4.1 Steel"])                                               +
@@ -730,10 +753,10 @@ INVENTORY_MASSES = {
                 "kg",
             ),
         },
-        "4. Cast iron": {
+        "4. Cast Iron": {
             "per_turbine": (None, "kg"),
-            "full_farm":   (_ff(_OSS["4.6 Cast iron"]) + _ff(_ONS["5.6 Cast iron"]),        "kg"),
-            "per_FU":      ((_ff(_OSS["4.6 Cast iron"]) + _ff(_ONS["5.6 Cast iron"])) * FU_FACTOR,"kg"),
+            "full_farm":   (_ff(_OSS["4.6 Cast Iron"]) + _ff(_ONS["5.6 Cast Iron"]),        "kg"),
+            "per_FU":      ((_ff(_OSS["4.6 Cast Iron"]) + _ff(_ONS["5.6 Cast Iron"])) * FU_FACTOR,"kg"),
         },
         "5. Polyethylene PE": {
             "per_turbine": (None, "kg"),
@@ -869,7 +892,7 @@ INVENTORY_MASSES = {
     # =========================================================================
     # OPERATION
     # =========================================================================
-    "Operation": {
+    "Operation and Maintenance": {
             "1. Routine Maintenance and Inspection": {
                 "1.1 CTV Vessel Operation and Maintenance": {
                     "per_turbine": (None, "MJ"),
@@ -910,10 +933,10 @@ INVENTORY_MASSES = {
                             "full_farm":   (_pt(_T["1.1 Hub System (Rotor)"]["1.1.1 Hub System Steel"]) * ZERO_INTERVENTIONS, "kg"),
                             "per_FU":      (_pt(_T["1.1 Hub System (Rotor)"]["1.1.1 Hub System Steel"]) * ZERO_INTERVENTIONS * FU_FACTOR, "kg"),
                         },
-                        "2.1.1.2 Hub System Uniax_Glass Fiber": {
+                        "2.1.1.2 Hub System Uniax_Glass Fibre": {
                             "per_turbine": (None, "kg"),
-                            "full_farm":   (_pt(_T["1.1 Hub System (Rotor)"]["1.1.2 Hub System Uniax_Glass Fiber"]) * ZERO_INTERVENTIONS, "kg"),
-                            "per_FU":      (_pt(_T["1.1 Hub System (Rotor)"]["1.1.2 Hub System Uniax_Glass Fiber"]) * ZERO_INTERVENTIONS * FU_FACTOR, "kg"),
+                            "full_farm":   (_pt(_T["1.1 Hub System (Rotor)"]["1.1.2 Hub System Uniax_Glass Fibre"]) * ZERO_INTERVENTIONS, "kg"),
+                            "per_FU":      (_pt(_T["1.1 Hub System (Rotor)"]["1.1.2 Hub System Uniax_Glass Fibre"]) * ZERO_INTERVENTIONS * FU_FACTOR, "kg"),
                         },
                     },
                     "2.1.2 Blades (Rotor)": {
@@ -1040,6 +1063,20 @@ INVENTORY_MASSES = {
                             "per_FU":      (_pt(_T["1.13 Tower"]["1.13.1 Tower Steel"]) * ZERO_INTERVENTIONS * FU_FACTOR, "kg"),
                         },
                     },
+                    "2.1.14 Turbine Top Tower": {
+                        "2.1.14.1 Turbine Top Tower Steel": {
+                            "per_turbine": (None, "kg"),
+                            "full_farm":   (_pt(_T["1.14 Turbine Top Tower"]["1.14.1 Turbine Top Tower Steel"]) * ZERO_INTERVENTIONS, "kg"),
+                            "per_FU":      (_pt(_T["1.14 Turbine Top Tower"]["1.14.1 Turbine Top Tower Steel"]) * ZERO_INTERVENTIONS * FU_FACTOR, "kg"),
+                        },
+                    },
+                    "2.1.15 Pitch Bearing": {
+                        "2.1.15.1 Pitch Bearing Steel": {
+                            "per_turbine": (None, "kg"),
+                            "full_farm":   (_pt(_T["1.15 Pitch Bearing"]["1.15.1 Pitch Bearing Steel"]) * ZERO_INTERVENTIONS, "kg"),
+                            "per_FU":      (_pt(_T["1.15 Pitch Bearing"]["1.15.1 Pitch Bearing Steel"]) * ZERO_INTERVENTIONS * FU_FACTOR, "kg"),
+                        },
+                    },
                 },
                 "2.2 Substructure": {
                     "2.2.1 Monopile": {
@@ -1086,15 +1123,15 @@ INVENTORY_MASSES = {
                         "full_farm":   (_eol("1.1.1 Hub System Steel",                 1, "landfill") * N_TURBINES,           "kg"),
                         "per_FU":      (_eol("1.1.1 Hub System Steel",                 1, "landfill") * N_TURBINES * FU_FACTOR, "kg"),
                     },
-                    "1.1.2 Hub System Uniax_Glass Fiber Incineration": {
-                        "per_turbine": (_eol("1.1.2 Hub System Uniax_Glass Fiber",     6, "incineration"),                        "kg"),
-                        "full_farm":   (_eol("1.1.2 Hub System Uniax_Glass Fiber",     6, "incineration") * N_TURBINES,           "kg"),
-                        "per_FU":      (_eol("1.1.2 Hub System Uniax_Glass Fiber",     6, "incineration") * N_TURBINES * FU_FACTOR, "kg"),
+                    "1.1.2 Hub System Uniax_Glass Fibre Incineration": {
+                        "per_turbine": (_eol("1.1.2 Hub System Uniax_Glass Fibre",     6, "incineration"),                        "kg"),
+                        "full_farm":   (_eol("1.1.2 Hub System Uniax_Glass Fibre",     6, "incineration") * N_TURBINES,           "kg"),
+                        "per_FU":      (_eol("1.1.2 Hub System Uniax_Glass Fibre",     6, "incineration") * N_TURBINES * FU_FACTOR, "kg"),
                     },
-                    "1.1.2 Hub System Uniax_Glass Fiber Landfill": {
-                        "per_turbine": (_eol("1.1.2 Hub System Uniax_Glass Fiber",     6, "landfill"),                        "kg"),
-                        "full_farm":   (_eol("1.1.2 Hub System Uniax_Glass Fiber",     6, "landfill") * N_TURBINES,           "kg"),
-                        "per_FU":      (_eol("1.1.2 Hub System Uniax_Glass Fiber",     6, "landfill") * N_TURBINES * FU_FACTOR, "kg"),
+                    "1.1.2 Hub System Uniax_Glass Fibre Landfill": {
+                        "per_turbine": (_eol("1.1.2 Hub System Uniax_Glass Fibre",     6, "landfill"),                        "kg"),
+                        "full_farm":   (_eol("1.1.2 Hub System Uniax_Glass Fibre",     6, "landfill") * N_TURBINES,           "kg"),
+                        "per_FU":      (_eol("1.1.2 Hub System Uniax_Glass Fibre",     6, "landfill") * N_TURBINES * FU_FACTOR, "kg"),
                     },
                 },
                 "1.2 Blades (Rotor)": {
@@ -1296,6 +1333,30 @@ INVENTORY_MASSES = {
                         "per_FU":      (_eol("1.13.1 Tower Steel",                     1, "landfill") * N_TURBINES * FU_FACTOR, "kg"),
                     },
                 },
+                "1.14 Turbine Top Tower": {
+                    "1.14.1 Turbine Top Tower Steel Recycling": {
+                        "per_turbine": (_eol("1.14.1 Turbine Top Tower Steel",         1, "recycled"),                        "kg"),
+                        "full_farm":   (_eol("1.14.1 Turbine Top Tower Steel",         1, "recycled") * N_TURBINES,           "kg"),
+                        "per_FU":      (_eol("1.14.1 Turbine Top Tower Steel",         1, "recycled") * N_TURBINES * FU_FACTOR, "kg"),
+                    },
+                    "1.14.1 Turbine Top Tower Steel Landfill": {
+                        "per_turbine": (_eol("1.14.1 Turbine Top Tower Steel",         1, "landfill"),                        "kg"),
+                        "full_farm":   (_eol("1.14.1 Turbine Top Tower Steel",         1, "landfill") * N_TURBINES,           "kg"),
+                        "per_FU":      (_eol("1.14.1 Turbine Top Tower Steel",         1, "landfill") * N_TURBINES * FU_FACTOR, "kg"),
+                    },
+                },
+                "1.15 Pitch Bearing": {
+                    "1.15.1 Pitch Bearing Steel Recycling": {
+                        "per_turbine": (_eol("1.15.1 Pitch Bearing Steel",             1, "recycled"),                        "kg"),
+                        "full_farm":   (_eol("1.15.1 Pitch Bearing Steel",             1, "recycled") * N_TURBINES,           "kg"),
+                        "per_FU":      (_eol("1.15.1 Pitch Bearing Steel",             1, "recycled") * N_TURBINES * FU_FACTOR, "kg"),
+                    },
+                    "1.15.1 Pitch Bearing Steel Landfill": {
+                        "per_turbine": (_eol("1.15.1 Pitch Bearing Steel",             1, "landfill"),                        "kg"),
+                        "full_farm":   (_eol("1.15.1 Pitch Bearing Steel",             1, "landfill") * N_TURBINES,           "kg"),
+                        "per_FU":      (_eol("1.15.1 Pitch Bearing Steel",             1, "landfill") * N_TURBINES * FU_FACTOR, "kg"),
+                    },
+                },
             },
             "2. Substructure": {
                 "2.1 Monopile": {
@@ -1392,13 +1453,13 @@ INVENTORY_MASSES = {
                     },
                     "3.5.6 Offshore Substation Cast Iron Recycling": {
                         "per_turbine": (None,                                                               "kg"),
-                        "full_farm":   (_eol_ff("4.6 Cast iron", 3, "recycled"),                           "kg"),
-                        "per_FU":      (_eol_ff("4.6 Cast iron", 3, "recycled") * FU_FACTOR,               "kg"),
+                        "full_farm":   (_eol_ff("4.6 Cast Iron", 3, "recycled"),                           "kg"),
+                        "per_FU":      (_eol_ff("4.6 Cast Iron", 3, "recycled") * FU_FACTOR,               "kg"),
                     },
                     "3.5.6 Offshore Substation Cast Iron Landfill": {
                         "per_turbine": (None,                                                               "kg"),
-                        "full_farm":   (_eol_ff("4.6 Cast iron", 3, "landfill"),                           "kg"),
-                        "per_FU":      (_eol_ff("4.6 Cast iron", 3, "landfill") * FU_FACTOR,               "kg"),
+                        "full_farm":   (_eol_ff("4.6 Cast Iron", 3, "landfill"),                           "kg"),
+                        "per_FU":      (_eol_ff("4.6 Cast Iron", 3, "landfill") * FU_FACTOR,               "kg"),
                     },
                     "3.5.7 Modified Organic Natural Materials": {
                         "3.5.7.1 Kraft Paper": {
@@ -1481,13 +1542,13 @@ INVENTORY_MASSES = {
                     },
                     "3.6.6 Onshore Substation Cast Iron Recycling": {
                         "per_turbine": (None,                                                               "kg"),
-                        "full_farm":   (_eol_ff("5.6 Cast iron", 3, "recycled"),                           "kg"),
-                        "per_FU":      (_eol_ff("5.6 Cast iron", 3, "recycled") * FU_FACTOR,               "kg"),
+                        "full_farm":   (_eol_ff("5.6 Cast Iron", 3, "recycled"),                           "kg"),
+                        "per_FU":      (_eol_ff("5.6 Cast Iron", 3, "recycled") * FU_FACTOR,               "kg"),
                     },
                     "3.6.6 Onshore Substation Cast Iron Landfill": {
                         "per_turbine": (None,                                                               "kg"),
-                        "full_farm":   (_eol_ff("5.6 Cast iron", 3, "landfill"),                           "kg"),
-                        "per_FU":      (_eol_ff("5.6 Cast iron", 3, "landfill") * FU_FACTOR,               "kg"),
+                        "full_farm":   (_eol_ff("5.6 Cast Iron", 3, "landfill"),                           "kg"),
+                        "per_FU":      (_eol_ff("5.6 Cast Iron", 3, "landfill") * FU_FACTOR,               "kg"),
                     },
                     "3.6.7 Modified Organic Natural Materials": {
                         "3.6.7.1 Kraft Paper": {

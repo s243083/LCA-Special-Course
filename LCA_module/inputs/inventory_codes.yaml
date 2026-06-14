@@ -9,6 +9,10 @@
 # To add a new life stage: add a new top-level key with its components.
 # =============================================================================
 
+
+
+
+
 # =========================================================================
 # MATERIALS — Raw material extraction
 # =========================================================================
@@ -16,7 +20,7 @@ Materials:
   1. Wind Turbine:
     1.1 Hub System (Rotor):
       1.1.1 Hub System Steel: "be165311-0b2b-5a66-9bc7-363cd3163982_8cb650d5-8a48-4719-81b1-2080b3b4387f"
-      1.1.2 Hub System Uniax_Glass Fiber: "95dc65d3-d560-56b8-a09d-a77b3eba04a2_0798a5d1-6713-4c82-8ec9-c40ac2548279"
+      1.1.2 Hub System Uniax_Glass Fibre: "95dc65d3-d560-56b8-a09d-a77b3eba04a2_0798a5d1-6713-4c82-8ec9-c40ac2548279"
     1.2 Blades (Rotor):
       1.2.1 Blades Glass Fibre (60%): "a7f6f7f6-9d7d-58b7-953a-223d6c5a9026_fa6f1b55-8b52-4052-a2c8-0a0ba7a22d17"
       1.2.2 Blades Epoxy (40%): "8972befd-d617-58cd-97e3-c8bcb08574dd_51c7e57a-00b7-4412-b56c-94c17b211ee7"
@@ -49,6 +53,10 @@ Materials:
       1.12.1 Transformer: "bec66b6a-99c0-5840-a7a5-5da886f47739_0c7faf73-f5ea-4a3b-96ec-54d025cae6f4"
     1.13 Tower:
       1.13.1 Tower Steel: "be165311-0b2b-5a66-9bc7-363cd3163982_8cb650d5-8a48-4719-81b1-2080b3b4387f"
+    1.14 Turbine Top Tower:
+      1.14.1 Turbine Top Tower Steel: "be165311-0b2b-5a66-9bc7-363cd3163982_8cb650d5-8a48-4719-81b1-2080b3b4387f"
+    1.15 Pitch Bearing:
+      1.15.1 Pitch Bearing Steel: "be165311-0b2b-5a66-9bc7-363cd3163982_8cb650d5-8a48-4719-81b1-2080b3b4387f"
 
   2. Substructure:
     2.1 Monopile:
@@ -87,7 +95,7 @@ Materials:
     4.3 Aluminium: "87defbff-5590-58f3-8f5b-4f34cc221371_aa81aad8-3eea-4eb5-b33c-97621400e199"
     4.4 Polyethylene: "b69747c7-1668-557c-96d3-91fbd6476bf2_b685192a-e033-421e-9074-8fe7cb176046"
     4.5 Lubricating oil: "1263754f-68c5-541d-b771-d3542fdf8c85_ea75b944-c676-4a13-85b8-2bea98f765a4"
-    4.6 Cast iron: "5914dddc-e562-5172-8a1b-eda4e7308e80_4447af36-0897-4b00-8fd0-fd6a446dda6a"
+    4.6 Cast Iron: "5914dddc-e562-5172-8a1b-eda4e7308e80_4447af36-0897-4b00-8fd0-fd6a446dda6a"
     4.7 Modified organic natural materials:
       4.7.1 Kraft paper: "016593bf-3756-578f-bae5-e46e17966a6f_8ef02d68-0b80-4c12-81ee-3dd678d2915b"
       4.7.2 Vegetable oil methyl ester: "0a5f0e65-99d8-52d9-a702-e1eef7c00cee_4bc66efe-f91b-48e5-9a26-07e383d47e80"
@@ -101,7 +109,7 @@ Materials:
     5.3 Aluminium: "87defbff-5590-58f3-8f5b-4f34cc221371_aa81aad8-3eea-4eb5-b33c-97621400e199"
     5.4 Polyethylene: "b69747c7-1668-557c-96d3-91fbd6476bf2_b685192a-e033-421e-9074-8fe7cb176046"
     5.5 Lubricating oil: "1263754f-68c5-541d-b771-d3542fdf8c85_ea75b944-c676-4a13-85b8-2bea98f765a4"
-    5.6 Cast iron: "5914dddc-e562-5172-8a1b-eda4e7308e80_4447af36-0897-4b00-8fd0-fd6a446dda6a"
+    5.6 Cast Iron: "5914dddc-e562-5172-8a1b-eda4e7308e80_4447af36-0897-4b00-8fd0-fd6a446dda6a"
     5.7 Modified organic natural materials:
       5.7.1 Kraft paper: "016593bf-3756-578f-bae5-e46e17966a6f_8ef02d68-0b80-4c12-81ee-3dd678d2915b"
       5.7.2 Vegetable oil methyl ester: "0a5f0e65-99d8-52d9-a702-e1eef7c00cee_4bc66efe-f91b-48e5-9a26-07e383d47e80"
@@ -116,7 +124,7 @@ Manufacturing:
   1. Steel: "910c985e-62f4-50b4-9d19-dc87af4d7a26_e2f62697-57d4-42fe-95bf-c85fd32a9cf0"
   2. Chromium Steel: "61d42ce8-5b44-58e7-bc4d-fe1195f28d79_68b4fdd4-d341-4ac5-9dbc-59eb34653dab"
   3. Copper: "ca9cfc51-da30-5466-8bb9-1fb9cfdbb798_cdb7b939-f508-49ed-80f3-b39f6137fe1c"
-  4. Cast iron: "3c435556-1652-50d6-a692-c4f6dd5af647_8aa5cd19-c1ca-49f1-8efb-c7a28f5ad71f"
+  4. Cast Iron: "3c435556-1652-50d6-a692-c4f6dd5af647_8aa5cd19-c1ca-49f1-8efb-c7a28f5ad71f"
   5. Polyethylene PE: "7e5a8c97-439f-5fca-921a-860ad94d4593_406ae9de-8894-4c8b-a601-40b7e849b66d"
   6. Inter-array cables:
     6.1 Copper: "ca9cfc51-da30-5466-8bb9-1fb9cfdbb798_cdb7b939-f508-49ed-80f3-b39f6137fe1c"
@@ -146,7 +154,7 @@ Installation:
 # =========================================================================
 # OPERATION — Maintenance over project lifetime
 # =========================================================================
-Operation:
+Operation and Maintenance:
   1. Routine Maintenance and Inspection:
     1.1 CTV Vessel Operation and Maintenance: "3395b69c-ea71-5ad0-9797-934ac36ab1c7_79838d89-26c0-4781-b17f-a0deb787d482"
     1.2 LCN Vessel Operation and Maintenance: "3395b69c-ea71-5ad0-9797-934ac36ab1c7_79838d89-26c0-4781-b17f-a0deb787d482"
@@ -154,7 +162,7 @@ Operation:
     2.1 Wind Turbine:
       2.1.1 Hub System (Rotor):
         2.1.1.1 Hub System Steel: "be165311-0b2b-5a66-9bc7-363cd3163982_8cb650d5-8a48-4719-81b1-2080b3b4387f"
-        2.1.1.2 Hub System Uniax_Glass Fiber: "95dc65d3-d560-56b8-a09d-a77b3eba04a2_0798a5d1-6713-4c82-8ec9-c40ac2548279"
+        2.1.1.2 Hub System Uniax_Glass Fibre: "95dc65d3-d560-56b8-a09d-a77b3eba04a2_0798a5d1-6713-4c82-8ec9-c40ac2548279"
       2.1.2 Blades (Rotor):
         2.1.2.1 Blades Glass Fibre (60%): "a7f6f7f6-9d7d-58b7-953a-223d6c5a9026_fa6f1b55-8b52-4052-a2c8-0a0ba7a22d17"
         2.1.2.2 Blades Epoxy (40%): "8972befd-d617-58cd-97e3-c8bcb08574dd_51c7e57a-00b7-4412-b56c-94c17b211ee7"
@@ -187,6 +195,10 @@ Operation:
         2.1.12.1 Transformer: "bec66b6a-99c0-5840-a7a5-5da886f47739_0c7faf73-f5ea-4a3b-96ec-54d025cae6f4"
       2.1.13 Tower:
         2.1.13.1 Tower Steel: "be165311-0b2b-5a66-9bc7-363cd3163982_8cb650d5-8a48-4719-81b1-2080b3b4387f"
+      2.1.14 Turbine Top Tower:
+        2.1.14.1 Turbine Top Tower Steel: "be165311-0b2b-5a66-9bc7-363cd3163982_8cb650d5-8a48-4719-81b1-2080b3b4387f"
+      2.1.15 Pitch Bearing:
+        2.1.15.1 Pitch Bearing Steel: "be165311-0b2b-5a66-9bc7-363cd3163982_8cb650d5-8a48-4719-81b1-2080b3b4387f"
     2.2 Substructure:
       2.2.1 Monopile:
         2.2.1.1 Monopile Steel: "be165311-0b2b-5a66-9bc7-363cd3163982_8cb650d5-8a48-4719-81b1-2080b3b4387f"
@@ -207,8 +219,8 @@ End of life:
     1.1 Hub System (Rotor):
       1.1.1 Hub System Steel Recycling: "d33bd13f-ad9a-559e-9a97-2f2c0546661d_4f312355-ac65-4635-8fb2-006dba64ce60"
       1.1.1 Hub System Steel Landfill: "a1087005-1ecd-52aa-b379-793c2876bdbf_d1a4a803-c563-4740-84cf-3c21a488bd74"
-      1.1.2 Hub System Uniax_Glass Fiber Incineration: "9bcb58c0-0bc7-5d02-99a9-d9cd9a45212b_dae141a8-7daa-4f03-a649-b85b718ac65b"
-      1.1.2 Hub System Uniax_Glass Fiber Landfill: "89288da2-38a6-5765-add5-8ba6e68471e4_dae141a8-7daa-4f03-a649-b85b718ac65b"
+      1.1.2 Hub System Uniax_Glass Fibre Incineration: "9bcb58c0-0bc7-5d02-99a9-d9cd9a45212b_dae141a8-7daa-4f03-a649-b85b718ac65b"
+      1.1.2 Hub System Uniax_Glass Fibre Landfill: "89288da2-38a6-5765-add5-8ba6e68471e4_dae141a8-7daa-4f03-a649-b85b718ac65b"
     1.2 Blades (Rotor):
       1.2.1 Blades Glass Fibre (60%) Incineration: "9bcb58c0-0bc7-5d02-99a9-d9cd9a45212b_dae141a8-7daa-4f03-a649-b85b718ac65b"
       1.2.1 Blades Glass Fibre (60%) Landfill: "89288da2-38a6-5765-add5-8ba6e68471e4_dae141a8-7daa-4f03-a649-b85b718ac65b"
@@ -256,6 +268,12 @@ End of life:
     1.13 Tower:
       1.13.1 Tower Steel Recycling: "d33bd13f-ad9a-559e-9a97-2f2c0546661d_4f312355-ac65-4635-8fb2-006dba64ce60"
       1.13.1 Tower Steel Landfill: "a1087005-1ecd-52aa-b379-793c2876bdbf_d1a4a803-c563-4740-84cf-3c21a488bd74"
+    1.14 Turbine Top Tower:
+      1.14.1 Turbine Top Tower Steel Recycling: "d33bd13f-ad9a-559e-9a97-2f2c0546661d_4f312355-ac65-4635-8fb2-006dba64ce60"
+      1.14.1 Turbine Top Tower Steel Landfill: "a1087005-1ecd-52aa-b379-793c2876bdbf_d1a4a803-c563-4740-84cf-3c21a488bd74"
+    1.15 Pitch Bearing:
+      1.15.1 Pitch Bearing Steel Recycling: "d33bd13f-ad9a-559e-9a97-2f2c0546661d_4f312355-ac65-4635-8fb2-006dba64ce60"
+      1.15.1 Pitch Bearing Steel Landfill: "a1087005-1ecd-52aa-b379-793c2876bdbf_d1a4a803-c563-4740-84cf-3c21a488bd74"
 
   2. Substructure:
     2.1 Monopile:

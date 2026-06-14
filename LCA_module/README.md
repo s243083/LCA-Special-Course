@@ -158,7 +158,7 @@ Life stages covered:
 | `Manufacturing` | Component fabrication and processing |
 | `Transport` | Sea transport of components to site (metric ton*km) |
 | `Installation` | Vessel fuel consumption during installation |
-| `Operation` | Maintenance vessels + material replacements over lifetime |
+| `Operation and Maintenance` | Maintenance vessels + material replacements over lifetime |
 | `Decommissioning` | Vessel fuel consumption during decommissioning |
 | `End of life` | Recycling, incineration, and landfill of all materials |
 

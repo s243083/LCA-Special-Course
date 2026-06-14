@@ -87,7 +87,7 @@ IEA22_TURBINE_FILE = os.path.join(
 )
 
 OUTPUT_FILE    = os.path.join(ROOT_DIR, "LCA_module", "technical_output.py")
-OUTPUT_FILE_V2 = os.path.join(ROOT_DIR, "LCA_module 2", "inputs", "technical_output.py")
+OUTPUT_FILE_V2 = os.path.join(ROOT_DIR, "LCA_module", "inputs", "technical_output.py")
 
 # Set to a float (km) to override the inferred value; leave as None to use 110.0 km.
 DISTANCE_TO_SHORE_OVERRIDE_KM = None
@@ -514,7 +514,13 @@ def main():
         f"# Generated on: {timestamp}",
         "# =============================================================================",
         "",
-        "# --- General Information ---",
+        "# This file provides the parameters required to run the LCA module. These",
+        "# parameters already exist within the WinPACT module and are simply extracted",
+        "# and printed here from the main code.",
+        "",
+        "# =========================================================================",
+        "# General Information",
+        "# =========================================================================",
         f"N_TURBINES              = {n_turbines}",
         f"MW_PER_TURBINE          = {mw_per_turbine}",
         f"TOTAL_FARM_SIZE_MW      = {total_farm_mw}",
@@ -527,7 +533,9 @@ def main():
         f"LIFETIME_YEARS          = {lifetime_years}",
         f"ENERGY_NET_KWH          = {energy_net_kwh:.4e}",
         "",
-        "# --- Component Masses (tonnes) ---",
+        "# =========================================================================",
+        "# MATERIALS",
+        "# =========================================================================",
         f"PITCH_BEARING_MASS_KG            = {meta['pitch_bearing_kg']:.1f}",
         "",
         "# 1.1 Hub System (Rotor)",
@@ -583,7 +591,9 @@ def main():
         "# 2.2 Transition Piece",
         f"SUBSTRUCTURE_TRANSITION_STEEL_T  = {inventory['SUBSTRUCTURE_TRANSITION_STEEL_T']}",
         "",
-        "# --- O&M Interventions (average per year, mode_id == 3) ---",
+        "# =========================================================================",
+        "# OPERATION AND MAINTENANCE",
+        "# =========================================================================",
         "N_INTERVENTIONS = {",
     ] + [
         f'    "{k}":{"" if len(k) >= 24 else " " * (24 - len(k))}  {v:.6f},'

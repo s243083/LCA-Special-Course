@@ -1,22 +1,43 @@
 # =============================================================================
 # inventory_masses.py — Wind Farm LCA Component Masses and Quantities
 # =============================================================================
-# Each leaf component maps to a dict with three keys:
+# Each component maps to a dict with three keys:
 #     "per_turbine" : (quantity, unit)
 #     "full_farm"   : (quantity, unit)
-#     "per_FU"      : (quantity, unit)  ← functional unit, used for calculations
+#     "per_FU"      : (quantity, unit)
 #
-# per_FU is used for Materials, Manufacturing and Transport stages.
-# All other stages have (0, "kg") for per_FU for now.
-# None means the value is not yet available.
 #
-# _MAT is defined first so that Manufacturing can reference Materials values
-# directly instead of duplicating or recomputing them.
+# File organisiation: 
+#
+# 1. Imports and relevant factors
+# 2. Preliminary calculations - Materials
+# 3. Materials masses calculations
+# 4. Preliminary calculations - Manufacturing
+# 5. Preliminary calculations - installation/decommissioning
+# 6. Preliminary calculations - Transport
+# 7. Preliminary calculations - Operation and Maintenance
+# 8. Preliminary calculations - End of Life
+# 9. Manufacturing masses calculations
+# 10. installation/decommissioning energy calculations
+# 11. transport energy calculations
+# 12. Operation and Maintenance mass calculations
+# 13. End of Life masses calculations
+#
+#
+# _MAT is defined first in the materials stage so that Manufacturing and the
+# following stages can reference Materials values directly instead of
+# duplicating or recomputing them.
 # =============================================================================
+
+
+# =============================================================================
+# Imports
+# =============================================================================
+
 
 from inputs.technical_output import (
     N_INTERVENTIONS, N_TURBINES, ENERGY_NET_KWH, LIFETIME_YEARS,
-    VESSEL_HOURS_BY_TYPE,
+    VESSEL_HOURS_BY_TYPE, DISTANCE_TO_SHORE_KM,
     TURBINE_HUB_STEEL_T, TURBINE_HUB_GLASS_FIBER_T,
     TURBINE_BLADES_T,
     TURBINE_MAIN_SHAFT_STEEL_T,
@@ -40,7 +61,6 @@ with open(_cfg_path, "r", encoding="utf-8") as _f:
     _cfg = yaml.safe_load(_f)
 
 EOL_FACTORS                    = _cfg["EOL_FACTORS"]
-DISTANCE_TO_SHORE_KM           = _cfg["DISTANCE_TO_SHORE_KM"]
 INSTALLATION_ACTIVITIES        = _cfg["INSTALLATION_ACTIVITIES"]
 ENERGY_CONTENT_FUEL_MJ_PER_KG  = _cfg["ENERGY_CONTENT_FUEL_MJ_PER_KG"]
 ARRAY_CABLE_240MM2_LENGTH_KM   = _cfg["ARRAY_CABLE_240MM2_LENGTH_KM"]
@@ -80,33 +100,39 @@ ONS_SF6_GAS_T                  = _cfg["ONS_SF6_GAS_T"]
 ONS_LUBRICANTS_T               = _cfg["ONS_LUBRICANTS_T"]
 EXPORT_CABLE_MASSES_T_PER_KM   = _cfg["EXPORT_CABLE_MASSES_T_PER_KM"]
 VESSEL_PARAMETERS              = _cfg["VESSEL_PARAMETERS"]
+
+
+# =============================================================================
+# Factors
+# =============================================================================
+
+# FU factor
+FU_FACTOR = 1 / ENERGY_NET_KWH
+
+# Unit conversion factor
+TON_TO_KG = 1000
+
+# =============================================================================
+# Preliminary calculations - Materials
+# =============================================================================
+
+
 # Split factors for components reported as totals in technical_output.py
 BLADES_GLASS_FIBRE_FRACTION    = 0.40
 BLADES_EPOXY_FRACTION          = 0.60
 CABLING_COPPER_FRACTION        = 2.6 / 4.0
 CABLING_PLASTIC_FRACTION       = 1.4 / 4.0
+ORGANIC_KRAFT_PAPER_FRACTION   = 0.91
+ORGANIC_VEGETAL_OIL_FRACTION   = 0.09
 
 TURBINE_BLADES_GLASS_FIBRE_T   = TURBINE_BLADES_T * BLADES_GLASS_FIBRE_FRACTION
 TURBINE_BLADES_EPOXY_T         = TURBINE_BLADES_T * BLADES_EPOXY_FRACTION
 TURBINE_CABLING_COPPER_T       = TURBINE_CABLING_T * CABLING_COPPER_FRACTION
 TURBINE_CABLING_PLASTIC_T      = TURBINE_CABLING_T * CABLING_PLASTIC_FRACTION
 
-# FU factor
-FU_FACTOR = 1 / ENERGY_NET_KWH
-
-# Unit conversion
-TON_TO_KG = 1000
-
-# Total installation/decommissioning energy (MJ): sum of t/day × days × kg/t × MJ/kg across all activities
-INSTALLATION_ENERGY_TOTAL_MJ = sum(
-    t_per_day * days * TON_TO_KG * ENERGY_CONTENT_FUEL_MJ_PER_KG
-    for t_per_day, days in INSTALLATION_ACTIVITIES.values()
-)
-
-ZERO_INTERVENTIONS = 0  # No intervention data available for this component
 
 # =============================================================================
-# MATERIALS — defined separately so Manufacturing can reference these values
+# MATERIALS
 # =============================================================================
 _MAT = {
     "1. Wind Turbine": {
@@ -415,14 +441,14 @@ _MAT = {
         },
         "4.7 Modified organic natural materials": {
             "4.7.1 Kraft paper": {
-                "per_turbine": (None,                                                  "kg"),
-                "full_farm":   (OSS_ORGANIC_MATERIALS_T * TON_TO_KG * 0.91,               "kg"),
-                "per_FU":      (OSS_ORGANIC_MATERIALS_T * TON_TO_KG * 0.91 * FU_FACTOR,         "kg"),
+                "per_turbine": (None,                                                                                   "kg"),
+                "full_farm":   (OSS_ORGANIC_MATERIALS_T * TON_TO_KG * ORGANIC_KRAFT_PAPER_FRACTION,                    "kg"),
+                "per_FU":      (OSS_ORGANIC_MATERIALS_T * TON_TO_KG * ORGANIC_KRAFT_PAPER_FRACTION * FU_FACTOR,        "kg"),
             },
             "4.7.2 Vegetable oil methyl ester": {
-                "per_turbine": (None,                                                  "kg"),
-                "full_farm":   (OSS_ORGANIC_MATERIALS_T * TON_TO_KG * 0.09,               "kg"),
-                "per_FU":      (OSS_ORGANIC_MATERIALS_T * TON_TO_KG * 0.09 * FU_FACTOR,         "kg"),
+                "per_turbine": (None,                                                                                   "kg"),
+                "full_farm":   (OSS_ORGANIC_MATERIALS_T * TON_TO_KG * ORGANIC_VEGETAL_OIL_FRACTION,                    "kg"),
+                "per_FU":      (OSS_ORGANIC_MATERIALS_T * TON_TO_KG * ORGANIC_VEGETAL_OIL_FRACTION * FU_FACTOR,        "kg"),
             },
         },
         "4.8 Ceramic / glass": {
@@ -474,14 +500,14 @@ _MAT = {
         },
         "5.7 Modified organic natural materials": {
             "5.7.1 Kraft paper": {
-                "per_turbine": (None,                                                  "kg"),
-                "full_farm":   (ONS_ORGANIC_MATERIALS_T * TON_TO_KG * 0.91,               "kg"),
-                "per_FU":      (ONS_ORGANIC_MATERIALS_T * TON_TO_KG * 0.91 * FU_FACTOR,         "kg"),
+                "per_turbine": (None,                                                                                   "kg"),
+                "full_farm":   (ONS_ORGANIC_MATERIALS_T * TON_TO_KG * ORGANIC_KRAFT_PAPER_FRACTION,                    "kg"),
+                "per_FU":      (ONS_ORGANIC_MATERIALS_T * TON_TO_KG * ORGANIC_KRAFT_PAPER_FRACTION * FU_FACTOR,        "kg"),
             },
             "5.7.2 Vegetable oil methyl ester": {
-                "per_turbine": (None,                                                  "kg"),
-                "full_farm":   (ONS_ORGANIC_MATERIALS_T * TON_TO_KG * 0.09,               "kg"),
-                "per_FU":      (ONS_ORGANIC_MATERIALS_T * TON_TO_KG * 0.09 * FU_FACTOR,         "kg"),
+                "per_turbine": (None,                                                                                   "kg"),
+                "full_farm":   (ONS_ORGANIC_MATERIALS_T * TON_TO_KG * ORGANIC_VEGETAL_OIL_FRACTION,                    "kg"),
+                "per_FU":      (ONS_ORGANIC_MATERIALS_T * TON_TO_KG * ORGANIC_VEGETAL_OIL_FRACTION * FU_FACTOR,        "kg"),
             },
         },
         "5.8 Ceramic / glass": {
@@ -501,6 +527,12 @@ _MAT = {
         },
     },
 }
+
+
+
+# =============================================================================
+# Preliminary calculations - Manufacturing
+# =============================================================================
 
 # Shorthand accessors to keep Manufacturing references concise
 _T   = _MAT["1. Wind Turbine"]
@@ -539,6 +571,24 @@ def _eol_ff(material_key, factor_id, scenario):
     """Return the full-farm EOL mass for whole-farm materials: full_farm_mass × recovered × scenario_fraction."""
     ff_mass = _ff(_MAT_FLAT[material_key])
     return ff_mass * EOL_FACTORS[factor_id]["recovered"] * EOL_FACTORS[factor_id][scenario]
+
+
+# =============================================================================
+# Preliminary calculations - installation/decommissioning
+# =============================================================================
+
+
+# Total installation/decommissioning energy (MJ): sum of t/day × days × kg/t × MJ/kg across all activities
+INSTALLATION_ENERGY_TOTAL_MJ = sum(
+    t_per_day * days * TON_TO_KG * ENERGY_CONTENT_FUEL_MJ_PER_KG
+    for t_per_day, days in INSTALLATION_ACTIVITIES.values()
+)
+
+
+
+# =============================================================================
+# Preliminary calculations - Transport
+# =============================================================================
 
 
 # Transport mass sums (kg) — used to compute t*km dynamically from DISTANCE_TO_SHORE_KM
@@ -645,6 +695,20 @@ _TRANSPORT_SUB_PT_KG = (
     _pt(_SUB["2.2 Transitioning piece"]["2.2.1 Transitioning piece Steel"])
 )
 
+
+# =============================================================================
+# Preliminary calculations - Operation and Maintenance
+# =============================================================================
+
+ZERO_INTERVENTIONS = 0  # No intervention data available for this component
+
+
+
+# =============================================================================
+# Preliminary calculations - End of Life
+# =============================================================================
+
+
 # Cable full-farm mass sums (kg) — used for EOL calculations
 _EOL_ARRAY_240_KG = (
     _ff(_EI["3.1 Array Cables 240mm2 (66kV)"]["3.1.1 Copper"])                            +
@@ -674,7 +738,7 @@ _EOL_ARRAY_800_KG = (
 _MAT_FLAT["3.1 Array Cables 240mm2 (66kV)"] = {"per_turbine": (None, "kg"), "full_farm": (_EOL_ARRAY_240_KG, "kg"), "per_FU": (_EOL_ARRAY_240_KG * FU_FACTOR, "kg")}
 _MAT_FLAT["3.2 Array Cables 630mm2 (66kV)"] = {"per_turbine": (None, "kg"), "full_farm": (_EOL_ARRAY_630_KG, "kg"), "per_FU": (_EOL_ARRAY_630_KG * FU_FACTOR, "kg")}
 _MAT_FLAT["3.3 Array Cables 800mm2 (66kV)"] = {"per_turbine": (None, "kg"), "full_farm": (_EOL_ARRAY_800_KG, "kg"), "per_FU": (_EOL_ARRAY_800_KG * FU_FACTOR, "kg")}
-_MAT_FLAT["3.4 Export Cables"]               = {"per_turbine": (None, "kg"), "full_farm": (_TRANSPORT_EXPORT_KG, "kg"), "per_FU": (_TRANSPORT_EXPORT_KG * FU_FACTOR, "kg")}
+_MAT_FLAT["3.4 Export Cables"]              = {"per_turbine": (None, "kg"), "full_farm": (_TRANSPORT_EXPORT_KG, "kg"), "per_FU": (_TRANSPORT_EXPORT_KG * FU_FACTOR, "kg")}
 
 
 

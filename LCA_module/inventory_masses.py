@@ -38,6 +38,7 @@
 from inputs.technical_output import (
     N_INTERVENTIONS, N_TURBINES, ENERGY_NET_KWH, LIFETIME_YEARS,
     VESSEL_HOURS_BY_TYPE, DISTANCE_TO_SHORE_KM,
+    PORT_DISTANCE_CTV_KM, PORT_DISTANCE_HLV_KM, PORT_DISTANCE_FSV_KM,
     TURBINE_HUB_STEEL_T, TURBINE_HUB_GLASS_FIBER_T,
     TURBINE_BLADES_T,
     TURBINE_MAIN_SHAFT_STEEL_T,
@@ -564,16 +565,6 @@ _build_mat_flat(_SUB)
 _build_mat_flat(_OSS)
 _build_mat_flat(_ONS)
 
-def _eol(material_key, factor_id, scenario):
-    """Return the per-turbine EOL mass: per_turbine_mass × recovered × scenario_fraction."""
-    pt_mass = _pt(_MAT_FLAT[material_key])
-    return pt_mass * EOL_FACTORS[factor_id]["recovered"] * EOL_FACTORS[factor_id][scenario]
-
-def _eol_ff(material_key, factor_id, scenario):
-    """Return the full-farm EOL mass for whole-farm materials: full_farm_mass × recovered × scenario_fraction."""
-    ff_mass = _ff(_MAT_FLAT[material_key])
-    return ff_mass * EOL_FACTORS[factor_id]["recovered"] * EOL_FACTORS[factor_id][scenario]
-
 
 # =============================================================================
 # Preliminary calculations - installation/decommissioning
@@ -592,8 +583,10 @@ INSTALLATION_ENERGY_TOTAL_MJ = sum(
 # Preliminary calculations - Transport
 # =============================================================================
 
+# Vessel travel distance: the furthest any vessel sails from port to the site
+VESSEL_TRANSPORT_DISTANCE_KM = max(PORT_DISTANCE_CTV_KM, PORT_DISTANCE_HLV_KM, PORT_DISTANCE_FSV_KM)
 
-# Transport mass sums (kg) — used to compute t*km dynamically from DISTANCE_TO_SHORE_KM
+# Transport mass sums (kg) — used to compute t*km dynamically from VESSEL_TRANSPORT_DISTANCE_KM
 _TRANSPORT_WT_KG = (
     _ff(_T["1.1 Hub System (Rotor)"]["1.1.1 Hub System Steel"])                           +
     _ff(_T["1.1 Hub System (Rotor)"]["1.1.2 Hub System Uniax_Glass Fibre"])               +
@@ -711,6 +704,18 @@ ZERO_INTERVENTIONS = 0  # No intervention data available for this component
 # =============================================================================
 
 
+def _eol(material_key, factor_id, scenario, n_interventions=0):
+    """Return the per-turbine EOL mass including O&M replacements: per_turbine_mass × (1 + n_interventions/N_TURBINES) × recovered × scenario_fraction."""
+    pt_mass = _pt(_MAT_FLAT[material_key])
+    return pt_mass * (1 + n_interventions / N_TURBINES) * EOL_FACTORS[factor_id]["recovered"] * EOL_FACTORS[factor_id][scenario]
+
+def _eol_ff(material_key, factor_id, scenario):
+    """Return the full-farm EOL mass for whole-farm materials: full_farm_mass × recovered × scenario_fraction."""
+    ff_mass = _ff(_MAT_FLAT[material_key])
+    return ff_mass * EOL_FACTORS[factor_id]["recovered"] * EOL_FACTORS[factor_id][scenario]
+
+
+
 # Cable full-farm mass sums (kg) — used for EOL calculations
 _EOL_ARRAY_240_KG = (
     _ff(_EI["3.1 Array Cables 240mm2 (66kV)"]["3.1.1 Copper"])                            +
@@ -757,39 +762,47 @@ INVENTORY_MASSES = {
         "1. Steel": {
             "per_turbine": (None, "kg"),
             "full_farm": (
-                _ff(_T["1.1 Hub System (Rotor)"]["1.1.1 Hub System Steel"])          +
-                _ff(_T["1.3 Main Shaft and Bearings"]["1.3.1 Main Shaft and Bearings Steel"]) +
-                _ff(_T["1.4 Generator"]["1.4.4 Generator Steel"])                    +
-                _ff(_T["1.5 Brake"]["1.5.1 Brake Steel"])                            +
-                _ff(_T["1.6 Turret (Nacelle)"]["1.6.1 Turret Steel"])                +
-                _ff(_T["1.7 Bedplate (Nacelle)"]["1.7.1 Bedplate Steel"])             +
-                _ff(_T["1.8 Yaw System (Nacelle)"]["1.8.1 Yaw System Steel"])        +
-                _ff(_T["1.9 Nacelle_cover_and_platforms (Nacelle)"]["1.9.1 Nacelle Steel"]) +
-                _ff(_T["1.13 Tower"]["1.13.1 Tower Steel"])                          +
-                _ff(_T["1.14 Turbine Top Tower"]["1.14.1 Turbine Top Tower Steel"])  +
-                _ff(_T["1.15 Pitch Bearing"]["1.15.1 Pitch Bearing Steel"])          +
-                _ff(_SUB["2.1 Monopile"]["2.1.1 Monopile Steel"])                    +
-                _ff(_SUB["2.2 Transitioning piece"]["2.2.1 Transitioning piece Steel"]) +
-                _ff(_OSS["4.1 Steel"])                                               +
+                _ff(_T["1.1 Hub System (Rotor)"]["1.1.1 Hub System Steel"])                                                                    +
+                _ff(_T["1.3 Main Shaft and Bearings"]["1.3.1 Main Shaft and Bearings Steel"])                                                  +
+                _pt(_T["1.3 Main Shaft and Bearings"]["1.3.1 Main Shaft and Bearings Steel"]) * N_INTERVENTIONS["drive_train"]                 +
+                _ff(_T["1.4 Generator"]["1.4.4 Generator Steel"])                                                                              +
+                _pt(_T["1.4 Generator"]["1.4.4 Generator Steel"])              * N_INTERVENTIONS["generator"]                                  +
+                _ff(_T["1.5 Brake"]["1.5.1 Brake Steel"])                                                                                      +
+                _pt(_T["1.5 Brake"]["1.5.1 Brake Steel"])                      * N_INTERVENTIONS["hydraulic_pitch_system"]                     +
+                _ff(_T["1.6 Turret (Nacelle)"]["1.6.1 Turret Steel"])                                                                         +
+                _ff(_T["1.7 Bedplate (Nacelle)"]["1.7.1 Bedplate Steel"])                                                                      +
+                _ff(_T["1.8 Yaw System (Nacelle)"]["1.8.1 Yaw System Steel"])                                                                 +
+                _pt(_T["1.8 Yaw System (Nacelle)"]["1.8.1 Yaw System Steel"]) * N_INTERVENTIONS["yaw_system"]                                 +
+                _ff(_T["1.9 Nacelle_cover_and_platforms (Nacelle)"]["1.9.1 Nacelle Steel"])                                                    +
+                _ff(_T["1.13 Tower"]["1.13.1 Tower Steel"])                                                                                    +
+                _ff(_T["1.14 Turbine Top Tower"]["1.14.1 Turbine Top Tower Steel"])                                                            +
+                _ff(_T["1.15 Pitch Bearing"]["1.15.1 Pitch Bearing Steel"])                                                                    +
+                _ff(_SUB["2.1 Monopile"]["2.1.1 Monopile Steel"])                                                                              +
+                _ff(_SUB["2.2 Transitioning piece"]["2.2.1 Transitioning piece Steel"])                                                        +
+                _ff(_OSS["4.1 Steel"])                                                                                                         +
                 _ff(_ONS["5.1 Steel"]),
                 "kg",
             ),
             "per_FU": (
                 (
-                _ff(_T["1.1 Hub System (Rotor)"]["1.1.1 Hub System Steel"])          +
-                _ff(_T["1.3 Main Shaft and Bearings"]["1.3.1 Main Shaft and Bearings Steel"]) +
-                _ff(_T["1.4 Generator"]["1.4.4 Generator Steel"])                    +
-                _ff(_T["1.5 Brake"]["1.5.1 Brake Steel"])                            +
-                _ff(_T["1.6 Turret (Nacelle)"]["1.6.1 Turret Steel"])                +
-                _ff(_T["1.7 Bedplate (Nacelle)"]["1.7.1 Bedplate Steel"])             +
-                _ff(_T["1.8 Yaw System (Nacelle)"]["1.8.1 Yaw System Steel"])        +
-                _ff(_T["1.9 Nacelle_cover_and_platforms (Nacelle)"]["1.9.1 Nacelle Steel"]) +
-                _ff(_T["1.13 Tower"]["1.13.1 Tower Steel"])                          +
-                _ff(_T["1.14 Turbine Top Tower"]["1.14.1 Turbine Top Tower Steel"])  +
-                _ff(_T["1.15 Pitch Bearing"]["1.15.1 Pitch Bearing Steel"])          +
-                _ff(_SUB["2.1 Monopile"]["2.1.1 Monopile Steel"])                    +
-                _ff(_SUB["2.2 Transitioning piece"]["2.2.1 Transitioning piece Steel"]) +
-                _ff(_OSS["4.1 Steel"])                                               +
+                _ff(_T["1.1 Hub System (Rotor)"]["1.1.1 Hub System Steel"])                                                                    +
+                _ff(_T["1.3 Main Shaft and Bearings"]["1.3.1 Main Shaft and Bearings Steel"])                                                  +
+                _pt(_T["1.3 Main Shaft and Bearings"]["1.3.1 Main Shaft and Bearings Steel"]) * N_INTERVENTIONS["drive_train"]                 +
+                _ff(_T["1.4 Generator"]["1.4.4 Generator Steel"])                                                                              +
+                _pt(_T["1.4 Generator"]["1.4.4 Generator Steel"])              * N_INTERVENTIONS["generator"]                                  +
+                _ff(_T["1.5 Brake"]["1.5.1 Brake Steel"])                                                                                      +
+                _pt(_T["1.5 Brake"]["1.5.1 Brake Steel"])                      * N_INTERVENTIONS["hydraulic_pitch_system"]                     +
+                _ff(_T["1.6 Turret (Nacelle)"]["1.6.1 Turret Steel"])                                                                         +
+                _ff(_T["1.7 Bedplate (Nacelle)"]["1.7.1 Bedplate Steel"])                                                                      +
+                _ff(_T["1.8 Yaw System (Nacelle)"]["1.8.1 Yaw System Steel"])                                                                 +
+                _pt(_T["1.8 Yaw System (Nacelle)"]["1.8.1 Yaw System Steel"]) * N_INTERVENTIONS["yaw_system"]                                 +
+                _ff(_T["1.9 Nacelle_cover_and_platforms (Nacelle)"]["1.9.1 Nacelle Steel"])                                                    +
+                _ff(_T["1.13 Tower"]["1.13.1 Tower Steel"])                                                                                    +
+                _ff(_T["1.14 Turbine Top Tower"]["1.14.1 Turbine Top Tower Steel"])                                                            +
+                _ff(_T["1.15 Pitch Bearing"]["1.15.1 Pitch Bearing Steel"])                                                                    +
+                _ff(_SUB["2.1 Monopile"]["2.1.1 Monopile Steel"])                                                                              +
+                _ff(_SUB["2.2 Transitioning piece"]["2.2.1 Transitioning piece Steel"])                                                        +
+                _ff(_OSS["4.1 Steel"])                                                                                                         +
                 _ff(_ONS["5.1 Steel"])
                 ) * FU_FACTOR,
                 "kg",
@@ -797,23 +810,37 @@ INVENTORY_MASSES = {
         },
         "2. Chromium Steel": {
             "per_turbine": (None, "kg"),
-            "full_farm":   (_ff(_T["1.4 Generator"]["1.4.3 Generator Electrical Steel"]),          "kg"),
-            "per_FU":      (_ff(_T["1.4 Generator"]["1.4.3 Generator Electrical Steel"]) * FU_FACTOR,    "kg"),
+            "full_farm": (
+                _ff(_T["1.4 Generator"]["1.4.3 Generator Electrical Steel"])                                       +
+                _pt(_T["1.4 Generator"]["1.4.3 Generator Electrical Steel"]) * N_INTERVENTIONS["generator"],
+                "kg",
+            ),
+            "per_FU": (
+                (
+                _ff(_T["1.4 Generator"]["1.4.3 Generator Electrical Steel"])                                       +
+                _pt(_T["1.4 Generator"]["1.4.3 Generator Electrical Steel"]) * N_INTERVENTIONS["generator"]
+                ) * FU_FACTOR,
+                "kg",
+            ),
         },
         "3. Copper": {
             "per_turbine": (None, "kg"),
             "full_farm": (
-                _ff(_T["1.4 Generator"]["1.4.2 Generator Copper"])                   +
-                _ff(_T["1.10 HVAC_and_auxiliarie (Nacelle)"]["1.10.2.1 Cabling_internal Copper"]) +
-                _ff(_OSS["4.2 Copper"])                                              +
+                _ff(_T["1.4 Generator"]["1.4.2 Generator Copper"])                                                                             +
+                _pt(_T["1.4 Generator"]["1.4.2 Generator Copper"])                             * N_INTERVENTIONS["generator"]                  +
+                _ff(_T["1.10 HVAC_and_auxiliarie (Nacelle)"]["1.10.2.1 Cabling_internal Copper"])                                             +
+                _pt(_T["1.10 HVAC_and_auxiliarie (Nacelle)"]["1.10.2.1 Cabling_internal Copper"]) * N_INTERVENTIONS["electrical_system"]      +
+                _ff(_OSS["4.2 Copper"])                                                                                                        +
                 _ff(_ONS["5.2 Copper"]),
                 "kg",
             ),
             "per_FU": (
                 (
-                _ff(_T["1.4 Generator"]["1.4.2 Generator Copper"])                   +
-                _ff(_T["1.10 HVAC_and_auxiliarie (Nacelle)"]["1.10.2.1 Cabling_internal Copper"]) +
-                _ff(_OSS["4.2 Copper"])                                              +
+                _ff(_T["1.4 Generator"]["1.4.2 Generator Copper"])                                                                             +
+                _pt(_T["1.4 Generator"]["1.4.2 Generator Copper"])                             * N_INTERVENTIONS["generator"]                  +
+                _ff(_T["1.10 HVAC_and_auxiliarie (Nacelle)"]["1.10.2.1 Cabling_internal Copper"])                                             +
+                _pt(_T["1.10 HVAC_and_auxiliarie (Nacelle)"]["1.10.2.1 Cabling_internal Copper"]) * N_INTERVENTIONS["electrical_system"]      +
+                _ff(_OSS["4.2 Copper"])                                                                                                        +
                 _ff(_ONS["5.2 Copper"])
                 ) * FU_FACTOR,
                 "kg",
@@ -827,15 +854,17 @@ INVENTORY_MASSES = {
         "5. Polyethylene PE": {
             "per_turbine": (None, "kg"),
             "full_farm": (
-                _ff(_T["1.10 HVAC_and_auxiliarie (Nacelle)"]["1.10.2.2 Cabling_internal Plastic"]) +
-                _ff(_OSS["4.4 Polyethylene"])                                        +
+                _ff(_T["1.10 HVAC_and_auxiliarie (Nacelle)"]["1.10.2.2 Cabling_internal Plastic"])                                            +
+                _pt(_T["1.10 HVAC_and_auxiliarie (Nacelle)"]["1.10.2.2 Cabling_internal Plastic"]) * N_INTERVENTIONS["electrical_system"]     +
+                _ff(_OSS["4.4 Polyethylene"])                                                                                                  +
                 _ff(_ONS["5.4 Polyethylene"]),
                 "kg",
             ),
             "per_FU": (
                 (
-                _ff(_T["1.10 HVAC_and_auxiliarie (Nacelle)"]["1.10.2.2 Cabling_internal Plastic"]) +
-                _ff(_OSS["4.4 Polyethylene"])                                        +
+                _ff(_T["1.10 HVAC_and_auxiliarie (Nacelle)"]["1.10.2.2 Cabling_internal Plastic"])                                            +
+                _pt(_T["1.10 HVAC_and_auxiliarie (Nacelle)"]["1.10.2.2 Cabling_internal Plastic"]) * N_INTERVENTIONS["electrical_system"]     +
+                _ff(_OSS["4.4 Polyethylene"])                                                                                                  +
                 _ff(_ONS["5.4 Polyethylene"])
                 ) * FU_FACTOR,
                 "kg",
@@ -918,29 +947,29 @@ INVENTORY_MASSES = {
     # =========================================================================
     "Transport": {
         "1. Wind Turbine": {
-            "per_turbine": (_TRANSPORT_WT_PT_KG  * DISTANCE_TO_SHORE_KM / TON_TO_KG,                    "metric ton*km"),
-            "full_farm":   (_TRANSPORT_WT_KG     * DISTANCE_TO_SHORE_KM / TON_TO_KG,                    "metric ton*km"),
-            "per_FU":      (_TRANSPORT_WT_KG     * DISTANCE_TO_SHORE_KM / TON_TO_KG * FU_FACTOR,        "metric ton*km"),
+            "per_turbine": (_TRANSPORT_WT_PT_KG  * VESSEL_TRANSPORT_DISTANCE_KM / TON_TO_KG,                    "metric ton*km"),
+            "full_farm":   (_TRANSPORT_WT_KG     * VESSEL_TRANSPORT_DISTANCE_KM / TON_TO_KG,                    "metric ton*km"),
+            "per_FU":      (_TRANSPORT_WT_KG     * VESSEL_TRANSPORT_DISTANCE_KM / TON_TO_KG * FU_FACTOR,        "metric ton*km"),
         },
         "2. Substructure": {
-            "per_turbine": (_TRANSPORT_SUB_PT_KG * DISTANCE_TO_SHORE_KM / TON_TO_KG,                    "metric ton*km"),
-            "full_farm":   (_TRANSPORT_SUB_KG    * DISTANCE_TO_SHORE_KM / TON_TO_KG,                    "metric ton*km"),
-            "per_FU":      (_TRANSPORT_SUB_KG    * DISTANCE_TO_SHORE_KM / TON_TO_KG * FU_FACTOR,        "metric ton*km"),
+            "per_turbine": (_TRANSPORT_SUB_PT_KG * VESSEL_TRANSPORT_DISTANCE_KM / TON_TO_KG,                    "metric ton*km"),
+            "full_farm":   (_TRANSPORT_SUB_KG    * VESSEL_TRANSPORT_DISTANCE_KM / TON_TO_KG,                    "metric ton*km"),
+            "per_FU":      (_TRANSPORT_SUB_KG    * VESSEL_TRANSPORT_DISTANCE_KM / TON_TO_KG * FU_FACTOR,        "metric ton*km"),
         },
         "3.1 Array Cables": {
-            "per_turbine": (None,                                                                        "metric ton*km"),
-            "full_farm":   (_TRANSPORT_ARRAY_KG * DISTANCE_TO_SHORE_KM / TON_TO_KG,                          "metric ton*km"),
-            "per_FU":      (_TRANSPORT_ARRAY_KG * DISTANCE_TO_SHORE_KM / TON_TO_KG * FU_FACTOR,              "metric ton*km"),
+            "per_turbine": (None,                                                                             "metric ton*km"),
+            "full_farm":   (_TRANSPORT_ARRAY_KG * VESSEL_TRANSPORT_DISTANCE_KM / TON_TO_KG,                  "metric ton*km"),
+            "per_FU":      (_TRANSPORT_ARRAY_KG * VESSEL_TRANSPORT_DISTANCE_KM / TON_TO_KG * FU_FACTOR,      "metric ton*km"),
         },
         "3.2 Export Cables": {
-            "per_turbine": (None,                                                                        "metric ton*km"),
-            "full_farm":   (_TRANSPORT_EXPORT_KG * DISTANCE_TO_SHORE_KM / TON_TO_KG,                         "metric ton*km"),
-            "per_FU":      (_TRANSPORT_EXPORT_KG * DISTANCE_TO_SHORE_KM / TON_TO_KG * FU_FACTOR,             "metric ton*km"),
+            "per_turbine": (None,                                                                             "metric ton*km"),
+            "full_farm":   (_TRANSPORT_EXPORT_KG * VESSEL_TRANSPORT_DISTANCE_KM / TON_TO_KG,                 "metric ton*km"),
+            "per_FU":      (_TRANSPORT_EXPORT_KG * VESSEL_TRANSPORT_DISTANCE_KM / TON_TO_KG * FU_FACTOR,     "metric ton*km"),
         },
         "3.3 Offshore Substation": {
-            "per_turbine": (None,                                                                        "metric ton*km"),
-            "full_farm":   (_TRANSPORT_OSS_KG   * DISTANCE_TO_SHORE_KM / TON_TO_KG,                          "metric ton*km"),
-            "per_FU":      (_TRANSPORT_OSS_KG   * DISTANCE_TO_SHORE_KM / TON_TO_KG * FU_FACTOR,              "metric ton*km"),
+            "per_turbine": (None,                                                                             "metric ton*km"),
+            "full_farm":   (_TRANSPORT_OSS_KG   * VESSEL_TRANSPORT_DISTANCE_KM / TON_TO_KG,                  "metric ton*km"),
+            "per_FU":      (_TRANSPORT_OSS_KG   * VESSEL_TRANSPORT_DISTANCE_KM / TON_TO_KG * FU_FACTOR,      "metric ton*km"),
         },
     },
 
@@ -1202,85 +1231,85 @@ INVENTORY_MASSES = {
                 },
                 "1.2 Blades (Rotor)": {
                     "1.2.1 Blades Glass Fibre (60%) Incineration": {
-                        "per_turbine": (_eol("1.2.1 Blades Glass Fibre (60%)",         6, "incineration"),                        "kg"),
-                        "full_farm":   (_eol("1.2.1 Blades Glass Fibre (60%)",         6, "incineration") * N_TURBINES,           "kg"),
-                        "per_FU":      (_eol("1.2.1 Blades Glass Fibre (60%)",         6, "incineration") * N_TURBINES * FU_FACTOR, "kg"),
+                        "per_turbine": (_eol("1.2.1 Blades Glass Fibre (60%)",         6, "incineration", N_INTERVENTIONS["rotor_blades"]),                        "kg"),
+                        "full_farm":   (_eol("1.2.1 Blades Glass Fibre (60%)",         6, "incineration", N_INTERVENTIONS["rotor_blades"]) * N_TURBINES,           "kg"),
+                        "per_FU":      (_eol("1.2.1 Blades Glass Fibre (60%)",         6, "incineration", N_INTERVENTIONS["rotor_blades"]) * N_TURBINES * FU_FACTOR, "kg"),
                     },
                     "1.2.1 Blades Glass Fibre (60%) Landfill": {
-                        "per_turbine": (_eol("1.2.1 Blades Glass Fibre (60%)",         6, "landfill"),                        "kg"),
-                        "full_farm":   (_eol("1.2.1 Blades Glass Fibre (60%)",         6, "landfill") * N_TURBINES,           "kg"),
-                        "per_FU":      (_eol("1.2.1 Blades Glass Fibre (60%)",         6, "landfill") * N_TURBINES * FU_FACTOR, "kg"),
+                        "per_turbine": (_eol("1.2.1 Blades Glass Fibre (60%)",         6, "landfill", N_INTERVENTIONS["rotor_blades"]),                        "kg"),
+                        "full_farm":   (_eol("1.2.1 Blades Glass Fibre (60%)",         6, "landfill", N_INTERVENTIONS["rotor_blades"]) * N_TURBINES,           "kg"),
+                        "per_FU":      (_eol("1.2.1 Blades Glass Fibre (60%)",         6, "landfill", N_INTERVENTIONS["rotor_blades"]) * N_TURBINES * FU_FACTOR, "kg"),
                     },
                     "1.2.2 Blades Epoxy (40%) Incineration": {
-                        "per_turbine": (_eol("1.2.2 Blades Epoxy (40%)",               6, "incineration"),                        "kg"),
-                        "full_farm":   (_eol("1.2.2 Blades Epoxy (40%)",               6, "incineration") * N_TURBINES,           "kg"),
-                        "per_FU":      (_eol("1.2.2 Blades Epoxy (40%)",               6, "incineration") * N_TURBINES * FU_FACTOR, "kg"),
+                        "per_turbine": (_eol("1.2.2 Blades Epoxy (40%)",               6, "incineration", N_INTERVENTIONS["rotor_blades"]),                        "kg"),
+                        "full_farm":   (_eol("1.2.2 Blades Epoxy (40%)",               6, "incineration", N_INTERVENTIONS["rotor_blades"]) * N_TURBINES,           "kg"),
+                        "per_FU":      (_eol("1.2.2 Blades Epoxy (40%)",               6, "incineration", N_INTERVENTIONS["rotor_blades"]) * N_TURBINES * FU_FACTOR, "kg"),
                     },
                     "1.2.2 Blades Epoxy (40%) Landfill": {
-                        "per_turbine": (_eol("1.2.2 Blades Epoxy (40%)",               6, "landfill"),                        "kg"),
-                        "full_farm":   (_eol("1.2.2 Blades Epoxy (40%)",               6, "landfill") * N_TURBINES,           "kg"),
-                        "per_FU":      (_eol("1.2.2 Blades Epoxy (40%)",               6, "landfill") * N_TURBINES * FU_FACTOR, "kg"),
+                        "per_turbine": (_eol("1.2.2 Blades Epoxy (40%)",               6, "landfill", N_INTERVENTIONS["rotor_blades"]),                        "kg"),
+                        "full_farm":   (_eol("1.2.2 Blades Epoxy (40%)",               6, "landfill", N_INTERVENTIONS["rotor_blades"]) * N_TURBINES,           "kg"),
+                        "per_FU":      (_eol("1.2.2 Blades Epoxy (40%)",               6, "landfill", N_INTERVENTIONS["rotor_blades"]) * N_TURBINES * FU_FACTOR, "kg"),
                     },
                 },
                 "1.3 Main Shaft and Bearings": {
                     "1.3.1 Main Shaft and Bearings Steel Recycling": {
-                        "per_turbine": (_eol("1.3.1 Main Shaft and Bearings Steel",    1, "recycled"),                        "kg"),
-                        "full_farm":   (_eol("1.3.1 Main Shaft and Bearings Steel",    1, "recycled") * N_TURBINES,           "kg"),
-                        "per_FU":      (_eol("1.3.1 Main Shaft and Bearings Steel",    1, "recycled") * N_TURBINES * FU_FACTOR, "kg"),
+                        "per_turbine": (_eol("1.3.1 Main Shaft and Bearings Steel",    1, "recycled", N_INTERVENTIONS["drive_train"]),                        "kg"),
+                        "full_farm":   (_eol("1.3.1 Main Shaft and Bearings Steel",    1, "recycled", N_INTERVENTIONS["drive_train"]) * N_TURBINES,           "kg"),
+                        "per_FU":      (_eol("1.3.1 Main Shaft and Bearings Steel",    1, "recycled", N_INTERVENTIONS["drive_train"]) * N_TURBINES * FU_FACTOR, "kg"),
                     },
                     "1.3.1 Main Shaft and Bearings Steel Landfill": {
-                        "per_turbine": (_eol("1.3.1 Main Shaft and Bearings Steel",    1, "landfill"),                        "kg"),
-                        "full_farm":   (_eol("1.3.1 Main Shaft and Bearings Steel",    1, "landfill") * N_TURBINES,           "kg"),
-                        "per_FU":      (_eol("1.3.1 Main Shaft and Bearings Steel",    1, "landfill") * N_TURBINES * FU_FACTOR, "kg"),
+                        "per_turbine": (_eol("1.3.1 Main Shaft and Bearings Steel",    1, "landfill", N_INTERVENTIONS["drive_train"]),                        "kg"),
+                        "full_farm":   (_eol("1.3.1 Main Shaft and Bearings Steel",    1, "landfill", N_INTERVENTIONS["drive_train"]) * N_TURBINES,           "kg"),
+                        "per_FU":      (_eol("1.3.1 Main Shaft and Bearings Steel",    1, "landfill", N_INTERVENTIONS["drive_train"]) * N_TURBINES * FU_FACTOR, "kg"),
                     },
                 },
                 "1.4 Generator": {
                     "1.4.1 Generator NdFeB Landfill": {
-                        "per_turbine": (_eol("1.4.1 Generator NdFeB",                  7, "landfill"),                        "kg"),
-                        "full_farm":   (_eol("1.4.1 Generator NdFeB",                  7, "landfill") * N_TURBINES,           "kg"),
-                        "per_FU":      (_eol("1.4.1 Generator NdFeB",                  7, "landfill") * N_TURBINES * FU_FACTOR, "kg"),
+                        "per_turbine": (_eol("1.4.1 Generator NdFeB",                  7, "landfill", N_INTERVENTIONS["generator"]),                        "kg"),
+                        "full_farm":   (_eol("1.4.1 Generator NdFeB",                  7, "landfill", N_INTERVENTIONS["generator"]) * N_TURBINES,           "kg"),
+                        "per_FU":      (_eol("1.4.1 Generator NdFeB",                  7, "landfill", N_INTERVENTIONS["generator"]) * N_TURBINES * FU_FACTOR, "kg"),
                     },
                     "1.4.2 Generator Copper Recycling": {
-                        "per_turbine": (_eol("1.4.2 Generator Copper",                 3, "recycled"),                        "kg"),
-                        "full_farm":   (_eol("1.4.2 Generator Copper",                 3, "recycled") * N_TURBINES,           "kg"),
-                        "per_FU":      (_eol("1.4.2 Generator Copper",                 3, "recycled") * N_TURBINES * FU_FACTOR, "kg"),
+                        "per_turbine": (_eol("1.4.2 Generator Copper",                 3, "recycled", N_INTERVENTIONS["generator"]),                        "kg"),
+                        "full_farm":   (_eol("1.4.2 Generator Copper",                 3, "recycled", N_INTERVENTIONS["generator"]) * N_TURBINES,           "kg"),
+                        "per_FU":      (_eol("1.4.2 Generator Copper",                 3, "recycled", N_INTERVENTIONS["generator"]) * N_TURBINES * FU_FACTOR, "kg"),
                     },
                     "1.4.2 Generator Copper Landfill": {
-                        "per_turbine": (_eol("1.4.2 Generator Copper",                 3, "landfill"),                        "kg"),
-                        "full_farm":   (_eol("1.4.2 Generator Copper",                 3, "landfill") * N_TURBINES,           "kg"),
-                        "per_FU":      (_eol("1.4.2 Generator Copper",                 3, "landfill") * N_TURBINES * FU_FACTOR, "kg"),
+                        "per_turbine": (_eol("1.4.2 Generator Copper",                 3, "landfill", N_INTERVENTIONS["generator"]),                        "kg"),
+                        "full_farm":   (_eol("1.4.2 Generator Copper",                 3, "landfill", N_INTERVENTIONS["generator"]) * N_TURBINES,           "kg"),
+                        "per_FU":      (_eol("1.4.2 Generator Copper",                 3, "landfill", N_INTERVENTIONS["generator"]) * N_TURBINES * FU_FACTOR, "kg"),
                     },
                     "1.4.3 Generator Electrical Steel Recycling": {
-                        "per_turbine": (_eol("1.4.3 Generator Electrical Steel",       3, "recycled"),                        "kg"),
-                        "full_farm":   (_eol("1.4.3 Generator Electrical Steel",       3, "recycled") * N_TURBINES,           "kg"),
-                        "per_FU":      (_eol("1.4.3 Generator Electrical Steel",       3, "recycled") * N_TURBINES * FU_FACTOR, "kg"),
+                        "per_turbine": (_eol("1.4.3 Generator Electrical Steel",       3, "recycled", N_INTERVENTIONS["generator"]),                        "kg"),
+                        "full_farm":   (_eol("1.4.3 Generator Electrical Steel",       3, "recycled", N_INTERVENTIONS["generator"]) * N_TURBINES,           "kg"),
+                        "per_FU":      (_eol("1.4.3 Generator Electrical Steel",       3, "recycled", N_INTERVENTIONS["generator"]) * N_TURBINES * FU_FACTOR, "kg"),
                     },
                     "1.4.3 Generator Electrical Steel Landfill": {
-                        "per_turbine": (_eol("1.4.3 Generator Electrical Steel",       3, "landfill"),                        "kg"),
-                        "full_farm":   (_eol("1.4.3 Generator Electrical Steel",       3, "landfill") * N_TURBINES,           "kg"),
-                        "per_FU":      (_eol("1.4.3 Generator Electrical Steel",       3, "landfill") * N_TURBINES * FU_FACTOR, "kg"),
+                        "per_turbine": (_eol("1.4.3 Generator Electrical Steel",       3, "landfill", N_INTERVENTIONS["generator"]),                        "kg"),
+                        "full_farm":   (_eol("1.4.3 Generator Electrical Steel",       3, "landfill", N_INTERVENTIONS["generator"]) * N_TURBINES,           "kg"),
+                        "per_FU":      (_eol("1.4.3 Generator Electrical Steel",       3, "landfill", N_INTERVENTIONS["generator"]) * N_TURBINES * FU_FACTOR, "kg"),
                     },
                     "1.4.4 Generator Steel Recycling": {
-                        "per_turbine": (_eol("1.4.4 Generator Steel",                  2, "recycled"),                        "kg"),
-                        "full_farm":   (_eol("1.4.4 Generator Steel",                  2, "recycled") * N_TURBINES,           "kg"),
-                        "per_FU":      (_eol("1.4.4 Generator Steel",                  2, "recycled") * N_TURBINES * FU_FACTOR, "kg"),
+                        "per_turbine": (_eol("1.4.4 Generator Steel",                  2, "recycled", N_INTERVENTIONS["generator"]),                        "kg"),
+                        "full_farm":   (_eol("1.4.4 Generator Steel",                  2, "recycled", N_INTERVENTIONS["generator"]) * N_TURBINES,           "kg"),
+                        "per_FU":      (_eol("1.4.4 Generator Steel",                  2, "recycled", N_INTERVENTIONS["generator"]) * N_TURBINES * FU_FACTOR, "kg"),
                     },
                     "1.4.4 Generator Steel Landfill": {
-                        "per_turbine": (_eol("1.4.4 Generator Steel",                  2, "landfill"),                        "kg"),
-                        "full_farm":   (_eol("1.4.4 Generator Steel",                  2, "landfill") * N_TURBINES,           "kg"),
-                        "per_FU":      (_eol("1.4.4 Generator Steel",                  2, "landfill") * N_TURBINES * FU_FACTOR, "kg"),
+                        "per_turbine": (_eol("1.4.4 Generator Steel",                  2, "landfill", N_INTERVENTIONS["generator"]),                        "kg"),
+                        "full_farm":   (_eol("1.4.4 Generator Steel",                  2, "landfill", N_INTERVENTIONS["generator"]) * N_TURBINES,           "kg"),
+                        "per_FU":      (_eol("1.4.4 Generator Steel",                  2, "landfill", N_INTERVENTIONS["generator"]) * N_TURBINES * FU_FACTOR, "kg"),
                     },
                 },
                 "1.5 Brake": {
                     "1.5.1 Brake Steel Recycling": {
-                        "per_turbine": (_eol("1.5.1 Brake Steel",                      1, "recycled"),                        "kg"),
-                        "full_farm":   (_eol("1.5.1 Brake Steel",                      1, "recycled") * N_TURBINES,           "kg"),
-                        "per_FU":      (_eol("1.5.1 Brake Steel",                      1, "recycled") * N_TURBINES * FU_FACTOR, "kg"),
+                        "per_turbine": (_eol("1.5.1 Brake Steel",                      1, "recycled", N_INTERVENTIONS["hydraulic_pitch_system"]),                        "kg"),
+                        "full_farm":   (_eol("1.5.1 Brake Steel",                      1, "recycled", N_INTERVENTIONS["hydraulic_pitch_system"]) * N_TURBINES,           "kg"),
+                        "per_FU":      (_eol("1.5.1 Brake Steel",                      1, "recycled", N_INTERVENTIONS["hydraulic_pitch_system"]) * N_TURBINES * FU_FACTOR, "kg"),
                     },
                     "1.5.1 Brake Steel Landfill": {
-                        "per_turbine": (_eol("1.5.1 Brake Steel",                      1, "landfill"),                        "kg"),
-                        "full_farm":   (_eol("1.5.1 Brake Steel",                      1, "landfill") * N_TURBINES,           "kg"),
-                        "per_FU":      (_eol("1.5.1 Brake Steel",                      1, "landfill") * N_TURBINES * FU_FACTOR, "kg"),
+                        "per_turbine": (_eol("1.5.1 Brake Steel",                      1, "landfill", N_INTERVENTIONS["hydraulic_pitch_system"]),                        "kg"),
+                        "full_farm":   (_eol("1.5.1 Brake Steel",                      1, "landfill", N_INTERVENTIONS["hydraulic_pitch_system"]) * N_TURBINES,           "kg"),
+                        "per_FU":      (_eol("1.5.1 Brake Steel",                      1, "landfill", N_INTERVENTIONS["hydraulic_pitch_system"]) * N_TURBINES * FU_FACTOR, "kg"),
                     },
                 },
                 "1.6 Turret (Nacelle)": {
@@ -1309,14 +1338,14 @@ INVENTORY_MASSES = {
                 },
                 "1.8 Yaw System (Nacelle)": {
                     "1.8.1 Yaw System Steel Recycling": {
-                        "per_turbine": (_eol("1.8.1 Yaw System Steel",                 2, "recycled"),                        "kg"),
-                        "full_farm":   (_eol("1.8.1 Yaw System Steel",                 2, "recycled") * N_TURBINES,           "kg"),
-                        "per_FU":      (_eol("1.8.1 Yaw System Steel",                 2, "recycled") * N_TURBINES * FU_FACTOR, "kg"),
+                        "per_turbine": (_eol("1.8.1 Yaw System Steel",                 2, "recycled", N_INTERVENTIONS["yaw_system"]),                        "kg"),
+                        "full_farm":   (_eol("1.8.1 Yaw System Steel",                 2, "recycled", N_INTERVENTIONS["yaw_system"]) * N_TURBINES,           "kg"),
+                        "per_FU":      (_eol("1.8.1 Yaw System Steel",                 2, "recycled", N_INTERVENTIONS["yaw_system"]) * N_TURBINES * FU_FACTOR, "kg"),
                     },
                     "1.8.1 Yaw System Steel Landfill": {
-                        "per_turbine": (_eol("1.8.1 Yaw System Steel",                 2, "landfill"),                        "kg"),
-                        "full_farm":   (_eol("1.8.1 Yaw System Steel",                 2, "landfill") * N_TURBINES,           "kg"),
-                        "per_FU":      (_eol("1.8.1 Yaw System Steel",                 2, "landfill") * N_TURBINES * FU_FACTOR, "kg"),
+                        "per_turbine": (_eol("1.8.1 Yaw System Steel",                 2, "landfill", N_INTERVENTIONS["yaw_system"]),                        "kg"),
+                        "full_farm":   (_eol("1.8.1 Yaw System Steel",                 2, "landfill", N_INTERVENTIONS["yaw_system"]) * N_TURBINES,           "kg"),
+                        "per_FU":      (_eol("1.8.1 Yaw System Steel",                 2, "landfill", N_INTERVENTIONS["yaw_system"]) * N_TURBINES * FU_FACTOR, "kg"),
                     },
                 },
                 "1.9 Nacelle_cover_and_platforms (Nacelle)": {
@@ -1343,29 +1372,29 @@ INVENTORY_MASSES = {
                 },
                 "1.10 HVAC_and_auxiliarie (Nacelle)": {
                     "1.10.1 HVAC_pack Treatment and Disposal": {
-                        "per_turbine": (_eol("1.10.1 HVAC_pack",                       7, "landfill"),                        "kg"),
-                        "full_farm":   (_eol("1.10.1 HVAC_pack",                       7, "landfill") * N_TURBINES,           "kg"),
-                        "per_FU":      (_eol("1.10.1 HVAC_pack",                       7, "landfill") * N_TURBINES * FU_FACTOR, "kg"),
+                        "per_turbine": (_eol("1.10.1 HVAC_pack",                       7, "landfill", N_INTERVENTIONS["electrical_system"]),                        "kg"),
+                        "full_farm":   (_eol("1.10.1 HVAC_pack",                       7, "landfill", N_INTERVENTIONS["electrical_system"]) * N_TURBINES,           "kg"),
+                        "per_FU":      (_eol("1.10.1 HVAC_pack",                       7, "landfill", N_INTERVENTIONS["electrical_system"]) * N_TURBINES * FU_FACTOR, "kg"),
                     },
                     "1.10.2.1 Cabling_internal Copper Recycling": {
-                        "per_turbine": (_eol("1.10.2.1 Cabling_internal Copper",       3, "recycled"),                        "kg"),
-                        "full_farm":   (_eol("1.10.2.1 Cabling_internal Copper",       3, "recycled") * N_TURBINES,           "kg"),
-                        "per_FU":      (_eol("1.10.2.1 Cabling_internal Copper",       3, "recycled") * N_TURBINES * FU_FACTOR, "kg"),
+                        "per_turbine": (_eol("1.10.2.1 Cabling_internal Copper",       3, "recycled", N_INTERVENTIONS["electrical_system"]),                        "kg"),
+                        "full_farm":   (_eol("1.10.2.1 Cabling_internal Copper",       3, "recycled", N_INTERVENTIONS["electrical_system"]) * N_TURBINES,           "kg"),
+                        "per_FU":      (_eol("1.10.2.1 Cabling_internal Copper",       3, "recycled", N_INTERVENTIONS["electrical_system"]) * N_TURBINES * FU_FACTOR, "kg"),
                     },
                     "1.10.2.1 Cabling_internal Copper Landfill": {
-                        "per_turbine": (_eol("1.10.2.1 Cabling_internal Copper",       3, "landfill"),                        "kg"),
-                        "full_farm":   (_eol("1.10.2.1 Cabling_internal Copper",       3, "landfill") * N_TURBINES,           "kg"),
-                        "per_FU":      (_eol("1.10.2.1 Cabling_internal Copper",       3, "landfill") * N_TURBINES * FU_FACTOR, "kg"),
+                        "per_turbine": (_eol("1.10.2.1 Cabling_internal Copper",       3, "landfill", N_INTERVENTIONS["electrical_system"]),                        "kg"),
+                        "full_farm":   (_eol("1.10.2.1 Cabling_internal Copper",       3, "landfill", N_INTERVENTIONS["electrical_system"]) * N_TURBINES,           "kg"),
+                        "per_FU":      (_eol("1.10.2.1 Cabling_internal Copper",       3, "landfill", N_INTERVENTIONS["electrical_system"]) * N_TURBINES * FU_FACTOR, "kg"),
                     },
                     "1.10.2.2 Cabling_internal Plastic Landfill": {
-                        "per_turbine": (_eol("1.10.2.2 Cabling_internal Plastic",      6, "landfill"),                        "kg"),
-                        "full_farm":   (_eol("1.10.2.2 Cabling_internal Plastic",      6, "landfill") * N_TURBINES,           "kg"),
-                        "per_FU":      (_eol("1.10.2.2 Cabling_internal Plastic",      6, "landfill") * N_TURBINES * FU_FACTOR, "kg"),
+                        "per_turbine": (_eol("1.10.2.2 Cabling_internal Plastic",      6, "landfill", N_INTERVENTIONS["electrical_system"]),                        "kg"),
+                        "full_farm":   (_eol("1.10.2.2 Cabling_internal Plastic",      6, "landfill", N_INTERVENTIONS["electrical_system"]) * N_TURBINES,           "kg"),
+                        "per_FU":      (_eol("1.10.2.2 Cabling_internal Plastic",      6, "landfill", N_INTERVENTIONS["electrical_system"]) * N_TURBINES * FU_FACTOR, "kg"),
                     },
                     "1.10.2.2 Cabling_internal Plastic Incineration": {
-                        "per_turbine": (_eol("1.10.2.2 Cabling_internal Plastic",      6, "incineration"),                        "kg"),
-                        "full_farm":   (_eol("1.10.2.2 Cabling_internal Plastic",      6, "incineration") * N_TURBINES,           "kg"),
-                        "per_FU":      (_eol("1.10.2.2 Cabling_internal Plastic",      6, "incineration") * N_TURBINES * FU_FACTOR, "kg"),
+                        "per_turbine": (_eol("1.10.2.2 Cabling_internal Plastic",      6, "incineration", N_INTERVENTIONS["electrical_system"]),                        "kg"),
+                        "full_farm":   (_eol("1.10.2.2 Cabling_internal Plastic",      6, "incineration", N_INTERVENTIONS["electrical_system"]) * N_TURBINES,           "kg"),
+                        "per_FU":      (_eol("1.10.2.2 Cabling_internal Plastic",      6, "incineration", N_INTERVENTIONS["electrical_system"]) * N_TURBINES * FU_FACTOR, "kg"),
                     },
                     "1.10.3 Lube_and_hydraulics Incineration": {
                         "per_turbine": (_eol("1.10.3 Lube_and_hydraulics",             5, "incineration"),                        "kg"),
@@ -1375,9 +1404,9 @@ INVENTORY_MASSES = {
                 },
                 "1.11 Converter (Electrical components)": {
                     "1.11.1 Power Electronics Converter": {
-                        "per_turbine": (_eol("1.11.1 Power Electronics Converter",     7, "landfill"),                        "kg"),
-                        "full_farm":   (_eol("1.11.1 Power Electronics Converter",     7, "landfill") * N_TURBINES,           "kg"),
-                        "per_FU":      (_eol("1.11.1 Power Electronics Converter",     7, "landfill") * N_TURBINES * FU_FACTOR, "kg"),
+                        "per_turbine": (_eol("1.11.1 Power Electronics Converter",     7, "landfill", N_INTERVENTIONS["power_converter"]),                        "kg"),
+                        "full_farm":   (_eol("1.11.1 Power Electronics Converter",     7, "landfill", N_INTERVENTIONS["power_converter"]) * N_TURBINES,           "kg"),
+                        "per_FU":      (_eol("1.11.1 Power Electronics Converter",     7, "landfill", N_INTERVENTIONS["power_converter"]) * N_TURBINES * FU_FACTOR, "kg"),
                     },
                 },
                 "1.12 Transformer (Electrical components)": {

@@ -130,6 +130,8 @@ TURBINE_BLADES_EPOXY_T         = TURBINE_BLADES_T * BLADES_EPOXY_FRACTION
 TURBINE_CABLING_COPPER_T       = TURBINE_CABLING_T * CABLING_COPPER_FRACTION
 TURBINE_CABLING_PLASTIC_T      = TURBINE_CABLING_T * CABLING_PLASTIC_FRACTION
 
+N_EXPORT_CABLES                = 4
+
 
 # =============================================================================
 # MATERIALS
@@ -388,23 +390,23 @@ _MAT = {
         "3.4 Export Cables": {
             "3.4.1 Copper": {
                 "per_turbine": (None, "kg"),
-                "full_farm":   (EXPORT_CABLE_MASSES_T_PER_KM["Copper"]  * DISTANCE_TO_SHORE_KM * TON_TO_KG, "kg"),
-                "per_FU":      (EXPORT_CABLE_MASSES_T_PER_KM["Copper"]  * DISTANCE_TO_SHORE_KM * TON_TO_KG * FU_FACTOR, "kg"),
+                "full_farm":   (EXPORT_CABLE_MASSES_T_PER_KM["Copper"]  * DISTANCE_TO_SHORE_KM * TON_TO_KG * N_EXPORT_CABLES, "kg"),
+                "per_FU":      (EXPORT_CABLE_MASSES_T_PER_KM["Copper"]  * DISTANCE_TO_SHORE_KM * TON_TO_KG * N_EXPORT_CABLES * FU_FACTOR, "kg"),
             },
             "3.4.2 Lead": {
                 "per_turbine": (None, "kg"),
-                "full_farm":   (EXPORT_CABLE_MASSES_T_PER_KM["Lead"]    * DISTANCE_TO_SHORE_KM * TON_TO_KG, "kg"),
-                "per_FU":      (EXPORT_CABLE_MASSES_T_PER_KM["Lead"]    * DISTANCE_TO_SHORE_KM * TON_TO_KG * FU_FACTOR, "kg"),
+                "full_farm":   (EXPORT_CABLE_MASSES_T_PER_KM["Lead"]    * DISTANCE_TO_SHORE_KM * TON_TO_KG * N_EXPORT_CABLES, "kg"),
+                "per_FU":      (EXPORT_CABLE_MASSES_T_PER_KM["Lead"]    * DISTANCE_TO_SHORE_KM * TON_TO_KG * N_EXPORT_CABLES * FU_FACTOR, "kg"),
             },
             "3.4.3 Steel": {
                 "per_turbine": (None, "kg"),
-                "full_farm":   (EXPORT_CABLE_MASSES_T_PER_KM["Steel"]   * DISTANCE_TO_SHORE_KM * TON_TO_KG, "kg"),
-                "per_FU":      (EXPORT_CABLE_MASSES_T_PER_KM["Steel"]   * DISTANCE_TO_SHORE_KM * TON_TO_KG * FU_FACTOR, "kg"),
+                "full_farm":   (EXPORT_CABLE_MASSES_T_PER_KM["Steel"]   * DISTANCE_TO_SHORE_KM * TON_TO_KG * N_EXPORT_CABLES, "kg"),
+                "per_FU":      (EXPORT_CABLE_MASSES_T_PER_KM["Steel"]   * DISTANCE_TO_SHORE_KM * TON_TO_KG * N_EXPORT_CABLES * FU_FACTOR, "kg"),
             },
             "3.4.4 Polyethylene": {
                 "per_turbine": (None, "kg"),
-                "full_farm":   (EXPORT_CABLE_MASSES_T_PER_KM["Polyethylene"] * DISTANCE_TO_SHORE_KM * TON_TO_KG, "kg"),
-                "per_FU":      (EXPORT_CABLE_MASSES_T_PER_KM["Polyethylene"] * DISTANCE_TO_SHORE_KM * TON_TO_KG * FU_FACTOR, "kg"),
+                "full_farm":   (EXPORT_CABLE_MASSES_T_PER_KM["Polyethylene"] * DISTANCE_TO_SHORE_KM * TON_TO_KG * N_EXPORT_CABLES, "kg"),
+                "per_FU":      (EXPORT_CABLE_MASSES_T_PER_KM["Polyethylene"] * DISTANCE_TO_SHORE_KM * TON_TO_KG * N_EXPORT_CABLES * FU_FACTOR, "kg"),
             },
         },
     },

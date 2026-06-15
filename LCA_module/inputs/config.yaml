@@ -118,10 +118,10 @@ INSTALLATION_ACTIVITIES:
 
 # --- EXPORT CABLE MATERIAL MASS DENSITIES (t/km) ---
 EXPORT_CABLE_MASSES_T_PER_KM:
-  Copper:  141.94
-  Lead:    111.31
-  Steel:   137.60
-  Polyethylene: 121.15
+  Copper:  35.38
+  Lead:    27.83
+  Steel:   34.40
+  Polyethylene: 30.29
 
 
 # =========================================================================

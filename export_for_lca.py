@@ -9,7 +9,7 @@ HOW TO RUN
 
 OUTPUT
 ------
-    lca_interface/technical_output.py   (created automatically)
+    lca_module/inputs/technical_output.py   (created automatically)
 
 REQUIREMENTS
 ------------
@@ -27,7 +27,6 @@ SOURCE MAPPING (HKN example farm)
   Config.yaml          -> LIFETIME_YEARS  (WF_OperationsEnd - WF_OperationsStart)
   CAPEX.yaml           -> DISTANCE_TO_SHORE_KM (inferred), all component masses
   iea_22s.py           -> rotor diameter (needed for DTU pitch-bearing formula)
-  layout CSV           -> TURBINE_COORDINATES, array_cable_length_m (MST)
 
 MASS EXTRACTION NOTES
 ---------------------

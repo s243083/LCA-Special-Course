@@ -33,9 +33,13 @@ IMPACT_COLUMNS:
 # =========================================================================
 
 # --- ARRAY CABLE LENGTHS (km) ---
+# Set a size's length to 0 if that cable type is not used in the project.
+ARRAY_CABLE_120MM2_LENGTH_KM:      0.0
 ARRAY_CABLE_240MM2_LENGTH_KM:      14.8
-ARRAY_CABLE_630MM2_LENGTH_KM:      93.9
+ARRAY_CABLE_500MM2_LENGTH_KM:      0.0
+ARRAY_CABLE_630MM2_LENGTH_KM:      9.39
 ARRAY_CABLE_800MM2_LENGTH_KM:      16.5
+ARRAY_CABLE_1000MM2_LENGTH_KM:     0.0
 
 # --- ARRAY CABLE MATERIAL FRACTIONS (kg material / kg cable) ---
 CABLE_FRACTION_COPPER:             0.143476
@@ -45,12 +49,12 @@ CABLE_FRACTION_STEEL:              0.500264
 CABLE_FRACTION_GLASS:              0.01585
 
 # --- ARRAY CABLE LINEAR MASS DENSITY (kg/m) ---
-CABLE_KGM_120MM2:                  23.8     # not currently being used
+CABLE_KGM_120MM2:                  23.8
 CABLE_KGM_240MM2:                  31.3
-CABLE_KGM_500MM2:                  45.4     # not currently being used
+CABLE_KGM_500MM2:                  45.4
 CABLE_KGM_630MM2:                  52.0
 CABLE_KGM_800MM2:                  60.0
-CABLE_KGM_1000MM2:                 70.7     # not currently being used
+CABLE_KGM_1000MM2:                 70.7
 
 # --- OFFSHORE SUBSTATION MATERIALS (tonnes) ---
 OSS_STEEL_UNALLOYED_T:             10217     # 1.1 Unalloyed steel

@@ -64,17 +64,23 @@ with open(_cfg_path, "r", encoding="utf-8") as _f:
 EOL_FACTORS                    = _cfg["EOL_FACTORS"]
 INSTALLATION_ACTIVITIES        = _cfg["INSTALLATION_ACTIVITIES"]
 ENERGY_CONTENT_FUEL_MJ_PER_KG  = _cfg["ENERGY_CONTENT_FUEL_MJ_PER_KG"]
+ARRAY_CABLE_120MM2_LENGTH_KM   = _cfg["ARRAY_CABLE_120MM2_LENGTH_KM"]
 ARRAY_CABLE_240MM2_LENGTH_KM   = _cfg["ARRAY_CABLE_240MM2_LENGTH_KM"]
+ARRAY_CABLE_500MM2_LENGTH_KM   = _cfg["ARRAY_CABLE_500MM2_LENGTH_KM"]
 ARRAY_CABLE_630MM2_LENGTH_KM   = _cfg["ARRAY_CABLE_630MM2_LENGTH_KM"]
 ARRAY_CABLE_800MM2_LENGTH_KM   = _cfg["ARRAY_CABLE_800MM2_LENGTH_KM"]
+ARRAY_CABLE_1000MM2_LENGTH_KM  = _cfg["ARRAY_CABLE_1000MM2_LENGTH_KM"]
 CABLE_FRACTION_COPPER          = _cfg["CABLE_FRACTION_COPPER"]
 CABLE_FRACTION_POLYETHYLENE    = _cfg["CABLE_FRACTION_POLYETHYLENE"]
 CABLE_FRACTION_LEAD            = _cfg["CABLE_FRACTION_LEAD"]
 CABLE_FRACTION_STEEL           = _cfg["CABLE_FRACTION_STEEL"]
 CABLE_FRACTION_GLASS           = _cfg["CABLE_FRACTION_GLASS"]
+CABLE_KGM_120MM2               = _cfg["CABLE_KGM_120MM2"]
 CABLE_KGM_240MM2               = _cfg["CABLE_KGM_240MM2"]
+CABLE_KGM_500MM2               = _cfg["CABLE_KGM_500MM2"]
 CABLE_KGM_630MM2               = _cfg["CABLE_KGM_630MM2"]
 CABLE_KGM_800MM2               = _cfg["CABLE_KGM_800MM2"]
+CABLE_KGM_1000MM2              = _cfg["CABLE_KGM_1000MM2"]
 OSS_STEEL_UNALLOYED_T          = _cfg["OSS_STEEL_UNALLOYED_T"]
 OSS_STEEL_HIGHLY_ALLOYED_T     = _cfg["OSS_STEEL_HIGHLY_ALLOYED_T"]
 OSS_CAST_IRON_T                = _cfg["OSS_CAST_IRON_T"]
@@ -307,104 +313,185 @@ _MAT = {
         },
     },
     "3. Electrical Infrastructure": {
-        "3.1 Array Cables 240mm2 (66kV)": {
+        "3.1 Array Cables 120mm2 (66kV)": {
             "3.1.1 Copper": {
+                "per_turbine": (None,                                                                                        "kg"),
+                "full_farm":   (ARRAY_CABLE_120MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_120MM2 * CABLE_FRACTION_COPPER,             "kg"),
+                "per_FU":      (ARRAY_CABLE_120MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_120MM2 * CABLE_FRACTION_COPPER * FU_FACTOR,       "kg"),
+            },
+            "3.1.2 Polyethylene": {
+                "per_turbine": (None,                                                                                        "kg"),
+                "full_farm":   (ARRAY_CABLE_120MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_120MM2 * CABLE_FRACTION_POLYETHYLENE,       "kg"),
+                "per_FU":      (ARRAY_CABLE_120MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_120MM2 * CABLE_FRACTION_POLYETHYLENE * FU_FACTOR, "kg"),
+            },
+            "3.1.3 Lead": {
+                "per_turbine": (None,                                                                                        "kg"),
+                "full_farm":   (ARRAY_CABLE_120MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_120MM2 * CABLE_FRACTION_LEAD,               "kg"),
+                "per_FU":      (ARRAY_CABLE_120MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_120MM2 * CABLE_FRACTION_LEAD * FU_FACTOR,         "kg"),
+            },
+            "3.1.4 Steel": {
+                "per_turbine": (None,                                                                                        "kg"),
+                "full_farm":   (ARRAY_CABLE_120MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_120MM2 * CABLE_FRACTION_STEEL,              "kg"),
+                "per_FU":      (ARRAY_CABLE_120MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_120MM2 * CABLE_FRACTION_STEEL * FU_FACTOR,        "kg"),
+            },
+            "3.1.5 Glass": {
+                "per_turbine": (None,                                                                                        "kg"),
+                "full_farm":   (ARRAY_CABLE_120MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_120MM2 * CABLE_FRACTION_GLASS,              "kg"),
+                "per_FU":      (ARRAY_CABLE_120MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_120MM2 * CABLE_FRACTION_GLASS * FU_FACTOR,        "kg"),
+            },
+        },
+        "3.2 Array Cables 240mm2 (66kV)": {
+            "3.2.1 Copper": {
                 "per_turbine": (None,                                                                                        "kg"),
                 "full_farm":   (ARRAY_CABLE_240MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_240MM2 * CABLE_FRACTION_COPPER,             "kg"),
                 "per_FU":      (ARRAY_CABLE_240MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_240MM2 * CABLE_FRACTION_COPPER * FU_FACTOR,       "kg"),
             },
-            "3.1.2 Polyethylene": {
+            "3.2.2 Polyethylene": {
                 "per_turbine": (None,                                                                                        "kg"),
                 "full_farm":   (ARRAY_CABLE_240MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_240MM2 * CABLE_FRACTION_POLYETHYLENE,       "kg"),
                 "per_FU":      (ARRAY_CABLE_240MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_240MM2 * CABLE_FRACTION_POLYETHYLENE * FU_FACTOR, "kg"),
             },
-            "3.1.3 Lead": {
+            "3.2.3 Lead": {
                 "per_turbine": (None,                                                                                        "kg"),
                 "full_farm":   (ARRAY_CABLE_240MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_240MM2 * CABLE_FRACTION_LEAD,               "kg"),
                 "per_FU":      (ARRAY_CABLE_240MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_240MM2 * CABLE_FRACTION_LEAD * FU_FACTOR,         "kg"),
             },
-            "3.1.4 Steel": {
+            "3.2.4 Steel": {
                 "per_turbine": (None,                                                                                        "kg"),
                 "full_farm":   (ARRAY_CABLE_240MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_240MM2 * CABLE_FRACTION_STEEL,              "kg"),
                 "per_FU":      (ARRAY_CABLE_240MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_240MM2 * CABLE_FRACTION_STEEL * FU_FACTOR,        "kg"),
             },
-            "3.1.5 Glass": {
+            "3.2.5 Glass": {
                 "per_turbine": (None,                                                                                        "kg"),
                 "full_farm":   (ARRAY_CABLE_240MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_240MM2 * CABLE_FRACTION_GLASS,              "kg"),
                 "per_FU":      (ARRAY_CABLE_240MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_240MM2 * CABLE_FRACTION_GLASS * FU_FACTOR,        "kg"),
             },
         },
-        "3.2 Array Cables 630mm2 (66kV)": {
-            "3.2.1 Copper": {
+        "3.3 Array Cables 500mm2 (66kV)": {
+            "3.3.1 Copper": {
+                "per_turbine": (None,                                                                                        "kg"),
+                "full_farm":   (ARRAY_CABLE_500MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_500MM2 * CABLE_FRACTION_COPPER,             "kg"),
+                "per_FU":      (ARRAY_CABLE_500MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_500MM2 * CABLE_FRACTION_COPPER * FU_FACTOR,       "kg"),
+            },
+            "3.3.2 Polyethylene": {
+                "per_turbine": (None,                                                                                        "kg"),
+                "full_farm":   (ARRAY_CABLE_500MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_500MM2 * CABLE_FRACTION_POLYETHYLENE,       "kg"),
+                "per_FU":      (ARRAY_CABLE_500MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_500MM2 * CABLE_FRACTION_POLYETHYLENE * FU_FACTOR, "kg"),
+            },
+            "3.3.3 Lead": {
+                "per_turbine": (None,                                                                                        "kg"),
+                "full_farm":   (ARRAY_CABLE_500MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_500MM2 * CABLE_FRACTION_LEAD,               "kg"),
+                "per_FU":      (ARRAY_CABLE_500MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_500MM2 * CABLE_FRACTION_LEAD * FU_FACTOR,         "kg"),
+            },
+            "3.3.4 Steel": {
+                "per_turbine": (None,                                                                                        "kg"),
+                "full_farm":   (ARRAY_CABLE_500MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_500MM2 * CABLE_FRACTION_STEEL,              "kg"),
+                "per_FU":      (ARRAY_CABLE_500MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_500MM2 * CABLE_FRACTION_STEEL * FU_FACTOR,        "kg"),
+            },
+            "3.3.5 Glass": {
+                "per_turbine": (None,                                                                                        "kg"),
+                "full_farm":   (ARRAY_CABLE_500MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_500MM2 * CABLE_FRACTION_GLASS,              "kg"),
+                "per_FU":      (ARRAY_CABLE_500MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_500MM2 * CABLE_FRACTION_GLASS * FU_FACTOR,        "kg"),
+            },
+        },
+        "3.4 Array Cables 630mm2 (66kV)": {
+            "3.4.1 Copper": {
                 "per_turbine": (None,                                                                                        "kg"),
                 "full_farm":   (ARRAY_CABLE_630MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_630MM2 * CABLE_FRACTION_COPPER,             "kg"),
                 "per_FU":      (ARRAY_CABLE_630MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_630MM2 * CABLE_FRACTION_COPPER * FU_FACTOR,       "kg"),
             },
-            "3.2.2 Polyethylene": {
+            "3.4.2 Polyethylene": {
                 "per_turbine": (None,                                                                                        "kg"),
                 "full_farm":   (ARRAY_CABLE_630MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_630MM2 * CABLE_FRACTION_POLYETHYLENE,       "kg"),
                 "per_FU":      (ARRAY_CABLE_630MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_630MM2 * CABLE_FRACTION_POLYETHYLENE * FU_FACTOR, "kg"),
             },
-            "3.2.3 Lead": {
+            "3.4.3 Lead": {
                 "per_turbine": (None,                                                                                        "kg"),
                 "full_farm":   (ARRAY_CABLE_630MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_630MM2 * CABLE_FRACTION_LEAD,               "kg"),
                 "per_FU":      (ARRAY_CABLE_630MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_630MM2 * CABLE_FRACTION_LEAD * FU_FACTOR,         "kg"),
             },
-            "3.2.4 Steel": {
+            "3.4.4 Steel": {
                 "per_turbine": (None,                                                                                        "kg"),
                 "full_farm":   (ARRAY_CABLE_630MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_630MM2 * CABLE_FRACTION_STEEL,              "kg"),
                 "per_FU":      (ARRAY_CABLE_630MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_630MM2 * CABLE_FRACTION_STEEL * FU_FACTOR,        "kg"),
             },
-            "3.2.5 Glass": {
+            "3.4.5 Glass": {
                 "per_turbine": (None,                                                                                        "kg"),
                 "full_farm":   (ARRAY_CABLE_630MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_630MM2 * CABLE_FRACTION_GLASS,              "kg"),
                 "per_FU":      (ARRAY_CABLE_630MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_630MM2 * CABLE_FRACTION_GLASS * FU_FACTOR,        "kg"),
             },
         },
-        "3.3 Array Cables 800mm2 (66kV)": {
-            "3.3.1 Copper": {
+        "3.5 Array Cables 800mm2 (66kV)": {
+            "3.5.1 Copper": {
                 "per_turbine": (None,                                                                                        "kg"),
                 "full_farm":   (ARRAY_CABLE_800MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_800MM2 * CABLE_FRACTION_COPPER,             "kg"),
                 "per_FU":      (ARRAY_CABLE_800MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_800MM2 * CABLE_FRACTION_COPPER * FU_FACTOR,       "kg"),
             },
-            "3.3.2 Polyethylene": {
+            "3.5.2 Polyethylene": {
                 "per_turbine": (None,                                                                                        "kg"),
                 "full_farm":   (ARRAY_CABLE_800MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_800MM2 * CABLE_FRACTION_POLYETHYLENE,       "kg"),
                 "per_FU":      (ARRAY_CABLE_800MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_800MM2 * CABLE_FRACTION_POLYETHYLENE * FU_FACTOR, "kg"),
             },
-            "3.3.3 Lead": {
+            "3.5.3 Lead": {
                 "per_turbine": (None,                                                                                        "kg"),
                 "full_farm":   (ARRAY_CABLE_800MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_800MM2 * CABLE_FRACTION_LEAD,               "kg"),
                 "per_FU":      (ARRAY_CABLE_800MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_800MM2 * CABLE_FRACTION_LEAD * FU_FACTOR,         "kg"),
             },
-            "3.3.4 Steel": {
+            "3.5.4 Steel": {
                 "per_turbine": (None,                                                                                        "kg"),
                 "full_farm":   (ARRAY_CABLE_800MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_800MM2 * CABLE_FRACTION_STEEL,              "kg"),
                 "per_FU":      (ARRAY_CABLE_800MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_800MM2 * CABLE_FRACTION_STEEL * FU_FACTOR,        "kg"),
             },
-            "3.3.5 Glass": {
+            "3.5.5 Glass": {
                 "per_turbine": (None,                                                                                        "kg"),
                 "full_farm":   (ARRAY_CABLE_800MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_800MM2 * CABLE_FRACTION_GLASS,              "kg"),
                 "per_FU":      (ARRAY_CABLE_800MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_800MM2 * CABLE_FRACTION_GLASS * FU_FACTOR,        "kg"),
             },
         },
-        "3.4 Export Cables": {
-            "3.4.1 Copper": {
+        "3.6 Array Cables 1000mm2 (66kV)": {
+            "3.6.1 Copper": {
+                "per_turbine": (None,                                                                                        "kg"),
+                "full_farm":   (ARRAY_CABLE_1000MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_1000MM2 * CABLE_FRACTION_COPPER,             "kg"),
+                "per_FU":      (ARRAY_CABLE_1000MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_1000MM2 * CABLE_FRACTION_COPPER * FU_FACTOR,       "kg"),
+            },
+            "3.6.2 Polyethylene": {
+                "per_turbine": (None,                                                                                        "kg"),
+                "full_farm":   (ARRAY_CABLE_1000MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_1000MM2 * CABLE_FRACTION_POLYETHYLENE,       "kg"),
+                "per_FU":      (ARRAY_CABLE_1000MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_1000MM2 * CABLE_FRACTION_POLYETHYLENE * FU_FACTOR, "kg"),
+            },
+            "3.6.3 Lead": {
+                "per_turbine": (None,                                                                                        "kg"),
+                "full_farm":   (ARRAY_CABLE_1000MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_1000MM2 * CABLE_FRACTION_LEAD,               "kg"),
+                "per_FU":      (ARRAY_CABLE_1000MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_1000MM2 * CABLE_FRACTION_LEAD * FU_FACTOR,         "kg"),
+            },
+            "3.6.4 Steel": {
+                "per_turbine": (None,                                                                                        "kg"),
+                "full_farm":   (ARRAY_CABLE_1000MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_1000MM2 * CABLE_FRACTION_STEEL,              "kg"),
+                "per_FU":      (ARRAY_CABLE_1000MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_1000MM2 * CABLE_FRACTION_STEEL * FU_FACTOR,        "kg"),
+            },
+            "3.6.5 Glass": {
+                "per_turbine": (None,                                                                                        "kg"),
+                "full_farm":   (ARRAY_CABLE_1000MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_1000MM2 * CABLE_FRACTION_GLASS,              "kg"),
+                "per_FU":      (ARRAY_CABLE_1000MM2_LENGTH_KM * TON_TO_KG * CABLE_KGM_1000MM2 * CABLE_FRACTION_GLASS * FU_FACTOR,        "kg"),
+            },
+        },
+        "3.7 Export Cables": {
+            "3.7.1 Copper": {
                 "per_turbine": (None, "kg"),
                 "full_farm":   (EXPORT_CABLE_MASSES_T_PER_KM["Copper"]  * DISTANCE_TO_SHORE_KM * TON_TO_KG * N_EXPORT_CABLES, "kg"),
                 "per_FU":      (EXPORT_CABLE_MASSES_T_PER_KM["Copper"]  * DISTANCE_TO_SHORE_KM * TON_TO_KG * N_EXPORT_CABLES * FU_FACTOR, "kg"),
             },
-            "3.4.2 Lead": {
+            "3.7.2 Lead": {
                 "per_turbine": (None, "kg"),
                 "full_farm":   (EXPORT_CABLE_MASSES_T_PER_KM["Lead"]    * DISTANCE_TO_SHORE_KM * TON_TO_KG * N_EXPORT_CABLES, "kg"),
                 "per_FU":      (EXPORT_CABLE_MASSES_T_PER_KM["Lead"]    * DISTANCE_TO_SHORE_KM * TON_TO_KG * N_EXPORT_CABLES * FU_FACTOR, "kg"),
             },
-            "3.4.3 Steel": {
+            "3.7.3 Steel": {
                 "per_turbine": (None, "kg"),
                 "full_farm":   (EXPORT_CABLE_MASSES_T_PER_KM["Steel"]   * DISTANCE_TO_SHORE_KM * TON_TO_KG * N_EXPORT_CABLES, "kg"),
                 "per_FU":      (EXPORT_CABLE_MASSES_T_PER_KM["Steel"]   * DISTANCE_TO_SHORE_KM * TON_TO_KG * N_EXPORT_CABLES * FU_FACTOR, "kg"),
             },
-            "3.4.4 Polyethylene": {
+            "3.7.4 Polyethylene": {
                 "per_turbine": (None, "kg"),
                 "full_farm":   (EXPORT_CABLE_MASSES_T_PER_KM["Polyethylene"] * DISTANCE_TO_SHORE_KM * TON_TO_KG * N_EXPORT_CABLES, "kg"),
                 "per_FU":      (EXPORT_CABLE_MASSES_T_PER_KM["Polyethylene"] * DISTANCE_TO_SHORE_KM * TON_TO_KG * N_EXPORT_CABLES * FU_FACTOR, "kg"),
@@ -620,28 +707,43 @@ _TRANSPORT_SUB_KG = (
 )
 
 _TRANSPORT_ARRAY_KG = (
-    _ff(_EI["3.1 Array Cables 240mm2 (66kV)"]["3.1.1 Copper"])                            +
-    _ff(_EI["3.1 Array Cables 240mm2 (66kV)"]["3.1.2 Polyethylene"])                      +
-    _ff(_EI["3.1 Array Cables 240mm2 (66kV)"]["3.1.3 Lead"])                              +
-    _ff(_EI["3.1 Array Cables 240mm2 (66kV)"]["3.1.4 Steel"])                             +
-    _ff(_EI["3.1 Array Cables 240mm2 (66kV)"]["3.1.5 Glass"])                             +
-    _ff(_EI["3.2 Array Cables 630mm2 (66kV)"]["3.2.1 Copper"])                            +
-    _ff(_EI["3.2 Array Cables 630mm2 (66kV)"]["3.2.2 Polyethylene"])                      +
-    _ff(_EI["3.2 Array Cables 630mm2 (66kV)"]["3.2.3 Lead"])                              +
-    _ff(_EI["3.2 Array Cables 630mm2 (66kV)"]["3.2.4 Steel"])                             +
-    _ff(_EI["3.2 Array Cables 630mm2 (66kV)"]["3.2.5 Glass"])                             +
-    _ff(_EI["3.3 Array Cables 800mm2 (66kV)"]["3.3.1 Copper"])                            +
-    _ff(_EI["3.3 Array Cables 800mm2 (66kV)"]["3.3.2 Polyethylene"])                      +
-    _ff(_EI["3.3 Array Cables 800mm2 (66kV)"]["3.3.3 Lead"])                              +
-    _ff(_EI["3.3 Array Cables 800mm2 (66kV)"]["3.3.4 Steel"])                             +
-    _ff(_EI["3.3 Array Cables 800mm2 (66kV)"]["3.3.5 Glass"])
+    _ff(_EI["3.1 Array Cables 120mm2 (66kV)"]["3.1.1 Copper"])                            +
+    _ff(_EI["3.1 Array Cables 120mm2 (66kV)"]["3.1.2 Polyethylene"])                      +
+    _ff(_EI["3.1 Array Cables 120mm2 (66kV)"]["3.1.3 Lead"])                              +
+    _ff(_EI["3.1 Array Cables 120mm2 (66kV)"]["3.1.4 Steel"])                             +
+    _ff(_EI["3.1 Array Cables 120mm2 (66kV)"]["3.1.5 Glass"])                             +
+    _ff(_EI["3.2 Array Cables 240mm2 (66kV)"]["3.2.1 Copper"])                            +
+    _ff(_EI["3.2 Array Cables 240mm2 (66kV)"]["3.2.2 Polyethylene"])                      +
+    _ff(_EI["3.2 Array Cables 240mm2 (66kV)"]["3.2.3 Lead"])                              +
+    _ff(_EI["3.2 Array Cables 240mm2 (66kV)"]["3.2.4 Steel"])                             +
+    _ff(_EI["3.2 Array Cables 240mm2 (66kV)"]["3.2.5 Glass"])                             +
+    _ff(_EI["3.3 Array Cables 500mm2 (66kV)"]["3.3.1 Copper"])                            +
+    _ff(_EI["3.3 Array Cables 500mm2 (66kV)"]["3.3.2 Polyethylene"])                      +
+    _ff(_EI["3.3 Array Cables 500mm2 (66kV)"]["3.3.3 Lead"])                              +
+    _ff(_EI["3.3 Array Cables 500mm2 (66kV)"]["3.3.4 Steel"])                             +
+    _ff(_EI["3.3 Array Cables 500mm2 (66kV)"]["3.3.5 Glass"])                             +
+    _ff(_EI["3.4 Array Cables 630mm2 (66kV)"]["3.4.1 Copper"])                            +
+    _ff(_EI["3.4 Array Cables 630mm2 (66kV)"]["3.4.2 Polyethylene"])                      +
+    _ff(_EI["3.4 Array Cables 630mm2 (66kV)"]["3.4.3 Lead"])                              +
+    _ff(_EI["3.4 Array Cables 630mm2 (66kV)"]["3.4.4 Steel"])                             +
+    _ff(_EI["3.4 Array Cables 630mm2 (66kV)"]["3.4.5 Glass"])                             +
+    _ff(_EI["3.5 Array Cables 800mm2 (66kV)"]["3.5.1 Copper"])                            +
+    _ff(_EI["3.5 Array Cables 800mm2 (66kV)"]["3.5.2 Polyethylene"])                      +
+    _ff(_EI["3.5 Array Cables 800mm2 (66kV)"]["3.5.3 Lead"])                              +
+    _ff(_EI["3.5 Array Cables 800mm2 (66kV)"]["3.5.4 Steel"])                             +
+    _ff(_EI["3.5 Array Cables 800mm2 (66kV)"]["3.5.5 Glass"])                             +
+    _ff(_EI["3.6 Array Cables 1000mm2 (66kV)"]["3.6.1 Copper"])                           +
+    _ff(_EI["3.6 Array Cables 1000mm2 (66kV)"]["3.6.2 Polyethylene"])                     +
+    _ff(_EI["3.6 Array Cables 1000mm2 (66kV)"]["3.6.3 Lead"])                             +
+    _ff(_EI["3.6 Array Cables 1000mm2 (66kV)"]["3.6.4 Steel"])                            +
+    _ff(_EI["3.6 Array Cables 1000mm2 (66kV)"]["3.6.5 Glass"])
 )
 
 _TRANSPORT_EXPORT_KG = (
-    _ff(_EI["3.4 Export Cables"]["3.4.1 Copper"])                                         +
-    _ff(_EI["3.4 Export Cables"]["3.4.2 Lead"])                                           +
-    _ff(_EI["3.4 Export Cables"]["3.4.3 Steel"])                                          +
-    _ff(_EI["3.4 Export Cables"]["3.4.4 Polyethylene"])
+    _ff(_EI["3.7 Export Cables"]["3.7.1 Copper"])                                         +
+    _ff(_EI["3.7 Export Cables"]["3.7.2 Lead"])                                           +
+    _ff(_EI["3.7 Export Cables"]["3.7.3 Steel"])                                          +
+    _ff(_EI["3.7 Export Cables"]["3.7.4 Polyethylene"])
 )
 
 _TRANSPORT_OSS_KG = (
@@ -717,35 +819,62 @@ def _eol_ff(material_key, factor_id, scenario):
 
 
 # Cable full-farm mass sums (kg) — used for EOL calculations
+_EOL_ARRAY_120_KG = (
+    _ff(_EI["3.1 Array Cables 120mm2 (66kV)"]["3.1.1 Copper"])                            +
+    _ff(_EI["3.1 Array Cables 120mm2 (66kV)"]["3.1.2 Polyethylene"])                      +
+    _ff(_EI["3.1 Array Cables 120mm2 (66kV)"]["3.1.3 Lead"])                              +
+    _ff(_EI["3.1 Array Cables 120mm2 (66kV)"]["3.1.4 Steel"])                             +
+    _ff(_EI["3.1 Array Cables 120mm2 (66kV)"]["3.1.5 Glass"])
+)
+
 _EOL_ARRAY_240_KG = (
-    _ff(_EI["3.1 Array Cables 240mm2 (66kV)"]["3.1.1 Copper"])                            +
-    _ff(_EI["3.1 Array Cables 240mm2 (66kV)"]["3.1.2 Polyethylene"])                      +
-    _ff(_EI["3.1 Array Cables 240mm2 (66kV)"]["3.1.3 Lead"])                              +
-    _ff(_EI["3.1 Array Cables 240mm2 (66kV)"]["3.1.4 Steel"])                             +
-    _ff(_EI["3.1 Array Cables 240mm2 (66kV)"]["3.1.5 Glass"])
+    _ff(_EI["3.2 Array Cables 240mm2 (66kV)"]["3.2.1 Copper"])                            +
+    _ff(_EI["3.2 Array Cables 240mm2 (66kV)"]["3.2.2 Polyethylene"])                      +
+    _ff(_EI["3.2 Array Cables 240mm2 (66kV)"]["3.2.3 Lead"])                              +
+    _ff(_EI["3.2 Array Cables 240mm2 (66kV)"]["3.2.4 Steel"])                             +
+    _ff(_EI["3.2 Array Cables 240mm2 (66kV)"]["3.2.5 Glass"])
+)
+
+_EOL_ARRAY_500_KG = (
+    _ff(_EI["3.3 Array Cables 500mm2 (66kV)"]["3.3.1 Copper"])                            +
+    _ff(_EI["3.3 Array Cables 500mm2 (66kV)"]["3.3.2 Polyethylene"])                      +
+    _ff(_EI["3.3 Array Cables 500mm2 (66kV)"]["3.3.3 Lead"])                              +
+    _ff(_EI["3.3 Array Cables 500mm2 (66kV)"]["3.3.4 Steel"])                             +
+    _ff(_EI["3.3 Array Cables 500mm2 (66kV)"]["3.3.5 Glass"])
 )
 
 _EOL_ARRAY_630_KG = (
-    _ff(_EI["3.2 Array Cables 630mm2 (66kV)"]["3.2.1 Copper"])                            +
-    _ff(_EI["3.2 Array Cables 630mm2 (66kV)"]["3.2.2 Polyethylene"])                      +
-    _ff(_EI["3.2 Array Cables 630mm2 (66kV)"]["3.2.3 Lead"])                              +
-    _ff(_EI["3.2 Array Cables 630mm2 (66kV)"]["3.2.4 Steel"])                             +
-    _ff(_EI["3.2 Array Cables 630mm2 (66kV)"]["3.2.5 Glass"])
+    _ff(_EI["3.4 Array Cables 630mm2 (66kV)"]["3.4.1 Copper"])                            +
+    _ff(_EI["3.4 Array Cables 630mm2 (66kV)"]["3.4.2 Polyethylene"])                      +
+    _ff(_EI["3.4 Array Cables 630mm2 (66kV)"]["3.4.3 Lead"])                              +
+    _ff(_EI["3.4 Array Cables 630mm2 (66kV)"]["3.4.4 Steel"])                             +
+    _ff(_EI["3.4 Array Cables 630mm2 (66kV)"]["3.4.5 Glass"])
 )
 
 _EOL_ARRAY_800_KG = (
-    _ff(_EI["3.3 Array Cables 800mm2 (66kV)"]["3.3.1 Copper"])                            +
-    _ff(_EI["3.3 Array Cables 800mm2 (66kV)"]["3.3.2 Polyethylene"])                      +
-    _ff(_EI["3.3 Array Cables 800mm2 (66kV)"]["3.3.3 Lead"])                              +
-    _ff(_EI["3.3 Array Cables 800mm2 (66kV)"]["3.3.4 Steel"])                             +
-    _ff(_EI["3.3 Array Cables 800mm2 (66kV)"]["3.3.5 Glass"])
+    _ff(_EI["3.5 Array Cables 800mm2 (66kV)"]["3.5.1 Copper"])                            +
+    _ff(_EI["3.5 Array Cables 800mm2 (66kV)"]["3.5.2 Polyethylene"])                      +
+    _ff(_EI["3.5 Array Cables 800mm2 (66kV)"]["3.5.3 Lead"])                              +
+    _ff(_EI["3.5 Array Cables 800mm2 (66kV)"]["3.5.4 Steel"])                             +
+    _ff(_EI["3.5 Array Cables 800mm2 (66kV)"]["3.5.5 Glass"])
+)
+
+_EOL_ARRAY_1000_KG = (
+    _ff(_EI["3.6 Array Cables 1000mm2 (66kV)"]["3.6.1 Copper"])                           +
+    _ff(_EI["3.6 Array Cables 1000mm2 (66kV)"]["3.6.2 Polyethylene"])                     +
+    _ff(_EI["3.6 Array Cables 1000mm2 (66kV)"]["3.6.3 Lead"])                             +
+    _ff(_EI["3.6 Array Cables 1000mm2 (66kV)"]["3.6.4 Steel"])                            +
+    _ff(_EI["3.6 Array Cables 1000mm2 (66kV)"]["3.6.5 Glass"])
 )
 
 # Register cable totals in _MAT_FLAT so _eol_ff() can look them up like any other material
-_MAT_FLAT["3.1 Array Cables 240mm2 (66kV)"] = {"per_turbine": (None, "kg"), "full_farm": (_EOL_ARRAY_240_KG, "kg"), "per_FU": (_EOL_ARRAY_240_KG * FU_FACTOR, "kg")}
-_MAT_FLAT["3.2 Array Cables 630mm2 (66kV)"] = {"per_turbine": (None, "kg"), "full_farm": (_EOL_ARRAY_630_KG, "kg"), "per_FU": (_EOL_ARRAY_630_KG * FU_FACTOR, "kg")}
-_MAT_FLAT["3.3 Array Cables 800mm2 (66kV)"] = {"per_turbine": (None, "kg"), "full_farm": (_EOL_ARRAY_800_KG, "kg"), "per_FU": (_EOL_ARRAY_800_KG * FU_FACTOR, "kg")}
-_MAT_FLAT["3.4 Export Cables"]              = {"per_turbine": (None, "kg"), "full_farm": (_TRANSPORT_EXPORT_KG, "kg"), "per_FU": (_TRANSPORT_EXPORT_KG * FU_FACTOR, "kg")}
+_MAT_FLAT["3.1 Array Cables 120mm2 (66kV)"]  = {"per_turbine": (None, "kg"), "full_farm": (_EOL_ARRAY_120_KG, "kg"), "per_FU": (_EOL_ARRAY_120_KG * FU_FACTOR, "kg")}
+_MAT_FLAT["3.2 Array Cables 240mm2 (66kV)"]  = {"per_turbine": (None, "kg"), "full_farm": (_EOL_ARRAY_240_KG, "kg"), "per_FU": (_EOL_ARRAY_240_KG * FU_FACTOR, "kg")}
+_MAT_FLAT["3.3 Array Cables 500mm2 (66kV)"]  = {"per_turbine": (None, "kg"), "full_farm": (_EOL_ARRAY_500_KG, "kg"), "per_FU": (_EOL_ARRAY_500_KG * FU_FACTOR, "kg")}
+_MAT_FLAT["3.4 Array Cables 630mm2 (66kV)"]  = {"per_turbine": (None, "kg"), "full_farm": (_EOL_ARRAY_630_KG, "kg"), "per_FU": (_EOL_ARRAY_630_KG * FU_FACTOR, "kg")}
+_MAT_FLAT["3.5 Array Cables 800mm2 (66kV)"]  = {"per_turbine": (None, "kg"), "full_farm": (_EOL_ARRAY_800_KG, "kg"), "per_FU": (_EOL_ARRAY_800_KG * FU_FACTOR, "kg")}
+_MAT_FLAT["3.6 Array Cables 1000mm2 (66kV)"] = {"per_turbine": (None, "kg"), "full_farm": (_EOL_ARRAY_1000_KG, "kg"), "per_FU": (_EOL_ARRAY_1000_KG * FU_FACTOR, "kg")}
+_MAT_FLAT["3.7 Export Cables"]               = {"per_turbine": (None, "kg"), "full_farm": (_TRANSPORT_EXPORT_KG, "kg"), "per_FU": (_TRANSPORT_EXPORT_KG * FU_FACTOR, "kg")}
 
 
 
@@ -874,16 +1003,22 @@ INVENTORY_MASSES = {
             "6.1 Copper": {
                 "per_turbine": (None, "kg"),
                 "full_farm": (
-                    _ff(_EI["3.1 Array Cables 240mm2 (66kV)"]["3.1.1 Copper"]) +
-                    _ff(_EI["3.2 Array Cables 630mm2 (66kV)"]["3.2.1 Copper"]) +
-                    _ff(_EI["3.3 Array Cables 800mm2 (66kV)"]["3.3.1 Copper"]),
+                    _ff(_EI["3.1 Array Cables 120mm2 (66kV)"]["3.1.1 Copper"]) +
+                    _ff(_EI["3.2 Array Cables 240mm2 (66kV)"]["3.2.1 Copper"]) +
+                    _ff(_EI["3.3 Array Cables 500mm2 (66kV)"]["3.3.1 Copper"]) +
+                    _ff(_EI["3.4 Array Cables 630mm2 (66kV)"]["3.4.1 Copper"]) +
+                    _ff(_EI["3.5 Array Cables 800mm2 (66kV)"]["3.5.1 Copper"]) +
+                    _ff(_EI["3.6 Array Cables 1000mm2 (66kV)"]["3.6.1 Copper"]),
                     "kg",
                 ),
                 "per_FU": (
                     (
-                    _ff(_EI["3.1 Array Cables 240mm2 (66kV)"]["3.1.1 Copper"]) +
-                    _ff(_EI["3.2 Array Cables 630mm2 (66kV)"]["3.2.1 Copper"]) +
-                    _ff(_EI["3.3 Array Cables 800mm2 (66kV)"]["3.3.1 Copper"])
+                    _ff(_EI["3.1 Array Cables 120mm2 (66kV)"]["3.1.1 Copper"]) +
+                    _ff(_EI["3.2 Array Cables 240mm2 (66kV)"]["3.2.1 Copper"]) +
+                    _ff(_EI["3.3 Array Cables 500mm2 (66kV)"]["3.3.1 Copper"]) +
+                    _ff(_EI["3.4 Array Cables 630mm2 (66kV)"]["3.4.1 Copper"]) +
+                    _ff(_EI["3.5 Array Cables 800mm2 (66kV)"]["3.5.1 Copper"]) +
+                    _ff(_EI["3.6 Array Cables 1000mm2 (66kV)"]["3.6.1 Copper"])
                     ) * FU_FACTOR,
                     "kg",
                 ),
@@ -891,16 +1026,22 @@ INVENTORY_MASSES = {
             "6.2 Steel": {
                 "per_turbine": (None, "kg"),
                 "full_farm": (
-                    _ff(_EI["3.1 Array Cables 240mm2 (66kV)"]["3.1.4 Steel"]) +
-                    _ff(_EI["3.2 Array Cables 630mm2 (66kV)"]["3.2.4 Steel"]) +
-                    _ff(_EI["3.3 Array Cables 800mm2 (66kV)"]["3.3.4 Steel"]),
+                    _ff(_EI["3.1 Array Cables 120mm2 (66kV)"]["3.1.4 Steel"]) +
+                    _ff(_EI["3.2 Array Cables 240mm2 (66kV)"]["3.2.4 Steel"]) +
+                    _ff(_EI["3.3 Array Cables 500mm2 (66kV)"]["3.3.4 Steel"]) +
+                    _ff(_EI["3.4 Array Cables 630mm2 (66kV)"]["3.4.4 Steel"]) +
+                    _ff(_EI["3.5 Array Cables 800mm2 (66kV)"]["3.5.4 Steel"]) +
+                    _ff(_EI["3.6 Array Cables 1000mm2 (66kV)"]["3.6.4 Steel"]),
                     "kg",
                 ),
                 "per_FU": (
                     (
-                    _ff(_EI["3.1 Array Cables 240mm2 (66kV)"]["3.1.4 Steel"]) +
-                    _ff(_EI["3.2 Array Cables 630mm2 (66kV)"]["3.2.4 Steel"]) +
-                    _ff(_EI["3.3 Array Cables 800mm2 (66kV)"]["3.3.4 Steel"])
+                    _ff(_EI["3.1 Array Cables 120mm2 (66kV)"]["3.1.4 Steel"]) +
+                    _ff(_EI["3.2 Array Cables 240mm2 (66kV)"]["3.2.4 Steel"]) +
+                    _ff(_EI["3.3 Array Cables 500mm2 (66kV)"]["3.3.4 Steel"]) +
+                    _ff(_EI["3.4 Array Cables 630mm2 (66kV)"]["3.4.4 Steel"]) +
+                    _ff(_EI["3.5 Array Cables 800mm2 (66kV)"]["3.5.4 Steel"]) +
+                    _ff(_EI["3.6 Array Cables 1000mm2 (66kV)"]["3.6.4 Steel"])
                     ) * FU_FACTOR,
                     "kg",
                 ),
@@ -908,16 +1049,22 @@ INVENTORY_MASSES = {
             "6.3 Polyethylene PE": {
                 "per_turbine": (None, "kg"),
                 "full_farm": (
-                    _ff(_EI["3.1 Array Cables 240mm2 (66kV)"]["3.1.2 Polyethylene"]) +
-                    _ff(_EI["3.2 Array Cables 630mm2 (66kV)"]["3.2.2 Polyethylene"]) +
-                    _ff(_EI["3.3 Array Cables 800mm2 (66kV)"]["3.3.2 Polyethylene"]),
+                    _ff(_EI["3.1 Array Cables 120mm2 (66kV)"]["3.1.2 Polyethylene"]) +
+                    _ff(_EI["3.2 Array Cables 240mm2 (66kV)"]["3.2.2 Polyethylene"]) +
+                    _ff(_EI["3.3 Array Cables 500mm2 (66kV)"]["3.3.2 Polyethylene"]) +
+                    _ff(_EI["3.4 Array Cables 630mm2 (66kV)"]["3.4.2 Polyethylene"]) +
+                    _ff(_EI["3.5 Array Cables 800mm2 (66kV)"]["3.5.2 Polyethylene"]) +
+                    _ff(_EI["3.6 Array Cables 1000mm2 (66kV)"]["3.6.2 Polyethylene"]),
                     "kg",
                 ),
                 "per_FU": (
                     (
-                    _ff(_EI["3.1 Array Cables 240mm2 (66kV)"]["3.1.2 Polyethylene"]) +
-                    _ff(_EI["3.2 Array Cables 630mm2 (66kV)"]["3.2.2 Polyethylene"]) +
-                    _ff(_EI["3.3 Array Cables 800mm2 (66kV)"]["3.3.2 Polyethylene"])
+                    _ff(_EI["3.1 Array Cables 120mm2 (66kV)"]["3.1.2 Polyethylene"]) +
+                    _ff(_EI["3.2 Array Cables 240mm2 (66kV)"]["3.2.2 Polyethylene"]) +
+                    _ff(_EI["3.3 Array Cables 500mm2 (66kV)"]["3.3.2 Polyethylene"]) +
+                    _ff(_EI["3.4 Array Cables 630mm2 (66kV)"]["3.4.2 Polyethylene"]) +
+                    _ff(_EI["3.5 Array Cables 800mm2 (66kV)"]["3.5.2 Polyethylene"]) +
+                    _ff(_EI["3.6 Array Cables 1000mm2 (66kV)"]["3.6.2 Polyethylene"])
                     ) * FU_FACTOR,
                     "kg",
                 ),
@@ -926,18 +1073,18 @@ INVENTORY_MASSES = {
         "7. Export Cables": {
             "7.1 Copper": {
                 "per_turbine": (None, "kg"),
-                "full_farm":   (_ff(_EI["3.4 Export Cables"]["3.4.1 Copper"]),        "kg"),
-                "per_FU":      (_ff(_EI["3.4 Export Cables"]["3.4.1 Copper"]) * FU_FACTOR,  "kg"),
+                "full_farm":   (_ff(_EI["3.7 Export Cables"]["3.7.1 Copper"]),        "kg"),
+                "per_FU":      (_ff(_EI["3.7 Export Cables"]["3.7.1 Copper"]) * FU_FACTOR,  "kg"),
             },
             "7.2 Steel": {
                 "per_turbine": (None, "kg"),
-                "full_farm":   (_ff(_EI["3.4 Export Cables"]["3.4.3 Steel"]),         "kg"),
-                "per_FU":      (_ff(_EI["3.4 Export Cables"]["3.4.3 Steel"]) * FU_FACTOR,   "kg"),
+                "full_farm":   (_ff(_EI["3.7 Export Cables"]["3.7.3 Steel"]),         "kg"),
+                "per_FU":      (_ff(_EI["3.7 Export Cables"]["3.7.3 Steel"]) * FU_FACTOR,   "kg"),
             },
             "7.3 Polyethylene PE": {
                 "per_turbine": (None, "kg"),
-                "full_farm":   (_ff(_EI["3.4 Export Cables"]["3.4.4 Polyethylene"]),       "kg"),
-                "per_FU":      (_ff(_EI["3.4 Export Cables"]["3.4.4 Polyethylene"]) * FU_FACTOR, "kg"),
+                "full_farm":   (_ff(_EI["3.7 Export Cables"]["3.7.4 Polyethylene"]),       "kg"),
+                "per_FU":      (_ff(_EI["3.7 Export Cables"]["3.7.4 Polyethylene"]) * FU_FACTOR, "kg"),
             },
         },
     },
@@ -1480,194 +1627,209 @@ INVENTORY_MASSES = {
                 },
             },
             "3. Electrical Infrastructure": {
-                "3.1 Array Cables 240mm2 (66kV)": {
+                "3.1 Array Cables 120mm2 (66kV)": {
                     "per_turbine": (None,                                                                        "kg"),
-                    "full_farm":   (_eol_ff("3.1 Array Cables 240mm2 (66kV)", 8, "recycled"),                   "kg"),
-                    "per_FU":      (_eol_ff("3.1 Array Cables 240mm2 (66kV)", 8, "recycled") * FU_FACTOR,       "kg"),
+                    "full_farm":   (_eol_ff("3.1 Array Cables 120mm2 (66kV)", 8, "recycled"),                   "kg"),
+                    "per_FU":      (_eol_ff("3.1 Array Cables 120mm2 (66kV)", 8, "recycled") * FU_FACTOR,       "kg"),
                 },
-                "3.2 Array Cables 630mm2 (66kV)": {
+                "3.2 Array Cables 240mm2 (66kV)": {
                     "per_turbine": (None,                                                                        "kg"),
-                    "full_farm":   (_eol_ff("3.2 Array Cables 630mm2 (66kV)", 8, "recycled"),                   "kg"),
-                    "per_FU":      (_eol_ff("3.2 Array Cables 630mm2 (66kV)", 8, "recycled") * FU_FACTOR,       "kg"),
+                    "full_farm":   (_eol_ff("3.2 Array Cables 240mm2 (66kV)", 8, "recycled"),                   "kg"),
+                    "per_FU":      (_eol_ff("3.2 Array Cables 240mm2 (66kV)", 8, "recycled") * FU_FACTOR,       "kg"),
                 },
-                "3.3 Array Cables 800mm2 (66kV)": {
+                "3.3 Array Cables 500mm2 (66kV)": {
                     "per_turbine": (None,                                                                        "kg"),
-                    "full_farm":   (_eol_ff("3.3 Array Cables 800mm2 (66kV)", 8, "recycled"),                   "kg"),
-                    "per_FU":      (_eol_ff("3.3 Array Cables 800mm2 (66kV)", 8, "recycled") * FU_FACTOR,       "kg"),
+                    "full_farm":   (_eol_ff("3.3 Array Cables 500mm2 (66kV)", 8, "recycled"),                   "kg"),
+                    "per_FU":      (_eol_ff("3.3 Array Cables 500mm2 (66kV)", 8, "recycled") * FU_FACTOR,       "kg"),
                 },
-                "3.4 Export Cables": {
+                "3.4 Array Cables 630mm2 (66kV)": {
                     "per_turbine": (None,                                                                        "kg"),
-                    "full_farm":   (_eol_ff("3.4 Export Cables",               8, "recycled"),                   "kg"),
-                    "per_FU":      (_eol_ff("3.4 Export Cables",               8, "recycled") * FU_FACTOR,       "kg"),
+                    "full_farm":   (_eol_ff("3.4 Array Cables 630mm2 (66kV)", 8, "recycled"),                   "kg"),
+                    "per_FU":      (_eol_ff("3.4 Array Cables 630mm2 (66kV)", 8, "recycled") * FU_FACTOR,       "kg"),
                 },
-                "3.5 Offshore Substation": {
-                    "3.5.1 Offshore Substation Steel Recycling": {
+                "3.5 Array Cables 800mm2 (66kV)": {
+                    "per_turbine": (None,                                                                        "kg"),
+                    "full_farm":   (_eol_ff("3.5 Array Cables 800mm2 (66kV)", 8, "recycled"),                   "kg"),
+                    "per_FU":      (_eol_ff("3.5 Array Cables 800mm2 (66kV)", 8, "recycled") * FU_FACTOR,       "kg"),
+                },
+                "3.6 Array Cables 1000mm2 (66kV)": {
+                    "per_turbine": (None,                                                                        "kg"),
+                    "full_farm":   (_eol_ff("3.6 Array Cables 1000mm2 (66kV)", 8, "recycled"),                  "kg"),
+                    "per_FU":      (_eol_ff("3.6 Array Cables 1000mm2 (66kV)", 8, "recycled") * FU_FACTOR,      "kg"),
+                },
+                "3.7 Export Cables": {
+                    "per_turbine": (None,                                                                        "kg"),
+                    "full_farm":   (_eol_ff("3.7 Export Cables",               8, "recycled"),                   "kg"),
+                    "per_FU":      (_eol_ff("3.7 Export Cables",               8, "recycled") * FU_FACTOR,       "kg"),
+                },
+                "3.8 Offshore Substation": {
+                    "3.8.1 Offshore Substation Steel Recycling": {
                         "per_turbine": (None,                                                               "kg"),
                         "full_farm":   (_eol_ff("4.1 Steel", 3, "recycled"),                               "kg"),
                         "per_FU":      (_eol_ff("4.1 Steel", 3, "recycled") * FU_FACTOR,                   "kg"),
                     },
-                    "3.5.1 Offshore Substation Steel Landfill": {
+                    "3.8.1 Offshore Substation Steel Landfill": {
                         "per_turbine": (None,                                                               "kg"),
                         "full_farm":   (_eol_ff("4.1 Steel", 3, "landfill"),                               "kg"),
                         "per_FU":      (_eol_ff("4.1 Steel", 3, "landfill") * FU_FACTOR,                   "kg"),
                     },
-                    "3.5.2 Offshore Substation Copper Recycling": {
+                    "3.8.2 Offshore Substation Copper Recycling": {
                         "per_turbine": (None,                                                               "kg"),
                         "full_farm":   (_eol_ff("4.2 Copper", 3, "recycled"),                              "kg"),
                         "per_FU":      (_eol_ff("4.2 Copper", 3, "recycled") * FU_FACTOR,                  "kg"),
                     },
-                    "3.5.2 Offshore Substation Copper Landfill": {
+                    "3.8.2 Offshore Substation Copper Landfill": {
                         "per_turbine": (None,                                                               "kg"),
                         "full_farm":   (_eol_ff("4.2 Copper", 3, "landfill"),                              "kg"),
                         "per_FU":      (_eol_ff("4.2 Copper", 3, "landfill") * FU_FACTOR,                  "kg"),
                     },
-                    "3.5.3 Offshore Substation Aluminium Recycling": {
+                    "3.8.3 Offshore Substation Aluminium Recycling": {
                         "per_turbine": (None,                                                               "kg"),
                         "full_farm":   (_eol_ff("4.3 Aluminium", 3, "recycled"),                           "kg"),
                         "per_FU":      (_eol_ff("4.3 Aluminium", 3, "recycled") * FU_FACTOR,               "kg"),
                     },
-                    "3.5.3 Offshore Substation Aluminium Landfill": {
+                    "3.8.3 Offshore Substation Aluminium Landfill": {
                         "per_turbine": (None,                                                               "kg"),
                         "full_farm":   (_eol_ff("4.3 Aluminium", 3, "landfill"),                           "kg"),
                         "per_FU":      (_eol_ff("4.3 Aluminium", 3, "landfill") * FU_FACTOR,               "kg"),
                     },
-                    "3.5.4 Offshore Substation Polyethylene Incineration": {
+                    "3.8.4 Offshore Substation Polyethylene Incineration": {
                         "per_turbine": (None,                                                               "kg"),
                         "full_farm":   (_eol_ff("4.4 Polyethylene", 6, "incineration"),                    "kg"),
                         "per_FU":      (_eol_ff("4.4 Polyethylene", 6, "incineration") * FU_FACTOR,        "kg"),
                     },
-                    "3.5.4 Offshore Substation Polyethylene Landfill": {
+                    "3.8.4 Offshore Substation Polyethylene Landfill": {
                         "per_turbine": (None,                                                               "kg"),
                         "full_farm":   (_eol_ff("4.4 Polyethylene", 6, "landfill"),                        "kg"),
                         "per_FU":      (_eol_ff("4.4 Polyethylene", 6, "landfill") * FU_FACTOR,            "kg"),
                     },
-                    "3.5.5 Offshore Substation Lubricating Oil Incineration": {
+                    "3.8.5 Offshore Substation Lubricating Oil Incineration": {
                         "per_turbine": (None,                                                               "kg"),
                         "full_farm":   (_eol_ff("4.5 Lubricating oil", 5, "incineration"),                 "kg"),
                         "per_FU":      (_eol_ff("4.5 Lubricating oil", 5, "incineration") * FU_FACTOR,     "kg"),
                     },
-                    "3.5.6 Offshore Substation Cast Iron Recycling": {
+                    "3.8.6 Offshore Substation Cast Iron Recycling": {
                         "per_turbine": (None,                                                               "kg"),
                         "full_farm":   (_eol_ff("4.6 Cast Iron", 3, "recycled"),                           "kg"),
                         "per_FU":      (_eol_ff("4.6 Cast Iron", 3, "recycled") * FU_FACTOR,               "kg"),
                     },
-                    "3.5.6 Offshore Substation Cast Iron Landfill": {
+                    "3.8.6 Offshore Substation Cast Iron Landfill": {
                         "per_turbine": (None,                                                               "kg"),
                         "full_farm":   (_eol_ff("4.6 Cast Iron", 3, "landfill"),                           "kg"),
                         "per_FU":      (_eol_ff("4.6 Cast Iron", 3, "landfill") * FU_FACTOR,               "kg"),
                     },
-                    "3.5.7 Modified Organic Natural Materials": {
-                        "3.5.7.1 Kraft Paper": {
+                    "3.8.7 Modified Organic Natural Materials": {
+                        "3.8.7.1 Kraft Paper": {
                             "per_turbine": (None,       "kg"),
                             "full_farm":   (None,       "kg"),
                             "per_FU":      (None,       "kg"),
                         },
-                        "3.5.7.2 Vegetable Oil Methyl Ester Incineration": {
+                        "3.8.7.2 Vegetable Oil Methyl Ester Incineration": {
                             "per_turbine": (None,                                                                               "kg"),
                             "full_farm":   (_eol_ff("4.7.2 Vegetable oil methyl ester", 5, "incineration"),                    "kg"),
                             "per_FU":      (_eol_ff("4.7.2 Vegetable oil methyl ester", 5, "incineration") * FU_FACTOR,        "kg"),
                         },
                     },
-                    "3.5.8 Ceramic / Glass Landfill": {
+                    "3.8.8 Ceramic / Glass Landfill": {
                         "per_turbine": (None,                                                               "kg"),
                         "full_farm":   (_eol_ff("4.8 Ceramic / glass", 13, "landfill"),                    "kg"),
                         "per_FU":      (_eol_ff("4.8 Ceramic / glass", 13, "landfill") * FU_FACTOR,        "kg"),
                     },
-                    "3.5.9 SF6 Gas": {
+                    "3.8.9 SF6 Gas": {
                         "per_turbine": (None,       "kg"),
                         "full_farm":   (None,       "kg"),
                         "per_FU":      (None,       "kg"),
                     },
-                    "3.5.10 Offshore Substation Zinc Alloys Recycling": {
+                    "3.8.10 Offshore Substation Zinc Alloys Recycling": {
                         "per_turbine": (None,                                                               "kg"),
                         "full_farm":   (_eol_ff("4.10 Zinc alloys", 3, "recycled"),                        "kg"),
                         "per_FU":      (_eol_ff("4.10 Zinc alloys", 3, "recycled") * FU_FACTOR,            "kg"),
                     },
-                    "3.5.10 Offshore Substation Zinc Alloys Landfill": {
+                    "3.8.10 Offshore Substation Zinc Alloys Landfill": {
                         "per_turbine": (None,                                                               "kg"),
                         "full_farm":   (_eol_ff("4.10 Zinc alloys", 3, "landfill"),                        "kg"),
                         "per_FU":      (_eol_ff("4.10 Zinc alloys", 3, "landfill") * FU_FACTOR,            "kg"),
                     },
                 },
-                "3.6 Onshore Substation": {
-                    "3.6.1 Onshore Substation Steel Recycling": {
+                "3.9 Onshore Substation": {
+                    "3.9.1 Onshore Substation Steel Recycling": {
                         "per_turbine": (None,                                                               "kg"),
                         "full_farm":   (_eol_ff("5.1 Steel", 3, "recycled"),                               "kg"),
                         "per_FU":      (_eol_ff("5.1 Steel", 3, "recycled") * FU_FACTOR,                   "kg"),
                     },
-                    "3.6.1 Onshore Substation Steel Landfill": {
+                    "3.9.1 Onshore Substation Steel Landfill": {
                         "per_turbine": (None,                                                               "kg"),
                         "full_farm":   (_eol_ff("5.1 Steel", 3, "landfill"),                               "kg"),
                         "per_FU":      (_eol_ff("5.1 Steel", 3, "landfill") * FU_FACTOR,                   "kg"),
                     },
-                    "3.6.2 Onshore Substation Copper Recycling": {
+                    "3.9.2 Onshore Substation Copper Recycling": {
                         "per_turbine": (None,                                                               "kg"),
                         "full_farm":   (_eol_ff("5.2 Copper", 3, "recycled"),                              "kg"),
                         "per_FU":      (_eol_ff("5.2 Copper", 3, "recycled") * FU_FACTOR,                  "kg"),
                     },
-                    "3.6.2 Onshore Substation Copper Landfill": {
+                    "3.9.2 Onshore Substation Copper Landfill": {
                         "per_turbine": (None,                                                               "kg"),
                         "full_farm":   (_eol_ff("5.2 Copper", 3, "landfill"),                              "kg"),
                         "per_FU":      (_eol_ff("5.2 Copper", 3, "landfill") * FU_FACTOR,                  "kg"),
                     },
-                    "3.6.3 Onshore Substation Aluminium Recycling": {
+                    "3.9.3 Onshore Substation Aluminium Recycling": {
                         "per_turbine": (None,                                                               "kg"),
                         "full_farm":   (_eol_ff("5.3 Aluminium", 3, "recycled"),                           "kg"),
                         "per_FU":      (_eol_ff("5.3 Aluminium", 3, "recycled") * FU_FACTOR,               "kg"),
                     },
-                    "3.6.3 Onshore Substation Aluminium Landfill": {
+                    "3.9.3 Onshore Substation Aluminium Landfill": {
                         "per_turbine": (None,                                                               "kg"),
                         "full_farm":   (_eol_ff("5.3 Aluminium", 3, "landfill"),                           "kg"),
                         "per_FU":      (_eol_ff("5.3 Aluminium", 3, "landfill") * FU_FACTOR,               "kg"),
                     },
-                    "3.6.4 Onshore Substation Polyethylene Incineration": {
+                    "3.9.4 Onshore Substation Polyethylene Incineration": {
                         "per_turbine": (None,                                                               "kg"),
                         "full_farm":   (_eol_ff("5.4 Polyethylene", 4, "incineration"),                    "kg"),
                         "per_FU":      (_eol_ff("5.4 Polyethylene", 4, "incineration") * FU_FACTOR,        "kg"),
                     },
-                    "3.6.4 Onshore Substation Polyethylene Landfill": {
+                    "3.9.4 Onshore Substation Polyethylene Landfill": {
                         "per_turbine": (None,                                                               "kg"),
                         "full_farm":   (_eol_ff("5.4 Polyethylene", 4, "landfill"),                        "kg"),
                         "per_FU":      (_eol_ff("5.4 Polyethylene", 4, "landfill") * FU_FACTOR,            "kg"),
                     },
-                    "3.6.5 Onshore Substation Lubricating Oil Incineration": {
+                    "3.9.5 Onshore Substation Lubricating Oil Incineration": {
                         "per_turbine": (None,                                                               "kg"),
                         "full_farm":   (_eol_ff("5.5 Lubricating oil", 5, "incineration"),                 "kg"),
                         "per_FU":      (_eol_ff("5.5 Lubricating oil", 5, "incineration") * FU_FACTOR,     "kg"),
                     },
-                    "3.6.6 Onshore Substation Cast Iron Recycling": {
+                    "3.9.6 Onshore Substation Cast Iron Recycling": {
                         "per_turbine": (None,                                                               "kg"),
                         "full_farm":   (_eol_ff("5.6 Cast Iron", 3, "recycled"),                           "kg"),
                         "per_FU":      (_eol_ff("5.6 Cast Iron", 3, "recycled") * FU_FACTOR,               "kg"),
                     },
-                    "3.6.6 Onshore Substation Cast Iron Landfill": {
+                    "3.9.6 Onshore Substation Cast Iron Landfill": {
                         "per_turbine": (None,                                                               "kg"),
                         "full_farm":   (_eol_ff("5.6 Cast Iron", 3, "landfill"),                           "kg"),
                         "per_FU":      (_eol_ff("5.6 Cast Iron", 3, "landfill") * FU_FACTOR,               "kg"),
                     },
-                    "3.6.7 Modified Organic Natural Materials": {
-                        "3.6.7.1 Kraft Paper": {
+                    "3.9.7 Modified Organic Natural Materials": {
+                        "3.9.7.1 Kraft Paper": {
                             "per_turbine": (None,       "kg"),
                             "full_farm":   (None,       "kg"),
                             "per_FU":      (None,       "kg"),
                         },
-                        "3.6.7.2 Vegetable Oil Methyl Ester Incineration": {
+                        "3.9.7.2 Vegetable Oil Methyl Ester Incineration": {
                             "per_turbine": (None,                                                                               "kg"),
                             "full_farm":   (_eol_ff("5.7.2 Vegetable oil methyl ester", 5, "incineration"),                    "kg"),
                             "per_FU":      (_eol_ff("5.7.2 Vegetable oil methyl ester", 5, "incineration") * FU_FACTOR,        "kg"),
                         },
                     },
-                    "3.6.8 Ceramic / Glass Landfill": {
+                    "3.9.8 Ceramic / Glass Landfill": {
                         "per_turbine": (None,                                                               "kg"),
                         "full_farm":   (_eol_ff("5.8 Ceramic / glass", 13, "landfill"),                    "kg"),
                         "per_FU":      (_eol_ff("5.8 Ceramic / glass", 13, "landfill") * FU_FACTOR,        "kg"),
                     },
-                    "3.6.9 SF6 Gas": {
+                    "3.9.9 SF6 Gas": {
                         "per_turbine": (None,       "kg"),
                         "full_farm":   (None,       "kg"),
                         "per_FU":      (None,       "kg"),
                     },
-                    "3.6.10 Onshore Substation Concrete Landfill": {
+                    "3.9.10 Onshore Substation Concrete Landfill": {
                         "per_turbine": (None,                                                               "kg"),
                         "full_farm":   (_eol_ff("5.10 Concrete", 12, "landfill"),                          "kg"),
                         "per_FU":      (_eol_ff("5.10 Concrete", 12, "landfill") * FU_FACTOR,              "kg"),

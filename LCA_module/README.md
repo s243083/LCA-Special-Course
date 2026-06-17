@@ -47,6 +47,13 @@ python export_for_lca.py
 This overwrites `inputs/technical_output.py` with updated turbine counts, masses, energy output,
 and O&M intervention rates.
 
+> **Data source:** By default, `export_for_lca.py` reads from the **HKN example farm**
+> (`examples/Inputs/HKN/`). The source files are `WindFarm.yaml` (turbine count, rated power,
+> capacity factor), `Config.yaml` (lifetime), `CAPEX.yaml` (component masses), and
+> `OM_Vessels.yaml` (port distances). The rotor diameter is read from
+> `core/ResponseFramework/data/turbine/iea_22s.py`. To use a different farm, update the
+> `INPUTS_DIR` path constant at the top of `export_for_lca.py`.
+
 ---
 
 ## Running the Analysis

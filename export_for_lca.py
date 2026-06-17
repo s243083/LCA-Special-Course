@@ -85,8 +85,7 @@ IEA22_TURBINE_FILE = os.path.join(
     ROOT_DIR, "core", "ResponseFramework", "data", "turbine", "iea_22s.py"
 )
 
-OUTPUT_FILE    = os.path.join(ROOT_DIR, "LCA_module", "technical_output.py")
-OUTPUT_FILE_V2 = os.path.join(ROOT_DIR, "LCA_module", "inputs", "technical_output.py")
+OUTPUT_FILE = os.path.join(ROOT_DIR, "LCA_module", "inputs", "technical_output.py")
 
 # Set to a float (km) to override the inferred value; leave as None to use 110.0 km.
 DISTANCE_TO_SHORE_OVERRIDE_KM = None
@@ -465,7 +464,7 @@ def main():
     print(f"  Vessel types found: {list(vessel_hours_by_type.keys())}")
 
     # ---- Console summary ---------------------------------------------------
-    print(f"Written: {OUTPUT_FILE}\n")
+    print(f"Writing to: {OUTPUT_FILE}\n")
     print(f"  N_TURBINES           = {n_turbines}")
     print(f"  MW_PER_TURBINE       = {mw_per_turbine} MW")
     print(f"  TOTAL_FARM_SIZE_MW   = {total_farm_mw} MW")
@@ -614,11 +613,7 @@ def main():
     with open(OUTPUT_FILE, "w", encoding="utf-8") as fh:
         fh.write(output_content)
 
-    with open(OUTPUT_FILE_V2, "w", encoding="utf-8") as fh:
-        fh.write(output_content)
-
     print(f"\nWritten to: {OUTPUT_FILE}")
-    print(f"Written to: {OUTPUT_FILE_V2}")
 
 
 if __name__ == "__main__":
